@@ -1,0 +1,39 @@
+import config_data from '../../../../../brand.config.json';
+
+type TLogoConfig = {
+    type: string;
+    component_name?: string;
+    alt_text?: string;
+    link_url?: string;
+    show_text?: boolean;
+    text?: string;
+};
+
+type TPlatform = {
+    name: string;
+    logo?: TLogoConfig | string;
+};
+
+const isDomainAllowed = (domain_name: string) => {
+    // This regex will match any official deriv production and testing domain names.
+    // Allowed deriv domains: localhost, binary.sx, binary.com, deriv.com, deriv.be, deriv.me and their subdomains.
+    // Also includes riskmanagers.site and thenewui.netlify.app for custom production domains
+    return /^(((.*)\.)?(localhost:8444|localhost:5000|pages.dev|thenewui\.netlify\.app|riskmanagers\.site|binary\.(sx|com)|deriv.(com|me|be|dev)))$/.test(
+        domain_name
+    );
+};
+
+export const getBrandWebsiteName = () => {
+    return config_data.domain_name;
+};
+
+export const getPlatformConfig = (): TPlatform => {
+    const allowed_config_data = { ...config_data.platform };
+
+    if (!isDomainAllowed(window.location.host)) {
+        // Remove all official platform logos if the app is hosted under unofficial domain
+        allowed_config_data.logo = undefined;
+    }
+
+    return allowed_config_data;
+};

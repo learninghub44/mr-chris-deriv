@@ -1,0 +1,17 @@
+services:
+    - type: web
+      name: deriv-bot-backend
+      runtime: node
+      runtimeVersion: 20
+      plan: free
+      buildCommand: npm install
+      startCommand: npm run server
+      envVars:
+          - key: DATABASE_URL
+            sync: false
+          - key: NODE_ENV
+            value: production
+          - key: PORT
+            value: 10000
+          - key: CORS_ORIGIN
+            value: https://riskmanagers.site,https://thenewui.netlify.app,http://localhost:5000
