@@ -66,8 +66,8 @@ const identifyHotCold = (percentages: Record<number, number>): [number[], number
     const cold: number[] = [];
     Object.entries(percentages).forEach(([digit, pct]) => {
         const d = Number(digit);
-        if (pct >= 70) hot.push(d);
-        else if (pct <= 30) cold.push(d);
+        if (pct >= 25) hot.push(d);
+        else if (pct <= 5) cold.push(d);
     });
     return [hot, cold];
 };
@@ -100,8 +100,8 @@ const [wirePercentageStrategy, setWirePercentageStrategy] = useState<WirePercent
 const [wirePercentageConfig, setWirePercentageConfig] = useState<WirePercentageConfig>({
     historySize: 1000,
     confidenceThreshold: 65,
-    hotThreshold: 70,
-    coldThreshold: 30,
+    hotThreshold: 25,
+    coldThreshold: 5,
     streakTarget: 3,
     sampleInterval: 1,
 });
@@ -248,8 +248,8 @@ const isPatternDigit = useCallback(
             <label>Hot Threshold: {wirePercentageConfig.hotThreshold}%</label>
             <input
                 type="range"
-                min="50"
-                max="90"
+                min="10"
+                max="50"
                 value={wirePercentageConfig.hotThreshold}
                 onChange={e => setWirePercentageConfig({
                     ...wirePercentageConfig,
@@ -261,8 +261,8 @@ const isPatternDigit = useCallback(
             <label>Cold Threshold: {wirePercentageConfig.coldThreshold}%</label>
             <input
                 type="range"
-                min="10"
-                max="50"
+                min="1"
+                max="20"
                 value={wirePercentageConfig.coldThreshold}
                 onChange={e => setWirePercentageConfig({
                     ...wirePercentageConfig,
@@ -339,10 +339,11 @@ describe('Wire Percentage Strategy', () => {
     
     describe('identifyHotCold', () => {
         it('identifies hot and cold digits', () => {
-            const percentages = { 0: 80, 1: 10, 2: 5, 3: 10, 4: 5, 5: 5, 6: 5, 7: 5, 8: 5, 9: 5 };
+            const percentages = { 0: 30, 1: 10, 2: 3, 3: 10, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3, 9: 3 };
             const [hot, cold] = identifyHotCold(percentages);
             expect(hot).toContain(0);
             expect(cold).toContain(2);
+            expect(cold).toContain(4);
         });
     });
     
