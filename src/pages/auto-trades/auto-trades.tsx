@@ -192,6 +192,8 @@ interface MarketState {
     tradeCount: number;
     lastResult: 'win' | 'loss' | null;
     lastQuote: number | null;
+    tradeStartTime: number | null;
+    verificationId: string | null;
 }
 
 interface MarketDisplay extends MarketState {
@@ -213,6 +215,8 @@ const createMarketState = (prev?: Partial<MarketState>): MarketState => ({
     tradeCount: 0,
     lastResult: null,
     lastQuote: prev?.lastQuote ?? null,
+    tradeStartTime: null,
+    verificationId: null,
 });
 
 const AutoTrades = observer(() => {
@@ -540,6 +544,8 @@ const AutoTrades = observer(() => {
         async (symbol: string, stakeAmount: number, lastResult: 'win' | 'loss' | null): Promise<number> => {
             const ct = tradeTypeRef.current;
             const bar = getActiveDigitBarrier(ct, lastResult);
+            const tradeStartTime = Math.floor(Date.now() / 1000);
+            const verificationId = `${symbol}_${tradeStartTime}_${Math.random().toString(36).substring(2, 11)}`;
 
             const params: Record<string, any> = {
                 amount: stakeAmount,
@@ -559,16 +565,20 @@ const AutoTrades = observer(() => {
                     buy_price,
                     contract_id,
                     transaction_ids: { buy: transaction_id },
-                    date_start: Math.floor(Date.now() / 1000),
+                    date_start: tradeStartTime,
                     display_name: symbol,
                     underlying_symbol: symbol,
                     shortcode: `AUTO_${ct}_${symbol}`,
                     contract_type: ct,
                     currency: currency || 'USD',
+                    verification_id: verificationId,
                 });
 
                 const contract = await pollContractResult(contract_id);
-                return Number(contract.profit ?? 0);
+                const resultTime = Math.floor(Date.now() / 1000);
+                const isValidResult = resultTime > tradeStartTime;
+                const profit = isValidResult ? Number(contract.profit ?? 0) : 0;
+                return profit;
             } catch (err) {
                 console.error('[AutoTrades] executeTrade exception:', err);
                 setError(err instanceof Error ? err.message : 'Auto Trades could not purchase this contract.');
@@ -646,6 +656,8 @@ const AutoTrades = observer(() => {
                 state.trading = true;
                 state.consecutive = 0;
                 globalTradingRef.current = true;
+                state.tradeStartTime = Math.floor(Date.now() / 1000);
+                state.verificationId = `${symbol}_${state.tradeStartTime}_${Math.random().toString(36).substring(2, 11)}`;
 
                 const stakeNow = nextStakeRef.current;
                 executeTrade(symbol, stakeNow, state.lastResult).then(profit => handleAfterTrade(symbol, profit));
