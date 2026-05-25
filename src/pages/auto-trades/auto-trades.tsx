@@ -40,6 +40,8 @@ const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
 const PERCENTAGE_ANALYSIS_HISTORY_SIZE = 1000;
 
+type StrategyMode = 'STANDARD' | 'INVERSE' | 'PERCENTAGE';
+
 type PercentageThresholds = {
     over: Record<number, { minPercentage: number; confidence: number; streak: number }>;
     under: Record<number, { minPercentage: number; confidence: number; streak: number }>;
@@ -51,6 +53,39 @@ type PercentageThresholds = {
     match: { minPercentage: number; confidence: number; streak: number };
     higher: { minPercentage: number; momentum: number; confidence: number };
     lower: { minPercentage: number; momentum: number; confidence: number };
+};
+
+const PERCENTAGE_THRESHOLDS: PercentageThresholds = {
+    over: {
+        0: { minPercentage: 88, confidence: 92, streak: 3 },
+        1: { minPercentage: 82, confidence: 90, streak: 3 },
+        2: { minPercentage: 74, confidence: 88, streak: 2 },
+        3: { minPercentage: 66, confidence: 85, streak: 2 },
+        4: { minPercentage: 58, confidence: 82, streak: 2 },
+        5: { minPercentage: 50, confidence: 80, streak: 1 },
+        6: { minPercentage: 42, confidence: 80, streak: 2 },
+        7: { minPercentage: 34, confidence: 85, streak: 2 },
+        8: { minPercentage: 22, confidence: 90, streak: 3 },
+    },
+    under: {
+        1: { minPercentage: 12, confidence: 92, streak: 3 },
+        2: { minPercentage: 18, confidence: 90, streak: 3 },
+        3: { minPercentage: 26, confidence: 88, streak: 2 },
+        4: { minPercentage: 34, confidence: 85, streak: 2 },
+        5: { minPercentage: 42, confidence: 82, streak: 2 },
+        6: { minPercentage: 50, confidence: 80, streak: 1 },
+        7: { minPercentage: 58, confidence: 80, streak: 2 },
+        8: { minPercentage: 66, confidence: 85, streak: 2 },
+        9: { minPercentage: 78, confidence: 90, streak: 3 },
+    },
+    even: { minPercentage: 56, streak: 4, confidence: 84 },
+    odd: { minPercentage: 56, streak: 4, confidence: 84 },
+    rise: { minPercentage: 58, momentum: 4, confidence: 86 },
+    fall: { minPercentage: 58, momentum: 4, confidence: 86 },
+    differs: { minPercentage: 82, confidence: 91, streak: 3 },
+    match: { minPercentage: 18, confidence: 90, streak: 4 },
+    higher: { minPercentage: 57, momentum: 3, confidence: 85 },
+    lower: { minPercentage: 57, momentum: 3, confidence: 85 },
 };
 
 type TradeType =
@@ -194,6 +229,48 @@ const getDirectionStreakLabel = (trade_type: TradeType) => {
     return 'rising ticks + bearish 5m candle';
 };
 
+const calculateDigitPercentages = (digitHistory: number[]): Record<number, number> => {
+    if (digitHistory.length === 0) return {};
+    const counts = Array(10).fill(0);
+    digitHistory.forEach(d => {
+        if (d >= 0 && d <= 9) counts[d]++;
+    });
+    return Object.fromEntries(
+        counts.map((count, digit) => [digit, (count / digitHistory.length) * 100])
+    );
+};
+
+const calculateConfidence = (percentages: Record<number, number>): number => {
+    const expectedPct = 10;
+    const totalDeviation = Object.values(percentages).reduce(
+        (sum, pct) => sum + Math.abs(pct - expectedPct), 0
+    );
+    const avgDeviation = totalDeviation / 10;
+    return Math.max(0, 100 - (avgDeviation * 2));
+};
+
+const checkOverUnderThresholds = (digit: number, percentages: Record<number, number>, confidence: number): boolean => {
+    const threshold = PERCENTAGE_THRESHOLDS.over[digit];
+    if (!threshold) return false;
+    const pct = percentages[digit] ?? 0;
+    return pct >= threshold.minPercentage && confidence >= threshold.confidence;
+};
+
+const checkUnderThresholds = (digit: number, percentages: Record<number, number>, confidence: number): boolean => {
+    const threshold = PERCENTAGE_THRESHOLDS.under[digit];
+    if (!threshold) return false;
+    const pct = percentages[digit] ?? 0;
+    return pct <= threshold.minPercentage && confidence >= threshold.confidence;
+};
+
+const checkEvenOddThresholds = (digit: number, percentages: Record<number, number>, confidence: number): boolean => {
+    const isEven = digit % 2 === 0;
+    const threshold = isEven ? PERCENTAGE_THRESHOLDS.even : PERCENTAGE_THRESHOLDS.odd;
+    const targetPct = isEven ? percentages[0] + percentages[2] + percentages[4] + percentages[6] + percentages[8] : percentages[1] + percentages[3] + percentages[5] + percentages[7] + percentages[9];
+    const combinedPct = targetPct;
+    return combinedPct >= threshold.minPercentage && confidence >= threshold.confidence;
+};
+
 interface MarketState {
     consecutive: number;
     trading: boolean;
@@ -208,6 +285,10 @@ interface MarketState {
     lastQuote: number | null;
     tradeStartTime: number | null;
     verificationId: string | null;
+    digitHistory: number[];
+    digitPercentages: Record<number, number>;
+    confidenceScore: number;
+    momentumCount: number;
 }
 
 interface MarketDisplay extends MarketState {
@@ -231,6 +312,10 @@ const createMarketState = (prev?: Partial<MarketState>): MarketState => ({
     lastQuote: prev?.lastQuote ?? null,
     tradeStartTime: null,
     verificationId: null,
+    digitHistory: [],
+    digitPercentages: {},
+    confidenceScore: 0,
+    momentumCount: 0,
 });
 
 const AutoTrades = observer(() => {
@@ -322,6 +407,17 @@ const AutoTrades = observer(() => {
         }
     });
     const inverseModeRef = useRef(false);
+    const [strategyMode, setStrategyMode] = useState<StrategyMode>(() => {
+        try {
+            return (localStorage.getItem('auto_trades_strategyMode') as StrategyMode) || 'STANDARD';
+        } catch {
+            return 'STANDARD';
+        }
+    });
+    const strategyModeRef = useRef(strategyMode);
+    const percentageHistoryRef = useRef<number[]>([]);
+    const percentageConfidenceRef = useRef(0);
+    const momentumCounterRef = useRef(0);
     const isRecoveringDataRef = useRef(false);
     const [showDisclaimer, setShowDisclaimer] = useState(false);
     const [currentStakeDisplay, setCurrentStakeDisplay] = useState(1);
@@ -642,8 +738,48 @@ const AutoTrades = observer(() => {
     );
 
     const isPatternDigit = useCallback(
-        (digit: number, lastResult: 'win' | 'loss' | null): boolean => {
+        (symbol: string, digit: number, lastResult: 'win' | 'loss' | null): boolean => {
             const ct = tradeTypeRef.current;
+            
+            if (strategyModeRef.current === 'PERCENTAGE') {
+                const state = marketStatesRef.current[symbol];
+                if (!state || state.digitHistory.length < 100) return false;
+                
+                const percentages = state.digitPercentages;
+                const confidence = state.confidenceScore;
+                
+                if (ct === 'DIGITOVER') {
+                    return checkOverUnderThresholds(digit, percentages, confidence);
+                }
+                if (ct === 'DIGITUNDER') {
+                    return checkUnderThresholds(digit, percentages, confidence);
+                }
+                if (ct === 'DIGITEVEN' || ct === 'DIGITODD') {
+                    return checkEvenOddThresholds(digit, percentages, confidence);
+                }
+                if (ct === 'DIGITMATCH') {
+                    const threshold = PERCENTAGE_THRESHOLDS.match;
+                    const pct = percentages[digit] ?? 0;
+                    return pct <= threshold.minPercentage && confidence >= threshold.confidence;
+                }
+                if (ct === 'DIGITDIFF') {
+                    const threshold = PERCENTAGE_THRESHOLDS.differs;
+                    const pct = percentages[digit] ?? 0;
+                    return pct >= threshold.minPercentage && confidence >= threshold.confidence;
+                }
+                if (ct === 'CALL' || ct === 'PUT') {
+                    const threshold = ct === 'CALL' ? PERCENTAGE_THRESHOLDS.rise : PERCENTAGE_THRESHOLDS.fall;
+                    const momentum = state.momentumCount;
+                    return momentum >= threshold.momentum && confidence >= threshold.confidence;
+                }
+                if (ct === 'RUNHIGH' || ct === 'RUNLOW') {
+                    const threshold = ct === 'RUNHIGH' ? PERCENTAGE_THRESHOLDS.higher : PERCENTAGE_THRESHOLDS.lower;
+                    const momentum = state.momentumCount;
+                    return momentum >= threshold.momentum && confidence >= threshold.confidence;
+                }
+                return false;
+            }
+            
             const bar = getActiveDigitBarrier(ct, lastResult);
             const inv = inverseModeRef.current;
 
@@ -751,7 +887,18 @@ const AutoTrades = observer(() => {
                 state.lastDigits = [...state.lastDigits.slice(-9), lastDigit];
                 state.prevQuote = quote;
 
-                if (isPatternDigit(lastDigit, state.lastResult)) {
+                if (strategyModeRef.current === 'PERCENTAGE') {
+                    state.digitHistory.push(lastDigit);
+                    if (state.digitHistory.length > 1000) {
+                        state.digitHistory.shift();
+                    }
+                    if (state.digitHistory.length >= 100) {
+                        state.digitPercentages = calculateDigitPercentages(state.digitHistory);
+                        state.confidenceScore = calculateConfidence(state.digitPercentages);
+                    }
+                }
+
+                if (isPatternDigit(symbol, lastDigit, state.lastResult)) {
                     state.consecutive = Math.min(state.consecutive + 1, 10);
                 } else {
                     state.consecutive = 0;
@@ -1380,31 +1527,87 @@ const AutoTrades = observer(() => {
                                     </div>
                                 </div>
 
-                                {/* Inverse Strategy Toggle - Prominent Button */}
+                                {/* Strategy Mode Selector */}
                                 <div className='auto-trades-config__group'>
-                                    <button
-                                        type='button'
-                                        className={classNames(
-                                            'auto-trades-strategy-btn',
-                                            inverseMode && 'auto-trades-strategy-btn--active'
-                                        )}
-                                        onClick={() => setInverseMode(prev => !prev)}
-                                        disabled={isRunning}
-                                    >
-                                        <span className='auto-trades-strategy-btn__badge'>
-                                            {inverseMode ? 'Inverse' : 'Direct'}
-                                        </span>
-                                        <span className='auto-trades-strategy-btn__label'>Strategy Mode</span>
-                                        <span className={classNames('auto-trades-inverse__toggle-switch', 'auto-trades-strategy-btn__switch')}>
-                                            <span className='auto-trades-inverse__toggle-knob' />
-                                        </span>
-                                    </button>
+                                    <div className='auto-trades-strategy-selector'>
+                                        <label>Strategy Mode</label>
+                                        <select
+                                            className='auto-trades-strategy-selector__select'
+                                            value={strategyMode}
+                                            onChange={e => setStrategyMode(e.target.value as StrategyMode)}
+                                            disabled={isRunning}
+                                        >
+                                            <option value='STANDARD'>Standard</option>
+                                            <option value='INVERSE'>Inverse</option>
+                                            <option value='PERCENTAGE'>Percentage Mode</option>
+                                        </select>
+                                    </div>
                                     <p className='auto-trades-inverse__hint'>
-                                        {inverseMode
-                                            ? `Detects opposite signals, executes ${tradeType} contracts`
-                                            : `Detects standard signals, executes ${tradeType} contracts`}
+                                        {strategyMode === 'PERCENTAGE'
+                                            ? 'Uses historical digit percentages for signal generation'
+                                            : strategyMode === 'INVERSE'
+                                            ? 'Detects opposite signals, executes contracts'
+                                            : 'Detects standard signals, executes contracts'}
                                     </p>
                                 </div>
+
+                                {/* Inverse Toggle for Standard/Inverse modes */}
+                                {strategyMode !== 'PERCENTAGE' && (
+                                    <div className='auto-trades-config__group'>
+                                        <button
+                                            type='button'
+                                            className={classNames(
+                                                'auto-trades-strategy-btn',
+                                                inverseMode && 'auto-trades-strategy-btn--active'
+                                            )}
+                                            onClick={() => setInverseMode(prev => !prev)}
+                                            disabled={isRunning}
+                                        >
+                                            <span className='auto-trades-strategy-btn__badge'>
+                                                {inverseMode ? 'Inverse' : 'Direct'}
+                                            </span>
+                                            <span className='auto-trades-strategy-btn__label'>Signal Mode</span>
+                                            <span className={classNames('auto-trades-inverse__toggle-switch', 'auto-trades-strategy-btn__switch')}>
+                                                <span className='auto-trades-inverse__toggle-knob' />
+                                            </span>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Percentage Mode Configuration */}
+                                {strategyMode === 'PERCENTAGE' && (
+                                    <div className='auto-trades-config__group percentage-mode-config'>
+                                        <div className='auto-trades-config__field'>
+                                            <label>Trade Type</label>
+                                            <select
+                                                className='auto-trades-config__select'
+                                                value={tradeType}
+                                                onChange={e => setTradeType(e.target.value as TradeType)}
+                                                disabled={isRunning}
+                                            >
+                                                <option value='DIGITOVER'>Digit Over</option>
+                                                <option value='DIGITUNDER'>Digit Under</option>
+                                                <option value='DIGITEVEN'>Digit Even/Odd</option>
+                                                <option value='DIGITMATCH'>Digit Match/Differs</option>
+                                                <option value='CALL'>Rise/Fall</option>
+                                                <option value='RUNHIGH'>Higher/Lower</option>
+                                            </select>
+                                        </div>
+                                        <div className='auto-trades-config__field'>
+                                            <label>Confidence Threshold: 80%</label>
+                                            <input
+                                                type='range'
+                                                className='auto-trades-config__slider'
+                                                min='50'
+                                                max='95'
+                                                step='1'
+                                                value={80}
+                                                onChange={() => {}}
+                                                disabled={isRunning}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Money settings */}
                                 <div className='auto-trades-config'>
