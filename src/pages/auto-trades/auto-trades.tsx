@@ -38,6 +38,20 @@ const AUTO_MARKET_LOOKUP = new Map(AUTO_MARKETS.map(market => [market.symbol, ma
 const COOLDOWN_TICKS = 60;
 const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
+const PERCENTAGE_ANALYSIS_HISTORY_SIZE = 1000;
+
+type PercentageThresholds = {
+    over: Record<number, { minPercentage: number; confidence: number; streak: number }>;
+    under: Record<number, { minPercentage: number; confidence: number; streak: number }>;
+    even: { minPercentage: number; streak: number; confidence: number };
+    odd: { minPercentage: number; streak: number; confidence: number };
+    rise: { minPercentage: number; momentum: number; confidence: number };
+    fall: { minPercentage: number; momentum: number; confidence: number };
+    differs: { minPercentage: number; confidence: number; streak: number };
+    match: { minPercentage: number; confidence: number; streak: number };
+    higher: { minPercentage: number; momentum: number; confidence: number };
+    lower: { minPercentage: number; momentum: number; confidence: number };
+};
 
 type TradeType =
     | 'DIGITOVER'
