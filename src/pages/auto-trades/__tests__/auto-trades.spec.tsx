@@ -115,7 +115,7 @@ describe('<AutoTrades />', () => {
         expect(screen.getByRole('button', { name: /Run Auto Trades/i })).not.toBeDisabled();
     });
 
-    it('shows tick duration controls for Only Ups and Only Downs modes', async () => {
+    it('shows analysis ticks control for all trade types', async () => {
         const user = userEvent.setup();
 
         render(<AutoTrades />);
@@ -124,12 +124,12 @@ describe('<AutoTrades />', () => {
         await user.selectOptions(tradeTypeSelect, 'RUNHIGH');
 
         await waitFor(() => {
-            expect(screen.getByText(/Only Ups \(2 ticks\)/i)).toBeInTheDocument();
+            expect(screen.getByText(/Only Ups \(1 ticks\)/i)).toBeInTheDocument();
             expect(screen.getByText(/falling ticks \+ bullish 5m candle/i)).toBeInTheDocument();
         });
 
-        const tickSelect = screen.getAllByRole('combobox')[1];
-        await user.selectOptions(tickSelect, '3');
+        const analysisTickSelect = screen.getAllByRole('combobox')[1];
+        await user.selectOptions(analysisTickSelect, '3');
 
         expect(screen.getByText(/Only Ups \(3 ticks\)/i)).toBeInTheDocument();
 
@@ -200,7 +200,7 @@ describe('<AutoTrades />', () => {
         await waitFor(() => {
             expect(buyContractForUi).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    parameters: expect.objectContaining({ contract_type: 'RUNHIGH', duration: 2 }),
+                    parameters: expect.objectContaining({ contract_type: 'RUNHIGH', duration: 1 }),
                 })
             );
         });

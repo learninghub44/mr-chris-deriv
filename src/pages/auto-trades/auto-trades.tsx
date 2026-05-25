@@ -90,6 +90,46 @@ const IS_DIRECTION_TYPE: Record<TradeType, boolean> = {
     RUNLOW: true,
 };
 
+const INVERSE_TRADE_TYPE: Record<TradeType, TradeType> = {
+    DIGITOVER: 'DIGITUNDER',
+    DIGITUNDER: 'DIGITOVER',
+    DIGITEVEN: 'DIGITODD',
+    DIGITODD: 'DIGITEVEN',
+    DIGITMATCH: 'DIGITDIFF',
+    DIGITDIFF: 'DIGITMATCH',
+    CALL: 'PUT',
+    PUT: 'CALL',
+    RUNHIGH: 'RUNLOW',
+    RUNLOW: 'RUNHIGH',
+};
+
+const INVERSE_LABELS: Record<TradeType, string> = {
+    DIGITOVER: 'Inv Over',
+    DIGITUNDER: 'Inv Under',
+    DIGITEVEN: 'Inv Even',
+    DIGITODD: 'Inv Odd',
+    DIGITMATCH: 'Inv Match',
+    DIGITDIFF: 'Inv Diff',
+    CALL: 'Inv Rise',
+    PUT: 'Inv Fall',
+    RUNHIGH: 'Inv Ups',
+    RUNLOW: 'Inv Downs',
+};
+
+const isInverseDirectionMatch = (trade_type: TradeType, direction: Direction) => {
+    if (trade_type === 'CALL') return direction === 1;
+    if (trade_type === 'PUT') return direction === -1;
+    if (trade_type === 'RUNHIGH') return direction === 1;
+    if (trade_type === 'RUNLOW') return direction === -1;
+    return false;
+};
+
+const isInverseRunCandleMatch = (trade_type: TradeType, candle_direction: Direction) => {
+    if (trade_type === 'RUNHIGH') return candle_direction === -1;
+    if (trade_type === 'RUNLOW') return candle_direction === 1;
+    return true;
+};
+
 const DEFAULT_BARRIER: Record<TradeType, string> = {
     DIGITOVER: '4',
     DIGITUNDER: '5',
@@ -240,7 +280,7 @@ const AutoTrades = observer(() => {
         loadSavedNum('predictionAfterLoss', '5', 0, 9)
     );
     const [streak, setStreak] = useState(() => loadSavedNum('streak', '4', 2, 10));
-    const [executionTicks, setExecutionTicks] = useState(() => loadSavedNum('executionTicks', '2', 2, 3));
+    const [analysisTicks, setAnalysisTicks] = useState(() => loadSavedNum('analysisTicks', '1', 1, 10));
     const [selectedMarketSymbols, setSelectedMarketSymbols] = useState<string[]>(loadSavedMarkets);
     const selectedMarkets = useMemo(
         () => AUTO_MARKETS.filter(market => selectedMarketSymbols.includes(market.symbol)),
@@ -256,7 +296,14 @@ const AutoTrades = observer(() => {
     const [error, setError] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
-    const [isRecoveringData, setIsRecoveringData] = useState(false);
+    const [inverseMode, setInverseMode] = useState(() => {
+        try {
+            return localStorage.getItem('auto_trades_inverseMode') === 'true';
+        } catch {
+            return false;
+        }
+    });
+    const inverseModeRef = useRef(false);
     const isRecoveringDataRef = useRef(false);
     const [showDisclaimer, setShowDisclaimer] = useState(false);
     const [currentStakeDisplay, setCurrentStakeDisplay] = useState(1);
@@ -297,7 +344,7 @@ const AutoTrades = observer(() => {
     const predictionBeforeLossRef = useRef(4);
     const predictionAfterLossRef = useRef(5);
     const streakRef = useRef(4);
-    const executionTicksRef = useRef(2);
+    const analysisTicksRef = useRef(1);
     const globalTradingRef = useRef(false);
     const nextStakeRef = useRef(1);
     const consecutiveLossRef = useRef(0);
@@ -305,6 +352,8 @@ const AutoTrades = observer(() => {
     const lastTickAtRef = useRef(0);
     const restartInFlightRef = useRef(false);
     const subscriptionVersionRef = useRef(0);
+    const handleTickRef = useRef<(symbol: string, tick: any) => void>(() => {});
+    const handleCandleRef = useRef<(symbol: string, candle: any) => void>(() => {});
 
     const show_auto = active_tab === DBOT_TABS.AUTO_TRADES;
 
@@ -366,13 +415,13 @@ const AutoTrades = observer(() => {
         }
     }, [streak]);
     useEffect(() => {
-        executionTicksRef.current = Math.min(3, Math.max(2, Number(executionTicks) || 2));
+        analysisTicksRef.current = Math.min(10, Math.max(1, Number(analysisTicks) || 1));
         try {
-            localStorage.setItem('auto_trades_executionTicks', executionTicks);
+            localStorage.setItem('auto_trades_analysisTicks', analysisTicks);
         } catch {
             // Ignore localStorage write failures.
         }
-    }, [executionTicks]);
+    }, [analysisTicks]);
 
     useEffect(() => {
         selectedMarketsRef.current = selectedMarkets;
@@ -386,6 +435,15 @@ const AutoTrades = observer(() => {
             // Ignore localStorage write failures.
         }
     }, [selectedMarketSymbols, selectedMarkets]);
+
+    useEffect(() => {
+        inverseModeRef.current = inverseMode;
+        try {
+            localStorage.setItem('auto_trades_inverseMode', String(inverseMode));
+        } catch {
+            // Ignore localStorage write failures.
+        }
+    }, [inverseMode]);
 
     const handleTradeTypeChange = useCallback((t: TradeType) => {
         setTradeType(t);
@@ -446,10 +504,11 @@ const AutoTrades = observer(() => {
         [run_panel, summary_card, transactions]
     );
 
-    const getActiveDigitBarrier = useCallback((ct: TradeType) => {
+    const getActiveDigitBarrier = useCallback((ct: TradeType, lastResult: 'win' | 'loss' | null) => {
         if (!usesLossPrediction(ct)) return barrierRef.current;
 
-        return consecutiveLossRef.current > 0 ? predictionAfterLossRef.current : predictionBeforeLossRef.current;
+        if (lastResult === 'loss') return predictionAfterLossRef.current;
+        return predictionBeforeLossRef.current;
     }, []);
 
     const pollContractResult = (contractId: number): Promise<Record<string, any>> =>
@@ -478,20 +537,22 @@ const AutoTrades = observer(() => {
         });
 
     const executeTrade = useCallback(
-        async (symbol: string, stakeAmount: number): Promise<number> => {
+        async (symbol: string, stakeAmount: number, lastResult: 'win' | 'loss' | null): Promise<number> => {
             const ct = tradeTypeRef.current;
-            const bar = getActiveDigitBarrier(ct);
+            const inv = inverseModeRef.current;
+            const executeType = inv ? INVERSE_TRADE_TYPE[ct] : ct;
+            const bar = getActiveDigitBarrier(ct, lastResult);
 
             const params: Record<string, any> = {
                 amount: stakeAmount,
                 basis: 'stake',
-                contract_type: ct,
+                contract_type: executeType,
                 currency: currency || 'USD',
-                duration: isRunTradeType(ct) ? executionTicksRef.current : 1,
+                duration: analysisTicksRef.current,
                 duration_unit: 't',
                 symbol,
             };
-            if (BARRIER_NEEDED[ct]) params.barrier = String(bar);
+            if (BARRIER_NEEDED[executeType]) params.barrier = String(bar);
 
             try {
                 const buy = await buyContractForUi({ parameters: params, price: stakeAmount, source: 'AutoTrades' });
@@ -503,8 +564,8 @@ const AutoTrades = observer(() => {
                     date_start: Math.floor(Date.now() / 1000),
                     display_name: symbol,
                     underlying_symbol: symbol,
-                    shortcode: `AUTO_${ct}_${symbol}`,
-                    contract_type: ct,
+                    shortcode: `AUTO_${executeType}_${symbol}`,
+                    contract_type: executeType,
                     currency: currency || 'USD',
                 });
 
@@ -559,16 +620,17 @@ const AutoTrades = observer(() => {
     );
 
     const isPatternDigit = useCallback(
-        (digit: number): boolean => {
+        (digit: number, lastResult: 'win' | 'loss' | null): boolean => {
             const ct = tradeTypeRef.current;
-            const bar = getActiveDigitBarrier(ct);
+            const bar = getActiveDigitBarrier(ct, lastResult);
+            const inv = inverseModeRef.current;
 
-            if (ct === 'DIGITOVER') return digit <= bar;
-            if (ct === 'DIGITUNDER') return digit >= bar;
-            if (ct === 'DIGITEVEN') return digit % 2 !== 0;
-            if (ct === 'DIGITODD') return digit % 2 === 0;
-            if (ct === 'DIGITMATCH') return digit !== bar;
-            if (ct === 'DIGITDIFF') return digit === bar;
+            if (ct === 'DIGITOVER') return inv ? digit > bar : digit <= bar;
+            if (ct === 'DIGITUNDER') return inv ? digit < bar : digit >= bar;
+            if (ct === 'DIGITEVEN') return inv ? digit % 2 === 0 : digit % 2 !== 0;
+            if (ct === 'DIGITODD') return inv ? digit % 2 !== 0 : digit % 2 === 0;
+            if (ct === 'DIGITMATCH') return inv ? digit === bar : digit !== bar;
+            if (ct === 'DIGITDIFF') return inv ? digit !== bar : digit === bar;
             return false;
         },
         [getActiveDigitBarrier]
@@ -588,7 +650,7 @@ const AutoTrades = observer(() => {
                 globalTradingRef.current = true;
 
                 const stakeNow = nextStakeRef.current;
-                executeTrade(symbol, stakeNow).then(profit => handleAfterTrade(symbol, profit));
+                executeTrade(symbol, stakeNow, state.lastResult).then(profit => handleAfterTrade(symbol, profit));
             }
         },
         [executeTrade, handleAfterTrade]
@@ -621,6 +683,8 @@ const AutoTrades = observer(() => {
         [refreshDisplays, tryExecuteSignal]
     );
 
+    handleCandleRef.current = handleCandle;
+
     const handleTick = useCallback(
         (symbol: string, tick: any) => {
             if (!selectedMarketSymbolsRef.current.has(symbol)) return;
@@ -637,7 +701,6 @@ const AutoTrades = observer(() => {
             lastTickAtRef.current = Date.now();
             if (isRecoveringDataRef.current) {
                 isRecoveringDataRef.current = false;
-                setIsRecoveringData(false);
             }
 
             if (cooldownTicksRef.current > 0) {
@@ -652,7 +715,7 @@ const AutoTrades = observer(() => {
                 state.prevQuote = quote;
 
                 if (dir !== 0) {
-                    const match = isDirectionMatch(ct, dir);
+                    const match = inverseModeRef.current ? isInverseDirectionMatch(ct, dir) : isDirectionMatch(ct, dir);
                     if (match) {
                         state.consecutive = Math.min(state.consecutive + 1, 10);
                     } else {
@@ -664,35 +727,55 @@ const AutoTrades = observer(() => {
                 state.lastDigits = [...state.lastDigits.slice(-9), lastDigit];
                 state.prevQuote = quote;
 
-                if (isPatternDigit(lastDigit)) {
+                if (isPatternDigit(lastDigit, state.lastResult)) {
                     state.consecutive = Math.min(state.consecutive + 1, 10);
                 } else {
                     state.consecutive = 0;
                 }
             }
 
-            const signalReady =
-                state.consecutive >= targetLen && (!isRunTradeType(ct) || isRunCandleMatch(ct, state.candleDirection));
+            const candleMatch = inverseModeRef.current
+                ? isInverseRunCandleMatch(ct, state.candleDirection)
+                : isRunCandleMatch(ct, state.candleDirection);
+            const signalReady = state.consecutive >= targetLen && (!isRunTradeType(ct) || candleMatch);
 
             if (runningRef.current) {
                 const ct = tradeTypeRef.current;
-                const bar = getActiveDigitBarrier(ct);
+                const bar = getActiveDigitBarrier(ct, state.lastResult);
                 const mkt = AUTO_MARKET_LOOKUP.get(symbol);
+                const inv = inverseModeRef.current;
                 let condStr = '';
                 let digitsStr = '';
                 if (IS_DIRECTION_TYPE[ct]) {
                     const dirs = state.directionHistory.slice(-targetLen);
                     digitsStr = `[${dirs.map(d => (d === 1 ? '↑' : d === -1 ? '↓' : '—')).join(', ')}]`;
-                    condStr = getDirectionCondition(ct, targetLen);
+                    if (inv) {
+                        if (ct === 'CALL') condStr = `consecutive rising ticks ≥ ${targetLen}`;
+                        else if (ct === 'PUT') condStr = `consecutive falling ticks ≥ ${targetLen}`;
+                        else if (ct === 'RUNHIGH')
+                            condStr = `5m candle bearish + consecutive rising ticks ≥ ${targetLen}`;
+                        else condStr = `5m candle bullish + consecutive falling ticks ≥ ${targetLen}`;
+                    } else {
+                        condStr = getDirectionCondition(ct, targetLen);
+                    }
                 } else {
                     const recent = state.lastDigits.slice(-targetLen);
                     digitsStr = `[${recent.join(', ')}]`;
-                    if (ct === 'DIGITOVER') condStr = `digits ≤ ${bar} streak ≥ ${targetLen}`;
-                    if (ct === 'DIGITUNDER') condStr = `digits ≥ ${bar} streak ≥ ${targetLen}`;
-                    if (ct === 'DIGITEVEN') condStr = `consecutive odd digits ≥ ${targetLen}`;
-                    if (ct === 'DIGITODD') condStr = `consecutive even digits ≥ ${targetLen}`;
-                    if (ct === 'DIGITMATCH') condStr = `digits ≠ ${bar} streak ≥ ${targetLen}`;
-                    if (ct === 'DIGITDIFF') condStr = `digits = ${bar} streak ≥ ${targetLen}`;
+                    if (inv) {
+                        if (ct === 'DIGITOVER') condStr = `digits > ${bar} streak ≥ ${targetLen}`;
+                        else if (ct === 'DIGITUNDER') condStr = `digits < ${bar} streak ≥ ${targetLen}`;
+                        else if (ct === 'DIGITEVEN') condStr = `consecutive even digits ≥ ${targetLen}`;
+                        else if (ct === 'DIGITODD') condStr = `consecutive odd digits ≥ ${targetLen}`;
+                        else if (ct === 'DIGITMATCH') condStr = `digits = ${bar} streak ≥ ${targetLen}`;
+                        else condStr = `digits ≠ ${bar} streak ≥ ${targetLen}`;
+                    } else {
+                        if (ct === 'DIGITOVER') condStr = `digits ≤ ${bar} streak ≥ ${targetLen}`;
+                        if (ct === 'DIGITUNDER') condStr = `digits ≥ ${bar} streak ≥ ${targetLen}`;
+                        if (ct === 'DIGITEVEN') condStr = `consecutive odd digits ≥ ${targetLen}`;
+                        if (ct === 'DIGITODD') condStr = `consecutive even digits ≥ ${targetLen}`;
+                        if (ct === 'DIGITMATCH') condStr = `digits ≠ ${bar} streak ≥ ${targetLen}`;
+                        if (ct === 'DIGITDIFF') condStr = `digits = ${bar} streak ≥ ${targetLen}`;
+                    }
                 }
                 conditionNotifierStore.setCondition({
                     market: mkt?.label ?? symbol,
@@ -711,9 +794,14 @@ const AutoTrades = observer(() => {
         [getActiveDigitBarrier, isPatternDigit, refreshDisplays, tryExecuteSignal]
     );
 
+    handleTickRef.current = handleTick;
+
+    const show_auto_ref = useRef(show_auto);
+    show_auto_ref.current = show_auto;
+
     const startSubscriptions = useCallback(async () => {
         const subscriptionVersion = subscriptionVersionRef.current;
-        const selectedSymbolSet = new Set(selectedMarkets.map(({ symbol }) => symbol));
+        const selectedSymbolSet = new Set(selectedMarketsRef.current.map(({ symbol }) => symbol));
 
         Object.entries(subscriptionsRef.current).forEach(([symbol, sub]) => {
             if (!selectedSymbolSet.has(symbol)) {
@@ -737,40 +825,40 @@ const AutoTrades = observer(() => {
             }
         });
 
-        if (selectedMarkets.length === 0) {
+        if (selectedMarketsRef.current.length === 0) {
             setIsConnected(false);
             return;
         }
 
         lastTickAtRef.current = Date.now();
 
-        for (const market of selectedMarkets) {
+        for (const market of selectedMarketsRef.current) {
             if (!subscriptionsRef.current[market.symbol]) {
                 try {
                     const obs = (api_base.api as any).subscribe({ ticks: market.symbol });
                     const sub = obs.subscribe(
                         (data: any) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto) return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
+                                return;
                             if (data?.error) {
                                 if (!isExpectedStreamInterruption(data.error)) {
                                     console.warn(`[AutoTrades] Tick stream error for ${market.symbol}:`, data.error);
                                 }
                                 if (!isRecoveringDataRef.current) {
                                     isRecoveringDataRef.current = true;
-                                    setIsRecoveringData(true);
                                 }
                                 return;
                             }
-                            if (data?.tick?.quote !== undefined) handleTick(market.symbol, data.tick);
+                            if (data?.tick?.quote !== undefined) handleTickRef.current(market.symbol, data.tick);
                         },
                         (streamError: unknown) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto) return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
+                                return;
                             if (!isExpectedStreamInterruption(streamError)) {
                                 console.warn(`[AutoTrades] Tick stream error for ${market.symbol}:`, streamError);
                             }
                             if (!isRecoveringDataRef.current) {
                                 isRecoveringDataRef.current = true;
-                                setIsRecoveringData(true);
                             }
                         }
                     );
@@ -794,30 +882,30 @@ const AutoTrades = observer(() => {
                     });
                     const sub = obs.subscribe(
                         (data: any) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto) return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
+                                return;
                             if (data?.error) {
                                 if (!isExpectedStreamInterruption(data.error)) {
                                     console.warn(`[AutoTrades] Candle stream error for ${market.symbol}:`, data.error);
                                 }
                                 if (!isRecoveringDataRef.current) {
                                     isRecoveringDataRef.current = true;
-                                    setIsRecoveringData(true);
                                 }
                                 return;
                             }
                             const candle =
                                 data?.ohlc ??
                                 (Array.isArray(data?.candles) ? data.candles[data.candles.length - 1] : null);
-                            if (candle) handleCandle(market.symbol, candle);
+                            if (candle) handleCandleRef.current(market.symbol, candle);
                         },
                         (streamError: unknown) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto) return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
+                                return;
                             if (!isExpectedStreamInterruption(streamError)) {
                                 console.warn(`[AutoTrades] Candle stream error for ${market.symbol}:`, streamError);
                             }
                             if (!isRecoveringDataRef.current) {
                                 isRecoveringDataRef.current = true;
-                                setIsRecoveringData(true);
                             }
                         }
                     );
@@ -830,7 +918,7 @@ const AutoTrades = observer(() => {
             }
         }
         setIsConnected(Object.keys(subscriptionsRef.current).length > 0);
-    }, [handleCandle, handleTick, selectedMarkets, show_auto]);
+    }, []);
 
     const stopSubscriptions = useCallback(() => {
         subscriptionVersionRef.current++;
@@ -852,17 +940,15 @@ const AutoTrades = observer(() => {
         candleSubscriptionsRef.current = {};
         setIsConnected(false);
         isRecoveringDataRef.current = false;
-        setIsRecoveringData(false);
     }, []);
 
     const restartSubscriptions = useCallback(() => {
         if (restartInFlightRef.current) return;
         restartInFlightRef.current = true;
         isRecoveringDataRef.current = true;
-        setIsRecoveringData(true);
         stopSubscriptions();
         window.setTimeout(() => {
-            if (!show_auto) {
+            if (!show_auto_ref.current) {
                 restartInFlightRef.current = false;
                 return;
             }
@@ -875,7 +961,7 @@ const AutoTrades = observer(() => {
                     lastTickAtRef.current = Date.now();
                 });
         }, 800);
-    }, [show_auto, startSubscriptions, stopSubscriptions]);
+    }, [startSubscriptions, stopSubscriptions]);
 
     const resetSession = useCallback(() => {
         const baseStake = configRef.current.stake;
@@ -943,7 +1029,6 @@ const AutoTrades = observer(() => {
         });
         setIsRunning(false);
         isRecoveringDataRef.current = false;
-        setIsRecoveringData(false);
         setCooldownDisplay(0);
         refreshDisplays();
     }, [refreshDisplays]);
@@ -1002,12 +1087,20 @@ const AutoTrades = observer(() => {
             stopSubscriptions();
         }
         return undefined;
-    }, [show_auto, startSubscriptions, stopSubscriptions, run_panel]);
+    }, [show_auto, run_panel]);
+
+    const dataSilenceIntervalRef = useRef<number | null>(null);
 
     useEffect(() => {
-        if (!show_auto || !isConnected) return undefined;
+        if (dataSilenceIntervalRef.current) {
+            window.clearInterval(dataSilenceIntervalRef.current);
+            dataSilenceIntervalRef.current = null;
+        }
 
-        const id = window.setInterval(() => {
+        if (!show_auto_ref.current) return undefined;
+
+        dataSilenceIntervalRef.current = window.setInterval(() => {
+            if (!show_auto_ref.current) return;
             const has_selected_markets = selectedMarketsRef.current.length > 0;
             const silent_for = Date.now() - lastTickAtRef.current;
 
@@ -1016,8 +1109,13 @@ const AutoTrades = observer(() => {
             }
         }, 5000);
 
-        return () => window.clearInterval(id);
-    }, [isConnected, restartSubscriptions, show_auto]);
+        return () => {
+            if (dataSilenceIntervalRef.current) {
+                window.clearInterval(dataSilenceIntervalRef.current);
+                dataSilenceIntervalRef.current = null;
+            }
+        };
+    }, [restartSubscriptions]);
 
     useEffect(() => {
         if (!run_panel.is_running && runningRef.current && show_auto) {
@@ -1035,7 +1133,7 @@ const AutoTrades = observer(() => {
             }
             stopSubscriptions();
         },
-        [stopSubscriptions, run_panel, stopTrading]
+        [run_panel]
     );
 
     if (!show_auto) return null;
@@ -1047,23 +1145,29 @@ const AutoTrades = observer(() => {
     const inCooldown = cooldownDisplay > 0;
     const streakNum = Math.min(10, Math.max(2, Number(streak) || 4));
     const isDirection = IS_DIRECTION_TYPE[tradeType];
-    const activeBarrier = getActiveDigitBarrier(tradeType);
+    const activeBarrier = getActiveDigitBarrier(tradeType, null);
 
     const subtitleTxt = (() => {
+        const inv = inverseModeRef.current;
+        const label = inv ? INVERSE_LABELS[tradeType] : TRADE_TYPE_LABELS[tradeType];
         if (tradeType === 'DIGITOVER')
-            return `Streak: ${streakNum}+ digits ≤ ${activeBarrier} → ${TRADE_TYPE_LABELS.DIGITOVER} ${activeBarrier}`;
+            return `Streak: ${streakNum}+ digits ${inv ? '>' : '≤'} ${activeBarrier} → ${label}`;
         if (tradeType === 'DIGITUNDER')
-            return `Streak: ${streakNum}+ digits ≥ ${activeBarrier} → ${TRADE_TYPE_LABELS.DIGITUNDER} ${activeBarrier}`;
-        if (tradeType === 'CALL') return `Streak: ${streakNum}+ consecutive Falling ticks → Rise (CALL)`;
-        if (tradeType === 'PUT') return `Streak: ${streakNum}+ consecutive Rising ticks → Fall (PUT)`;
+            return `Streak: ${streakNum}+ digits ${inv ? '<' : '≥'} ${activeBarrier} → ${label}`;
+        if (tradeType === 'CALL')
+            return `Streak: ${streakNum}+ consecutive ${inv ? 'Rising' : 'Falling'} ticks → ${label}`;
+        if (tradeType === 'PUT')
+            return `Streak: ${streakNum}+ consecutive ${inv ? 'Falling' : 'Rising'} ticks → ${label}`;
         if (tradeType === 'RUNHIGH')
-            return `5m bullish candle + ${streakNum}+ falling ticks → Only Ups (${executionTicks} ticks)`;
+            return `${inv ? '5m bearish' : '5m bullish'} candle + ${streakNum}+ ${inv ? 'rising' : 'falling'} ticks → ${label} (${analysisTicks} ticks)`;
         if (tradeType === 'RUNLOW')
-            return `5m bearish candle + ${streakNum}+ rising ticks → Only Downs (${executionTicks} ticks)`;
-        if (tradeType === 'DIGITEVEN') return `Streak: ${streakNum}+ consecutive Odd digits → Digit Even`;
-        if (tradeType === 'DIGITODD') return `Streak: ${streakNum}+ consecutive Even digits → Digit Odd`;
-        if (tradeType === 'DIGITMATCH') return `Streak: ${streakNum}+ digits ≠ ${barrier} → Matches ${barrier}`;
-        if (tradeType === 'DIGITDIFF') return `Streak: ${streakNum}+ digits = ${barrier} → Differs ${barrier}`;
+            return `${inv ? '5m bullish' : '5m bearish'} candle + ${streakNum}+ ${inv ? 'falling' : 'rising'} ticks → ${label} (${analysisTicks} ticks)`;
+        if (tradeType === 'DIGITEVEN')
+            return `Streak: ${streakNum}+ consecutive ${inv ? 'Even' : 'Odd'} digits → ${label}`;
+        if (tradeType === 'DIGITODD')
+            return `Streak: ${streakNum}+ consecutive ${inv ? 'Odd' : 'Even'} digits → ${label}`;
+        if (tradeType === 'DIGITMATCH') return `Streak: ${streakNum}+ digits ${inv ? '=' : '≠'} ${barrier} → ${label}`;
+        if (tradeType === 'DIGITDIFF') return `Streak: ${streakNum}+ digits ${inv ? '≠' : '='} ${barrier} → ${label}`;
     })();
 
     return (
@@ -1213,20 +1317,21 @@ const AutoTrades = observer(() => {
                                             </div>
                                         )}
 
-                                        {isRunTradeType(tradeType) && (
-                                            <div className='auto-trades-config__field auto-trades-config__field--narrow'>
-                                                <label>Ticks</label>
-                                                <select
-                                                    className='auto-trades-config__select'
-                                                    value={executionTicks}
-                                                    onChange={e => setExecutionTicks(e.target.value)}
-                                                    disabled={isRunning}
-                                                >
-                                                    <option value='2'>2</option>
-                                                    <option value='3'>3</option>
-                                                </select>
-                                            </div>
-                                        )}
+                                        <div className='auto-trades-config__field auto-trades-config__field--narrow'>
+                                            <label>Analysis ticks</label>
+                                            <select
+                                                className='auto-trades-config__select'
+                                                value={analysisTicks}
+                                                onChange={e => setAnalysisTicks(e.target.value)}
+                                                disabled={isRunning}
+                                            >
+                                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(d => (
+                                                    <option key={d} value={String(d)}>
+                                                        {d}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
 
                                     {/* Streak length */}
@@ -1248,6 +1353,41 @@ const AutoTrades = observer(() => {
                                             />
                                             <span className='auto-trades-config__streak-value'>{streak}</span>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Inverse Strategy Toggle */}
+                                <div className='auto-trades-config__group'>
+                                    <div className='auto-trades-inverse'>
+                                        <div className='auto-trades-inverse__info'>
+                                            <p className='auto-trades-config__group-label'>Strategy Mode</p>
+                                            <span className='auto-trades-inverse__badge'>
+                                                {inverseMode ? 'Inverse' : 'Direct'}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type='button'
+                                            className={classNames('auto-trades-inverse__toggle', {
+                                                'auto-trades-inverse__toggle--active': inverseMode,
+                                            })}
+                                            onClick={() => setInverseMode(prev => !prev)}
+                                            disabled={isRunning}
+                                        >
+                                            <span className='auto-trades-inverse__toggle-label'>
+                                                {TRADE_TYPE_LABELS[tradeType]}
+                                            </span>
+                                            <span className='auto-trades-inverse__toggle-switch'>
+                                                <span className='auto-trades-inverse__toggle-knob' />
+                                            </span>
+                                            <span className='auto-trades-inverse__toggle-label'>
+                                                {INVERSE_LABELS[tradeType]}
+                                            </span>
+                                        </button>
+                                        <p className='auto-trades-inverse__hint'>
+                                            {inverseMode
+                                                ? `Detects opposite signals, executes ${INVERSE_TRADE_TYPE[tradeType]} contracts`
+                                                : `Detects standard signals, executes ${tradeType} contracts`}
+                                        </p>
                                     </div>
                                 </div>
 
