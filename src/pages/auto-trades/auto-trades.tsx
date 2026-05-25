@@ -415,6 +415,7 @@ const AutoTrades = observer(() => {
         }
     });
     const strategyModeRef = useRef(strategyMode);
+    const modeTransitionLockRef = useRef(false);
     const percentageHistoryRef = useRef<number[]>([]);
     const percentageConfidenceRef = useRef(0);
     const momentumCounterRef = useRef(0);
@@ -558,6 +559,28 @@ const AutoTrades = observer(() => {
             // Ignore localStorage write failures.
         }
     }, [inverseMode]);
+
+    useEffect(() => {
+        modeTransitionLockRef.current = true;
+        strategyModeRef.current = strategyMode;
+        try {
+            localStorage.setItem('auto_trades_strategyMode', strategyMode);
+        } catch {
+            // Ignore localStorage write failures.
+        }
+        if (strategyMode === 'PERCENTAGE') {
+            Object.keys(marketStatesRef.current).forEach(symbol => {
+                const state = marketStatesRef.current[symbol];
+                state.digitHistory = [];
+                state.digitPercentages = {};
+                state.confidenceScore = 0;
+                state.momentumCount = 0;
+            });
+        }
+        setTimeout(() => {
+            modeTransitionLockRef.current = false;
+        }, 100);
+    }, [strategyMode]);
 
     const handleTradeTypeChange = useCallback((t: TradeType) => {
         setTradeType(t);
@@ -741,7 +764,7 @@ const AutoTrades = observer(() => {
         (symbol: string, digit: number, lastResult: 'win' | 'loss' | null): boolean => {
             const ct = tradeTypeRef.current;
             
-            if (strategyModeRef.current === 'PERCENTAGE') {
+            if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
                 const state = marketStatesRef.current[symbol];
                 if (!state || state.digitHistory.length < 100) return false;
                 
@@ -887,7 +910,7 @@ const AutoTrades = observer(() => {
                 state.lastDigits = [...state.lastDigits.slice(-9), lastDigit];
                 state.prevQuote = quote;
 
-                if (strategyModeRef.current === 'PERCENTAGE') {
+                if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
                     state.digitHistory.push(lastDigit);
                     if (state.digitHistory.length > 1000) {
                         state.digitHistory.shift();
