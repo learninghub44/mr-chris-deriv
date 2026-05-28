@@ -135,6 +135,14 @@
     }
 }
 
+.auto-trades-buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.8rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
 .auto-trades-config {
     display: flex;
     flex-direction: column;
@@ -370,7 +378,7 @@
         flex-shrink: 0;
     }
 
-&--compact {
+    &--compact {
         font-size: 1.2rem;
         padding: 0.6rem 0.8rem;
         margin-bottom: 0;
@@ -546,19 +554,36 @@
     }
 }
 
-@keyframes at-pulse {
-    padding: 0.8rem 1.2rem;
-    background: rgb(28 90 227 / 6%);
-    border: 1px solid rgb(28 90 227 / 15%);
-    border-radius: 0.8rem;
-    font-size: 1.25rem;
-    color: var(--text-less-prominent);
-    line-height: 1.5;
-}
-
 // ── Markets grid ────────────────────────────────────────────────────────────
 
 .auto-trades-markets {
+    &__actions {
+        display: flex;
+        gap: 0.8rem;
+        margin: -0.4rem 0 1.2rem;
+
+        button {
+            min-height: 3.6rem;
+            padding: 0 1.2rem;
+            border: 1px solid var(--general-section-1);
+            border-radius: 0.6rem;
+            background: var(--general-main-2);
+            color: var(--text-general);
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+    }
+
+    &__selected-count {
+        font-size: 1.15rem;
+        color: var(--text-less-prominent);
+        background: var(--general-main-2);
+        border: 1px solid var(--general-section-1);
+        border-radius: 2rem;
+        padding: 0.2rem 0.8rem;
+    }
+
     &__title {
         font-size: 1.6rem;
         font-weight: 700;
@@ -1378,5 +1403,42 @@
 @media (max-width: 380px) {
     .auto-trades-markets__grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/*
+ * Mobile-First Responsive Overrides
+ * Ensure tap targets are min 48px and add touch-friendly effects.
+ */
+.auto-trades-config__select,
+.auto-trades-config__input,
+.auto-trades-market__btn,
+.auto-trades-controls button {
+    min-height: 48px; /* Touch target minimum size */
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .auto-trades-controls button:hover,
+    .auto-trades-market__btn:hover,
+    .auto-trades-strategy-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+}
+
+.is-mobile {
+    .auto-trades-layout {
+        flex-direction: column;
+    }
+
+    .auto-trades-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .auto-trades-main {
+        padding: 1rem;
     }
 }

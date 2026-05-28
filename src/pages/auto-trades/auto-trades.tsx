@@ -9,6 +9,7 @@ import { useStore } from '@/hooks/useStore';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
 import { getLastDigitFromQuote, getMarketPipSize, isExpectedStreamInterruption } from '@/utils/market-data';
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
+import { safeSubscribe } from '@/utils/websocket-handler';
 import './auto-trades.scss';
 
 type AutoMarket = { symbol: string; label: string; pip: number };
@@ -39,6 +40,7 @@ const COOLDOWN_TICKS = 60;
 const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
 const PERCENTAGE_ANALYSIS_HISTORY_SIZE = 1000;
+const PERCENTAGE_MIN_SAMPLE_SIZE = 100;
 
 type StrategyMode = 'STANDARD' | 'INVERSE' | 'PERCENTAGE';
 
@@ -229,6 +231,11 @@ const getDirectionStreakLabel = (trade_type: TradeType) => {
     return 'rising ticks + bearish 5m candle';
 };
 
+export const computePercentage = (baseAmount: number, targetAmount: number): number => {
+    if (baseAmount === 0 || isNaN(baseAmount) || isNaN(targetAmount)) return 0;
+    return Number(((targetAmount / baseAmount) * 100).toFixed(2));
+};
+
 const calculateDigitPercentages = (digitHistory: number[]): Record<number, number> => {
     if (digitHistory.length === 0) return {};
     const counts = Array(10).fill(0);
@@ -236,7 +243,7 @@ const calculateDigitPercentages = (digitHistory: number[]): Record<number, numbe
         if (d >= 0 && d <= 9) counts[d]++;
     });
     return Object.fromEntries(
-        counts.map((count, digit) => [digit, (count / digitHistory.length) * 100])
+        counts.map((count, digit) => [digit, computePercentage(digitHistory.length, count)])
     );
 };
 
@@ -249,26 +256,134 @@ const calculateConfidence = (percentages: Record<number, number>): number => {
     return Math.max(0, 100 - (avgDeviation * 2));
 };
 
-const checkOverUnderThresholds = (digit: number, percentages: Record<number, number>, confidence: number): boolean => {
-    const threshold = PERCENTAGE_THRESHOLDS.over[digit];
-    if (!threshold) return false;
-    const pct = percentages[digit] ?? 0;
-    return pct >= threshold.minPercentage && confidence >= threshold.confidence;
+type PercentageSnapshot = {
+    primaryLabel: string;
+    primaryPercentage: number;
+    secondaryLabel?: string;
+    secondaryPercentage?: number;
+    confidence: number;
+    sampleSize: number;
 };
 
-const checkUnderThresholds = (digit: number, percentages: Record<number, number>, confidence: number): boolean => {
-    const threshold = PERCENTAGE_THRESHOLDS.under[digit];
-    if (!threshold) return false;
-    const pct = percentages[digit] ?? 0;
-    return pct <= threshold.minPercentage && confidence >= threshold.confidence;
+const sumDigitPercentages = (percentages: Record<number, number>, predicate: (digit: number) => boolean) =>
+    Object.entries(percentages).reduce((sum, [digit, percentage]) => (
+        predicate(Number(digit)) ? sum + percentage : sum
+    ), 0);
+
+const calculateDirectionPercentages = (directionHistory: Direction[]) => {
+    const directionalTicks = directionHistory.filter(direction => direction !== 0);
+    if (directionalTicks.length === 0) {
+        return { risePercentage: 0, fallPercentage: 0, confidence: 0, sampleSize: 0 };
+    }
+
+    const risingTicks = directionalTicks.filter(direction => direction === 1).length;
+    const risePercentage = computePercentage(directionalTicks.length, risingTicks);
+    const fallPercentage = Number((100 - risePercentage).toFixed(2));
+    const confidence = Math.min(100, Math.abs(risePercentage - fallPercentage) * 2);
+
+    return { risePercentage, fallPercentage, confidence, sampleSize: directionalTicks.length };
 };
 
-const checkEvenOddThresholds = (digit: number, percentages: Record<number, number>, confidence: number): boolean => {
-    const isEven = digit % 2 === 0;
-    const threshold = isEven ? PERCENTAGE_THRESHOLDS.even : PERCENTAGE_THRESHOLDS.odd;
-    const targetPct = isEven ? percentages[0] + percentages[2] + percentages[4] + percentages[6] + percentages[8] : percentages[1] + percentages[3] + percentages[5] + percentages[7] + percentages[9];
-    const combinedPct = targetPct;
-    return combinedPct >= threshold.minPercentage && confidence >= threshold.confidence;
+export const getPercentageSnapshot = (
+    trade_type: TradeType,
+    state: Pick<MarketState, 'digitHistory' | 'digitPercentages' | 'directionSampleHistory' | 'confidenceScore'>,
+    barrier: number
+): PercentageSnapshot => {
+    if (IS_DIRECTION_TYPE[trade_type]) {
+        const { risePercentage, fallPercentage, confidence, sampleSize } = calculateDirectionPercentages(
+            state.directionSampleHistory
+        );
+        const primaryIsRise = trade_type === 'CALL' || trade_type === 'RUNHIGH';
+
+        return {
+            primaryLabel: primaryIsRise ? 'Rise' : 'Fall',
+            primaryPercentage: primaryIsRise ? risePercentage : fallPercentage,
+            secondaryLabel: primaryIsRise ? 'Fall' : 'Rise',
+            secondaryPercentage: primaryIsRise ? fallPercentage : risePercentage,
+            confidence,
+            sampleSize,
+        };
+    }
+
+    const percentages = state.digitPercentages;
+    const safeBarrier = Math.min(9, Math.max(0, barrier));
+    const sampleSize = state.digitHistory.length;
+
+    if (trade_type === 'DIGITOVER') {
+        const primaryPercentage = sumDigitPercentages(percentages, digit => digit > safeBarrier);
+        return {
+            primaryLabel: `Over ${safeBarrier}`,
+            primaryPercentage,
+            secondaryLabel: `${safeBarrier} or below`,
+            secondaryPercentage: Number((100 - primaryPercentage).toFixed(2)),
+            confidence: state.confidenceScore,
+            sampleSize,
+        };
+    }
+
+    if (trade_type === 'DIGITUNDER') {
+        const primaryPercentage = sumDigitPercentages(percentages, digit => digit < safeBarrier);
+        return {
+            primaryLabel: `Under ${safeBarrier}`,
+            primaryPercentage,
+            secondaryLabel: `${safeBarrier} or above`,
+            secondaryPercentage: Number((100 - primaryPercentage).toFixed(2)),
+            confidence: state.confidenceScore,
+            sampleSize,
+        };
+    }
+
+    if (trade_type === 'DIGITEVEN' || trade_type === 'DIGITODD') {
+        const evenPercentage = sumDigitPercentages(percentages, digit => digit % 2 === 0);
+        const oddPercentage = Number((100 - evenPercentage).toFixed(2));
+        const primaryIsEven = trade_type === 'DIGITEVEN';
+
+        return {
+            primaryLabel: primaryIsEven ? 'Even' : 'Odd',
+            primaryPercentage: primaryIsEven ? evenPercentage : oddPercentage,
+            secondaryLabel: primaryIsEven ? 'Odd' : 'Even',
+            secondaryPercentage: primaryIsEven ? oddPercentage : evenPercentage,
+            confidence: state.confidenceScore,
+            sampleSize,
+        };
+    }
+
+    const matchPercentage = percentages[safeBarrier] ?? 0;
+    const differsPercentage = Number((100 - matchPercentage).toFixed(2));
+    const primaryIsMatch = trade_type === 'DIGITMATCH';
+
+    return {
+        primaryLabel: primaryIsMatch ? `Match ${safeBarrier}` : `Differ ${safeBarrier}`,
+        primaryPercentage: primaryIsMatch ? matchPercentage : differsPercentage,
+        secondaryLabel: primaryIsMatch ? `Differ ${safeBarrier}` : `Match ${safeBarrier}`,
+        secondaryPercentage: primaryIsMatch ? differsPercentage : matchPercentage,
+        confidence: state.confidenceScore,
+        sampleSize,
+    };
+};
+
+const getPercentageThreshold = (trade_type: TradeType, barrier: number) => {
+    if (trade_type === 'DIGITOVER') return PERCENTAGE_THRESHOLDS.over[barrier] ?? PERCENTAGE_THRESHOLDS.over[4];
+    if (trade_type === 'DIGITUNDER') return PERCENTAGE_THRESHOLDS.under[barrier] ?? PERCENTAGE_THRESHOLDS.under[5];
+    if (trade_type === 'DIGITEVEN') return PERCENTAGE_THRESHOLDS.even;
+    if (trade_type === 'DIGITODD') return PERCENTAGE_THRESHOLDS.odd;
+    if (trade_type === 'DIGITMATCH') return PERCENTAGE_THRESHOLDS.match;
+    if (trade_type === 'DIGITDIFF') return PERCENTAGE_THRESHOLDS.differs;
+    if (trade_type === 'CALL') return PERCENTAGE_THRESHOLDS.rise;
+    if (trade_type === 'PUT') return PERCENTAGE_THRESHOLDS.fall;
+    if (trade_type === 'RUNHIGH') return PERCENTAGE_THRESHOLDS.higher;
+    return PERCENTAGE_THRESHOLDS.lower;
+};
+
+export const isPercentageSignalReady = (trade_type: TradeType, state: MarketState, barrier: number): boolean => {
+    const snapshot = getPercentageSnapshot(trade_type, state, barrier);
+    const threshold = getPercentageThreshold(trade_type, barrier);
+
+    return (
+        snapshot.sampleSize >= PERCENTAGE_MIN_SAMPLE_SIZE &&
+        snapshot.primaryPercentage >= threshold.minPercentage &&
+        snapshot.confidence >= threshold.confidence
+    );
 };
 
 interface MarketState {
@@ -280,6 +395,7 @@ interface MarketState {
     candleDirection: Direction;
     candleOpen: number | null;
     candleClose: number | null;
+    directionSampleHistory: Direction[];
     tradeCount: number;
     lastResult: 'win' | 'loss' | null;
     lastQuote: number | null;
@@ -307,6 +423,7 @@ const createMarketState = (prev?: Partial<MarketState>): MarketState => ({
     candleDirection: prev?.candleDirection ?? 0,
     candleOpen: prev?.candleOpen ?? null,
     candleClose: prev?.candleClose ?? null,
+    directionSampleHistory: prev?.directionSampleHistory ?? [],
     tradeCount: 0,
     lastResult: null,
     lastQuote: prev?.lastQuote ?? null,
@@ -416,9 +533,6 @@ const AutoTrades = observer(() => {
     });
     const strategyModeRef = useRef(strategyMode);
     const modeTransitionLockRef = useRef(false);
-    const percentageHistoryRef = useRef<number[]>([]);
-    const percentageConfidenceRef = useRef(0);
-    const momentumCounterRef = useRef(0);
     const isRecoveringDataRef = useRef(false);
     const [showDisclaimer, setShowDisclaimer] = useState(false);
     const [currentStakeDisplay, setCurrentStakeDisplay] = useState(1);
@@ -434,10 +548,17 @@ const AutoTrades = observer(() => {
             candleDirection: 0,
             candleOpen: null,
             candleClose: null,
+            directionSampleHistory: [],
             trading: false,
             lastResult: null,
             tradeCount: 0,
             lastQuote: null,
+            tradeStartTime: null,
+            verificationId: null,
+            digitHistory: [],
+            digitPercentages: {},
+            confidenceScore: 0,
+            momentumCount: 0,
             currentStake: 1,
             cooldownLeft: 0,
         }))
@@ -568,11 +689,17 @@ const AutoTrades = observer(() => {
         } catch {
             // Ignore localStorage write failures.
         }
+        if (strategyMode === 'INVERSE') {
+            setInverseMode(true);
+        } else if (strategyMode === 'STANDARD' || strategyMode === 'PERCENTAGE') {
+            setInverseMode(false);
+        }
         if (strategyMode === 'PERCENTAGE') {
             Object.keys(marketStatesRef.current).forEach(symbol => {
                 const state = marketStatesRef.current[symbol];
                 state.digitHistory = [];
                 state.digitPercentages = {};
+                state.directionSampleHistory = [];
                 state.confidenceScore = 0;
                 state.momentumCount = 0;
             });
@@ -763,46 +890,12 @@ const AutoTrades = observer(() => {
     const isPatternDigit = useCallback(
         (symbol: string, digit: number, lastResult: 'win' | 'loss' | null): boolean => {
             const ct = tradeTypeRef.current;
-            
+
             if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
                 const state = marketStatesRef.current[symbol];
-                if (!state || state.digitHistory.length < 100) return false;
-                
-                const percentages = state.digitPercentages;
-                const confidence = state.confidenceScore;
-                
-                if (ct === 'DIGITOVER') {
-                    return checkOverUnderThresholds(digit, percentages, confidence);
-                }
-                if (ct === 'DIGITUNDER') {
-                    return checkUnderThresholds(digit, percentages, confidence);
-                }
-                if (ct === 'DIGITEVEN' || ct === 'DIGITODD') {
-                    return checkEvenOddThresholds(digit, percentages, confidence);
-                }
-                if (ct === 'DIGITMATCH') {
-                    const threshold = PERCENTAGE_THRESHOLDS.match;
-                    const pct = percentages[digit] ?? 0;
-                    return pct <= threshold.minPercentage && confidence >= threshold.confidence;
-                }
-                if (ct === 'DIGITDIFF') {
-                    const threshold = PERCENTAGE_THRESHOLDS.differs;
-                    const pct = percentages[digit] ?? 0;
-                    return pct >= threshold.minPercentage && confidence >= threshold.confidence;
-                }
-                if (ct === 'CALL' || ct === 'PUT') {
-                    const threshold = ct === 'CALL' ? PERCENTAGE_THRESHOLDS.rise : PERCENTAGE_THRESHOLDS.fall;
-                    const momentum = state.momentumCount;
-                    return momentum >= threshold.momentum && confidence >= threshold.confidence;
-                }
-                if (ct === 'RUNHIGH' || ct === 'RUNLOW') {
-                    const threshold = ct === 'RUNHIGH' ? PERCENTAGE_THRESHOLDS.higher : PERCENTAGE_THRESHOLDS.lower;
-                    const momentum = state.momentumCount;
-                    return momentum >= threshold.momentum && confidence >= threshold.confidence;
-                }
-                return false;
+                return state ? isPercentageSignalReady(ct, state, getActiveDigitBarrier(ct, lastResult)) : false;
             }
-            
+
             const bar = getActiveDigitBarrier(ct, lastResult);
             const inv = inverseModeRef.current;
 
@@ -833,10 +926,21 @@ const AutoTrades = observer(() => {
                 state.verificationId = `${symbol}_${state.tradeStartTime}_${Math.random().toString(36).substring(2, 11)}`;
 
                 const stakeNow = nextStakeRef.current;
+
+                // Runtime sanity checks
+                if (stakeNow <= 0 || isNaN(stakeNow)) {
+                    console.error(`[AutoTrades] Sanity check failed: Invalid stake amount ${stakeNow} for ${symbol}`);
+                    state.trading = false;
+                    globalTradingRef.current = false;
+                    setError('Auto Trades stopped because the stake amount is invalid.');
+                    refreshDisplays();
+                    return;
+                }
+
                 executeTrade(symbol, stakeNow, state.lastResult).then(profit => handleAfterTrade(symbol, profit));
             }
         },
-        [executeTrade, handleAfterTrade]
+        [executeTrade, handleAfterTrade, refreshDisplays]
     );
 
     const handleCandle = useCallback(
@@ -898,6 +1002,20 @@ const AutoTrades = observer(() => {
                 state.prevQuote = quote;
 
                 if (dir !== 0) {
+                    if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
+                        state.directionSampleHistory.push(dir);
+                        if (state.directionSampleHistory.length > PERCENTAGE_ANALYSIS_HISTORY_SIZE) {
+                            state.directionSampleHistory.shift();
+                        }
+                        const directionPercentages = calculateDirectionPercentages(state.directionSampleHistory);
+                        state.confidenceScore = directionPercentages.confidence;
+                        state.momentumCount = Math.round(
+                            ct === 'CALL' || ct === 'RUNHIGH'
+                                ? directionPercentages.risePercentage
+                                : directionPercentages.fallPercentage
+                        );
+                    }
+
                     const match = inverseModeRef.current ? isInverseDirectionMatch(ct, dir) : isDirectionMatch(ct, dir);
                     if (match) {
                         state.consecutive = Math.min(state.consecutive + 1, 10);
@@ -912,10 +1030,10 @@ const AutoTrades = observer(() => {
 
                 if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
                     state.digitHistory.push(lastDigit);
-                    if (state.digitHistory.length > 1000) {
+                    if (state.digitHistory.length > PERCENTAGE_ANALYSIS_HISTORY_SIZE) {
                         state.digitHistory.shift();
                     }
-                    if (state.digitHistory.length >= 100) {
+                    if (state.digitHistory.length >= PERCENTAGE_MIN_SAMPLE_SIZE) {
                         state.digitPercentages = calculateDigitPercentages(state.digitHistory);
                         state.confidenceScore = calculateConfidence(state.digitPercentages);
                     }
@@ -931,7 +1049,11 @@ const AutoTrades = observer(() => {
             const candleMatch = inverseModeRef.current
                 ? isInverseRunCandleMatch(ct, state.candleDirection)
                 : isRunCandleMatch(ct, state.candleDirection);
-            const signalReady = state.consecutive >= targetLen && (!isRunTradeType(ct) || candleMatch);
+            const signalReady =
+                strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current
+                    ? isPercentageSignalReady(ct, state, getActiveDigitBarrier(ct, state.lastResult)) &&
+                      (!isRunTradeType(ct) || candleMatch)
+                    : state.consecutive >= targetLen && (!isRunTradeType(ct) || candleMatch);
 
             if (runningRef.current) {
                 const ct = tradeTypeRef.current;
@@ -1030,7 +1152,8 @@ const AutoTrades = observer(() => {
             if (!subscriptionsRef.current[market.symbol]) {
                 try {
                     const obs = (api_base.api as any).subscribe({ ticks: market.symbol });
-                    const sub = obs.subscribe(
+                    const sub = safeSubscribe(
+                        obs,
                         (data: any) => {
                             if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
                                 return;
@@ -1074,7 +1197,8 @@ const AutoTrades = observer(() => {
                         style: 'candles',
                         subscribe: 1,
                     });
-                    const sub = obs.subscribe(
+                    const sub = safeSubscribe(
+                        obs,
                         (data: any) => {
                             if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
                                 return;
@@ -1175,9 +1299,16 @@ const AutoTrades = observer(() => {
                 candleDirection: prev?.candleDirection ?? 0,
                 candleOpen: prev?.candleOpen ?? null,
                 candleClose: prev?.candleClose ?? null,
+                directionSampleHistory: prev?.directionSampleHistory ?? [],
                 tradeCount: 0,
                 lastResult: null,
                 lastQuote: prev?.lastQuote ?? null,
+                tradeStartTime: null,
+                verificationId: null,
+                digitHistory: prev?.digitHistory ?? [],
+                digitPercentages: prev?.digitPercentages ?? {},
+                confidenceScore: prev?.confidenceScore ?? 0,
+                momentumCount: prev?.momentumCount ?? 0,
             };
         });
         totalPnlRef.current = 0;
@@ -1701,7 +1832,10 @@ const AutoTrades = observer(() => {
                         {/* Markets grid */}
                         <div className='auto-trades-markets'>
                             <h2 className='auto-trades-markets__title'>
-                                Live Markets ({selectedMarketSymbols.length})
+                                Live Markets
+                                <span className='auto-trades-markets__selected-count'>
+                                    {selectedMarketSymbols.length}/{AUTO_MARKETS.length} selected
+                                </span>
                                 {isConnected && <span className='auto-trades-markets__live-badge'>● LIVE</span>}
                                 {inCooldown && isRunning && (
                                     <span className='auto-trades-markets__cooldown-badge'>
@@ -1709,6 +1843,16 @@ const AutoTrades = observer(() => {
                                     </span>
                                 )}
                             </h2>
+                            {!isRunning && (
+                                <div className='auto-trades-markets__actions'>
+                                    <button type='button' onClick={handleSelectAllMarkets}>
+                                        Select all
+                                    </button>
+                                    <button type='button' onClick={handleClearMarkets}>
+                                        Clear
+                                    </button>
+                                </div>
+                            )}
                             {selectedMarketSymbols.length === 0 && (
                                 <div className='auto-trades-hint'>
                                     Select at least one market to show live quotes and enable Auto Trades.
@@ -1852,76 +1996,48 @@ const AutoTrades = observer(() => {
                                             {strategyMode === 'PERCENTAGE' && (
                                                 <div className='auto-trades-market__percentages'>
                                                     {(() => {
-                                                        const percentages = m.digitPercentages;
-                                                        const confidence = m.confidenceScore;
+                                                        const snapshot = getPercentageSnapshot(
+                                                            tradeType,
+                                                            m,
+                                                            getActiveDigitBarrier(tradeType, m.lastResult)
+                                                        );
+                                                        const threshold = getPercentageThreshold(
+                                                            tradeType,
+                                                            getActiveDigitBarrier(tradeType, m.lastResult)
+                                                        );
+                                                        const hasEnoughSamples =
+                                                            snapshot.sampleSize >= PERCENTAGE_MIN_SAMPLE_SIZE;
 
-                                                        if (tradeType === 'DIGITOVER' || tradeType === 'DIGITUNDER') {
-                                                            const overPct = Object.entries(percentages)
-                                                                .filter(([d]) => Number(d) >= 5)
-                                                                .reduce((sum, [, p]) => sum + p, 0);
-                                                            const underPct = 100 - overPct;
-                                                            return (
-                                                                <>
-                                                                    <div className='auto-trades-market__percentage-row'>
-                                                                        <span>Over (5-9): {overPct.toFixed(1)}%</span>
-                                                                        <span>Under (0-4): {underPct.toFixed(1)}%</span>
-                                                                    </div>
-                                                                    <div className='auto-trades-market__confidence'>
-                                                                        Confidence: {confidence.toFixed(0)}%
-                                                                    </div>
-                                                                </>
-                                                            );
-                                                        }
-
-                                                        if (tradeType === 'DIGITEVEN' || tradeType === 'DIGITODD') {
-                                                            const evenPct = (percentages[0] || 0) + (percentages[2] || 0) + (percentages[4] || 0) + (percentages[6] || 0) + (percentages[8] || 0);
-                                                            const oddPct = 100 - evenPct;
-                                                            return (
-                                                                <>
-                                                                    <div className='auto-trades-market__percentage-row'>
-                                                                        <span>Even: {evenPct.toFixed(1)}%</span>
-                                                                        <span>Odd: {oddPct.toFixed(1)}%</span>
-                                                                    </div>
-                                                                    <div className='auto-trades-market__confidence'>
-                                                                        Confidence: {confidence.toFixed(0)}%
-                                                                    </div>
-                                                                </>
-                                                            );
-                                                        }
-
-                                                        if (tradeType === 'CALL' || tradeType === 'PUT') {
-                                                            return (
-                                                                <div className='auto-trades-market__confidence'>
-                                                                    Momentum: {m.momentumCount} | Confidence: {confidence.toFixed(0)}%
+                                                        return (
+                                                            <>
+                                                                <div className='auto-trades-market__percentage-row'>
+                                                                    <span>
+                                                                        {snapshot.primaryLabel}:{' '}
+                                                                        {snapshot.primaryPercentage.toFixed(1)}%
+                                                                    </span>
+                                                                    {snapshot.secondaryLabel && (
+                                                                        <span>
+                                                                            {snapshot.secondaryLabel}:{' '}
+                                                                            {snapshot.secondaryPercentage?.toFixed(1)}%
+                                                                        </span>
+                                                                    )}
                                                                 </div>
-                                                            );
-                                                        }
-
-                                                        if (tradeType === 'RUNHIGH' || tradeType === 'RUNLOW') {
-                                                            return (
                                                                 <div className='auto-trades-market__confidence'>
-                                                                    Momentum: {m.momentumCount} | Confidence: {confidence.toFixed(0)}%
+                                                                    {hasEnoughSamples
+                                                                        ? `Signal needs ${threshold.minPercentage}% / confidence ${threshold.confidence}%`
+                                                                        : `Collecting ${snapshot.sampleSize}/${PERCENTAGE_MIN_SAMPLE_SIZE} samples`}
+                                                                    {' · '}
+                                                                    Confidence: {snapshot.confidence.toFixed(0)}%
                                                                 </div>
-                                                            );
-                                                        }
-
-                                                        if (tradeType === 'DIGITMATCH' || tradeType === 'DIGITDIFF') {
-                                                            const matchPct = Object.values(percentages).reduce((min, p) => Math.min(min, p), 100);
-                                                            return (
-                                                                <div className='auto-trades-market__confidence'>
-                                                                    Min Digit %: {matchPct.toFixed(1)}% | Confidence: {confidence.toFixed(0)}%
-                                                                </div>
-                                                            );
-                                                        }
-
-                                                        return null;
+                                                            </>
+                                                        );
                                                     })()}
 
                                                     {/* Individual digit percentages */}
-                                                    {Object.keys(percentages).length > 0 && (
+                                                    {!isDirection && Object.keys(m.digitPercentages).length > 0 && (
                                                         <div className='auto-trades-market__digit-bars'>
                                                             {[...Array(10)].map((_, d) => {
-                                                                const pct = percentages[d] || 0;
+                                                                const pct = m.digitPercentages[d] || 0;
                                                                 const isHot = pct > 15;
                                                                 const isCold = pct < 5;
                                                                 return (

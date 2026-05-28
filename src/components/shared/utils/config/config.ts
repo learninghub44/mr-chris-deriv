@@ -192,6 +192,50 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
             printPopups: false,
         },
     }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'mrzetuzetu.site',
+        aliases: ['www.mrzetuzetu.site'],
+        clientId: '33gJ6p5dXzASAIobgv9az',
+        appId: '80364',
+        botsFolder: 'optimumtraders.site',
+        features: {
+            autoTrades: true,
+            comboTrades: true,
+        },
+    }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'masterhunter.site',
+        aliases: ['www.masterhunter.site'],
+        clientId: '33g5WCS5YOFHD3aWLZZjj',
+        appId: '96223',
+        botsFolder: 'optimumtraders.site',
+        features: {
+            autoTrades: true,
+            comboTrades: true,
+        },
+    }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'tradinghubs.site',
+        aliases: ['www.tradinghubs.site'],
+        clientId: '33hi7ev9NiDjWY640JuSw',
+        appId: '122208',
+        botsFolder: 'optimumtraders.site',
+        features: {
+            autoTrades: true,
+            comboTrades: true,
+        },
+    }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'mafiahub.site',
+        aliases: ['www.mafiahub.site'],
+        clientId: '331bCUS8izRudblAnSACt',
+        appId: '120589',
+        botsFolder: 'optimumtraders.site',
+        features: {
+            autoTrades: true,
+            comboTrades: true,
+        },
+    }),
     // ── Netlify preview domain (uses same OAuth app; Deriv will redirect back
     //    to riskmanagers.site after login) ────────────────────────────────────
     'newwapi.netlify.app': {

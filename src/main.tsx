@@ -6,11 +6,16 @@ import { AuthWrapper } from './app/AuthWrapper';
 import { performVersionCheck } from './utils/version-check';
 import './styles/index.scss';
 
+import { setupDiagnostics } from './utils/diagnostics';
+
 // Configure MobX to handle multiple instances in production builds
 configure({ isolateGlobalState: true });
 
 // Perform version check FIRST - before any other operations
 performVersionCheck();
+
+// Set up diagnostics for crash monitoring
+setupDiagnostics();
 
 // Removed AnalyticsInitializer() call - analytics dependency removed
 
