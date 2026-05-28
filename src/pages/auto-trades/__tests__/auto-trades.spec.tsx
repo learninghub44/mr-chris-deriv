@@ -23,6 +23,7 @@ const mockEmit = jest.fn();
 const mockRegister = jest.fn();
 const mockUnregister = jest.fn();
 const mockUnsubscribe = jest.fn();
+const mockApiSend = jest.fn();
 const tickSubscribers: Record<string, (data: any) => void> = {};
 const candleSubscribers: Record<string, (data: any) => void> = {};
 const mockApiSubscribe = jest.fn((request: any) => ({
@@ -37,7 +38,10 @@ jest.mock('@/external/bot-skeleton', () => ({
     api_base: {
         is_authorized: true,
         account_info: { loginid: 'CR12345' },
-        api: { subscribe: (...args: unknown[]) => mockApiSubscribe(...args) },
+        api: {
+            subscribe: (...args: unknown[]) => mockApiSubscribe(...args),
+            send: (...args: unknown[]) => mockApiSend(...args),
+        },
     },
     observer: {
         emit: (...args: unknown[]) => mockEmit(...args),
@@ -87,6 +91,12 @@ describe('<AutoTrades />', () => {
         Object.keys(tickSubscribers).forEach(symbol => delete tickSubscribers[symbol]);
         Object.keys(candleSubscribers).forEach(symbol => delete candleSubscribers[symbol]);
         localStorage.clear();
+        mockApiSend.mockResolvedValue({
+            history: {
+                prices: Array.from({ length: 1000 }, (_, index) => 100 + index / 100),
+                times: Array.from({ length: 1000 }, (_, index) => 1700000000 + index),
+            },
+        });
         mockUseStore.mockReturnValue(createMockStore());
     });
 
@@ -138,6 +148,29 @@ describe('<AutoTrades />', () => {
         await waitFor(() => {
             expect(screen.getByText(/Only Downs \(3 ticks\)/i)).toBeInTheDocument();
             expect(screen.getByText(/rising ticks \+ bearish 5m candle/i)).toBeInTheDocument();
+        });
+    });
+
+    it('auto-loads the latest 1000 ticks for percentage mode on initialization', async () => {
+        localStorage.setItem('auto_trades_strategyMode', 'PERCENTAGE');
+
+        render(<AutoTrades />);
+
+        await waitFor(() => {
+            expect(mockApiSend).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    ticks_history: '1HZ10V',
+                    end: 'latest',
+                    count: 1000,
+                    style: 'ticks',
+                })
+            );
+        });
+
+        await waitFor(() => {
+            expect(screen.getAllByText('109.99').length).toBeGreaterThan(0);
+            expect(screen.getAllByText(/Signal needs/i).length).toBeGreaterThan(0);
+            expect(screen.getAllByText(/Window 1000\/1000 ticks/i).length).toBeGreaterThan(0);
         });
     });
 

@@ -40,6 +40,7 @@ const COOLDOWN_TICKS = 60;
 const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
 const PERCENTAGE_ANALYSIS_HISTORY_SIZE = 1000;
+const PERCENTAGE_BACKFILL_COUNT = PERCENTAGE_ANALYSIS_HISTORY_SIZE;
 const PERCENTAGE_MIN_SAMPLE_SIZE = 100;
 
 type StrategyMode = 'STANDARD' | 'INVERSE' | 'PERCENTAGE';
@@ -405,6 +406,10 @@ interface MarketState {
     digitPercentages: Record<number, number>;
     confidenceScore: number;
     momentumCount: number;
+    percentageQuoteHistory: number[];
+    percentageEpochHistory: number[];
+    percentageBackfilled: boolean;
+    percentageBackfillInFlight: boolean;
 }
 
 interface MarketDisplay extends MarketState {
@@ -433,7 +438,70 @@ const createMarketState = (prev?: Partial<MarketState>): MarketState => ({
     digitPercentages: {},
     confidenceScore: 0,
     momentumCount: 0,
+    percentageQuoteHistory: prev?.percentageQuoteHistory ?? [],
+    percentageEpochHistory: prev?.percentageEpochHistory ?? [],
+    percentageBackfilled: prev?.percentageBackfilled ?? false,
+    percentageBackfillInFlight: prev?.percentageBackfillInFlight ?? false,
 });
+
+const getDirectionSamplesFromQuotes = (quotes: number[]): Direction[] =>
+    quotes.slice(1).map((quote, index) => {
+        const previousQuote = quotes[index];
+        if (quote > previousQuote) return 1;
+        if (quote < previousQuote) return -1;
+        return 0;
+    });
+
+const rebuildPercentageAnalytics = (symbol: string, state: MarketState, trade_type: TradeType) => {
+    const pip = getMarketPipSize(symbol, AUTO_MARKET_LOOKUP.get(symbol)?.pip ?? 2);
+    const quoteHistory = state.percentageQuoteHistory.slice(-PERCENTAGE_ANALYSIS_HISTORY_SIZE);
+
+    state.percentageQuoteHistory = quoteHistory;
+    state.percentageEpochHistory = quoteHistory.length
+        ? state.percentageEpochHistory.slice(-quoteHistory.length)
+        : [];
+    state.digitHistory = quoteHistory.map(quote => getLastDigitFromQuote(quote, symbol, pip));
+    state.digitPercentages = calculateDigitPercentages(state.digitHistory);
+    state.directionSampleHistory = getDirectionSamplesFromQuotes(quoteHistory);
+
+    if (IS_DIRECTION_TYPE[trade_type]) {
+        const directionPercentages = calculateDirectionPercentages(state.directionSampleHistory);
+        state.confidenceScore = directionPercentages.confidence;
+        state.momentumCount = Math.round(
+            trade_type === 'CALL' || trade_type === 'RUNHIGH'
+                ? directionPercentages.risePercentage
+                : directionPercentages.fallPercentage
+        );
+    } else {
+        state.confidenceScore = calculateConfidence(state.digitPercentages);
+        state.momentumCount = 0;
+    }
+};
+
+const appendPercentageQuote = (
+    symbol: string,
+    state: MarketState,
+    quote: number,
+    epoch: number | null,
+    trade_type: TradeType
+) => {
+    if (!Number.isFinite(quote)) return;
+
+    const lastEpoch = state.percentageEpochHistory[state.percentageEpochHistory.length - 1];
+    if (epoch !== null && lastEpoch === epoch) {
+        state.percentageQuoteHistory[state.percentageQuoteHistory.length - 1] = quote;
+    } else {
+        state.percentageQuoteHistory.push(quote);
+        state.percentageEpochHistory.push(epoch ?? Date.now());
+    }
+
+    while (state.percentageQuoteHistory.length > PERCENTAGE_ANALYSIS_HISTORY_SIZE) {
+        state.percentageQuoteHistory.shift();
+        state.percentageEpochHistory.shift();
+    }
+
+    rebuildPercentageAnalytics(symbol, state, trade_type);
+};
 
 const AutoTrades = observer(() => {
     const { dashboard, client, run_panel, summary_card, transactions } = useStore();
@@ -559,6 +627,10 @@ const AutoTrades = observer(() => {
             digitPercentages: {},
             confidenceScore: 0,
             momentumCount: 0,
+            percentageQuoteHistory: [],
+            percentageEpochHistory: [],
+            percentageBackfilled: false,
+            percentageBackfillInFlight: false,
             currentStake: 1,
             cooldownLeft: 0,
         }))
@@ -702,6 +774,10 @@ const AutoTrades = observer(() => {
                 state.directionSampleHistory = [];
                 state.confidenceScore = 0;
                 state.momentumCount = 0;
+                state.percentageQuoteHistory = [];
+                state.percentageEpochHistory = [];
+                state.percentageBackfilled = false;
+                state.percentageBackfillInFlight = false;
             });
         }
         setTimeout(() => {
@@ -990,6 +1066,11 @@ const AutoTrades = observer(() => {
                 isRecoveringDataRef.current = false;
             }
 
+            if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
+                const epoch = Number(tick.epoch);
+                appendPercentageQuote(symbol, state, quote, Number.isFinite(epoch) ? epoch : null, ct);
+            }
+
             if (cooldownTicksRef.current > 0) {
                 cooldownTicksRef.current = Math.max(0, cooldownTicksRef.current - 1);
             }
@@ -1002,20 +1083,6 @@ const AutoTrades = observer(() => {
                 state.prevQuote = quote;
 
                 if (dir !== 0) {
-                    if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
-                        state.directionSampleHistory.push(dir);
-                        if (state.directionSampleHistory.length > PERCENTAGE_ANALYSIS_HISTORY_SIZE) {
-                            state.directionSampleHistory.shift();
-                        }
-                        const directionPercentages = calculateDirectionPercentages(state.directionSampleHistory);
-                        state.confidenceScore = directionPercentages.confidence;
-                        state.momentumCount = Math.round(
-                            ct === 'CALL' || ct === 'RUNHIGH'
-                                ? directionPercentages.risePercentage
-                                : directionPercentages.fallPercentage
-                        );
-                    }
-
                     const match = inverseModeRef.current ? isInverseDirectionMatch(ct, dir) : isDirectionMatch(ct, dir);
                     if (match) {
                         state.consecutive = Math.min(state.consecutive + 1, 10);
@@ -1027,17 +1094,6 @@ const AutoTrades = observer(() => {
                 const lastDigit = getLastDigitFromQuote(quote, symbol, pip);
                 state.lastDigits = [...state.lastDigits.slice(-9), lastDigit];
                 state.prevQuote = quote;
-
-                if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
-                    state.digitHistory.push(lastDigit);
-                    if (state.digitHistory.length > PERCENTAGE_ANALYSIS_HISTORY_SIZE) {
-                        state.digitHistory.shift();
-                    }
-                    if (state.digitHistory.length >= PERCENTAGE_MIN_SAMPLE_SIZE) {
-                        state.digitPercentages = calculateDigitPercentages(state.digitHistory);
-                        state.confidenceScore = calculateConfidence(state.digitPercentages);
-                    }
-                }
 
                 if (isPatternDigit(symbol, lastDigit, state.lastResult)) {
                     state.consecutive = Math.min(state.consecutive + 1, 10);
@@ -1115,6 +1171,68 @@ const AutoTrades = observer(() => {
     const show_auto_ref = useRef(show_auto);
     show_auto_ref.current = show_auto;
 
+    const backfillPercentageTicks = useCallback(
+        async (market: AutoMarket) => {
+            const state = marketStatesRef.current[market.symbol];
+            if (
+                !state ||
+                state.percentageBackfilled ||
+                state.percentageBackfillInFlight ||
+                strategyModeRef.current !== 'PERCENTAGE'
+            ) {
+                return;
+            }
+
+            state.percentageBackfillInFlight = true;
+
+            try {
+                const response = await (api_base.api as any).send({
+                    ticks_history: market.symbol,
+                    end: 'latest',
+                    count: PERCENTAGE_BACKFILL_COUNT,
+                    style: 'ticks',
+                });
+                const history = response?.history;
+                const prices = Array.isArray(history?.prices) ? history.prices : [];
+                const times = Array.isArray(history?.times) ? history.times : [];
+                const quotes: number[] = [];
+                const epochs: number[] = [];
+
+                prices.forEach((price: unknown, index: number) => {
+                    const quote = Number(price);
+                    if (!Number.isFinite(quote)) return;
+
+                    const epoch = Number(times[index]);
+                    quotes.push(quote);
+                    epochs.push(Number.isFinite(epoch) ? epoch : Date.now() + index);
+                });
+
+                state.percentageQuoteHistory = quotes.slice(-PERCENTAGE_ANALYSIS_HISTORY_SIZE);
+                state.percentageEpochHistory = epochs.slice(-state.percentageQuoteHistory.length);
+                state.percentageBackfilled = state.percentageQuoteHistory.length > 0;
+
+                if (state.percentageQuoteHistory.length > 0) {
+                    const latestQuote = state.percentageQuoteHistory[state.percentageQuoteHistory.length - 1];
+                    rebuildPercentageAnalytics(market.symbol, state, tradeTypeRef.current);
+                    state.lastQuote = latestQuote;
+                    state.prevQuote = latestQuote;
+                    state.lastDigits = state.digitHistory.slice(-10);
+                    state.directionHistory = state.directionSampleHistory.slice(-10);
+                }
+
+                refreshDisplays();
+            } catch (error) {
+                state.percentageBackfilled = false;
+                if (!isExpectedStreamInterruption(error)) {
+                    console.warn(`[AutoTrades] Percentage history backfill failed for ${market.symbol}:`, error);
+                }
+            } finally {
+                state.percentageBackfillInFlight = false;
+            }
+        },
+        [refreshDisplays]
+    );
+
     const startSubscriptions = useCallback(async () => {
         const subscriptionVersion = subscriptionVersionRef.current;
         const selectedSymbolSet = new Set(selectedMarketsRef.current.map(({ symbol }) => symbol));
@@ -1149,6 +1267,10 @@ const AutoTrades = observer(() => {
         lastTickAtRef.current = Date.now();
 
         for (const market of selectedMarketsRef.current) {
+            if (strategyModeRef.current === 'PERCENTAGE') {
+                backfillPercentageTicks(market);
+            }
+
             if (!subscriptionsRef.current[market.symbol]) {
                 try {
                     const obs = (api_base.api as any).subscribe({ ticks: market.symbol });
@@ -1236,7 +1358,7 @@ const AutoTrades = observer(() => {
             }
         }
         setIsConnected(Object.keys(subscriptionsRef.current).length > 0);
-    }, []);
+    }, [backfillPercentageTicks]);
 
     const stopSubscriptions = useCallback(() => {
         subscriptionVersionRef.current++;
@@ -1309,6 +1431,10 @@ const AutoTrades = observer(() => {
                 digitPercentages: prev?.digitPercentages ?? {},
                 confidenceScore: prev?.confidenceScore ?? 0,
                 momentumCount: prev?.momentumCount ?? 0,
+                percentageQuoteHistory: prev?.percentageQuoteHistory ?? [],
+                percentageEpochHistory: prev?.percentageEpochHistory ?? [],
+                percentageBackfilled: prev?.percentageBackfilled ?? false,
+                percentageBackfillInFlight: prev?.percentageBackfillInFlight ?? false,
             };
         });
         totalPnlRef.current = 0;
@@ -1412,7 +1538,12 @@ const AutoTrades = observer(() => {
             stopSubscriptions();
         }
         return undefined;
-    }, [show_auto, run_panel]);
+    }, [show_auto, run_panel, startSubscriptions, stopSubscriptions]);
+
+    useEffect(() => {
+        if (!show_auto || !api_base.api) return;
+        startSubscriptions();
+    }, [selectedMarketSymbols, show_auto, startSubscriptions, strategyMode]);
 
     const dataSilenceIntervalRef = useRef<number | null>(null);
 
@@ -1698,7 +1829,7 @@ const AutoTrades = observer(() => {
                                     </div>
                                     <p className='auto-trades-inverse__hint'>
                                         {strategyMode === 'PERCENTAGE'
-                                            ? 'Uses historical digit percentages for signal generation'
+                                            ? 'Auto-loads the latest 1,000 ticks and keeps a live rolling percentage window'
                                             : strategyMode === 'INVERSE'
                                             ? 'Detects opposite signals, executes contracts'
                                             : 'Detects standard signals, executes contracts'}
@@ -2007,6 +2138,13 @@ const AutoTrades = observer(() => {
                                                         );
                                                         const hasEnoughSamples =
                                                             snapshot.sampleSize >= PERCENTAGE_MIN_SAMPLE_SIZE;
+                                                        const rollingWindowLabel =
+                                                            m.percentageBackfillInFlight && snapshot.sampleSize === 0
+                                                                ? 'Loading 1,000 tick window'
+                                                                : `Window ${Math.min(
+                                                                      snapshot.sampleSize,
+                                                                      PERCENTAGE_ANALYSIS_HISTORY_SIZE
+                                                                  )}/${PERCENTAGE_ANALYSIS_HISTORY_SIZE} ticks`;
 
                                                         return (
                                                             <>
@@ -2027,6 +2165,8 @@ const AutoTrades = observer(() => {
                                                                         ? `Signal needs ${threshold.minPercentage}% / confidence ${threshold.confidence}%`
                                                                         : `Collecting ${snapshot.sampleSize}/${PERCENTAGE_MIN_SAMPLE_SIZE} samples`}
                                                                     {' · '}
+                                                                    {rollingWindowLabel}
+                                                                    {' Â· '}
                                                                     Confidence: {snapshot.confidence.toFixed(0)}%
                                                                 </div>
                                                             </>
