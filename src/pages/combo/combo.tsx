@@ -244,6 +244,7 @@ const Combo = observer(() => {
     const [liveSnapshot, setLiveSnapshot] = useState<Record<string, RowLive>>({});
 
     // Refs
+    const unmountedRef = useRef(false);
     const runningRef = useRef(false);
     const rowsRef = useRef<ComboRow[]>(rows);
     const rowLiveRef = useRef<Record<string, RowLive>>({});
@@ -810,6 +811,9 @@ const Combo = observer(() => {
 
     useEffect(
         () => () => {
+            unmountedRef.current = true;
+            // Invalidate all subscription callbacks by bumping version
+            subscriptionVersionRef.current++;
             stopTrading();
             try {
                 run_panel.setIsRunning(false);

@@ -854,8 +854,15 @@ const AutoTrades = observer(() => {
             const abortController = new AbortController();
             pollCancellationRef.current = abortController;
             const { signal } = abortController;
+            const maxRetries = 50; // max ~40 seconds of polling
+            let retryCount = 0;
             const check = async () => {
-                if (signal.aborted) {
+                if (signal.aborted || unmountedRef.current) {
+                    resolve({ profit: 0, is_sold: true });
+                    return;
+                }
+                if (retryCount >= maxRetries) {
+                    console.warn('[AutoTrades] Contract polling timeout after max retries');
                     resolve({ profit: 0, is_sold: true });
                     return;
                 }
@@ -864,12 +871,13 @@ const AutoTrades = observer(() => {
                         proposal_open_contract: 1,
                         contract_id: contractId,
                     });
-                    if (signal.aborted) {
+                    if (signal.aborted || unmountedRef.current) {
                         resolve({ profit: 0, is_sold: true });
                         return;
                     }
                     const c = resp?.proposal_open_contract;
                     if (!c) {
+                        retryCount++;
                         setTimeout(check, 800);
                         return;
                     }
@@ -879,8 +887,12 @@ const AutoTrades = observer(() => {
                     if (c.is_sold) {
                         emitContractSoldStatus(c);
                         resolve(c);
-                    } else setTimeout(check, 800);
-                } catch {
+                    } else {
+                        retryCount++;
+                        setTimeout(check, 800);
+                    }
+                } catch (err) {
+                    console.error('[AutoTrades] Contract poll error:', err);
                     resolve({ profit: 0, is_sold: true });
                 }
             };
@@ -1301,8 +1313,8 @@ const AutoTrades = observer(() => {
                     const sub = safeSubscribe(
                         obs,
                         (data: any) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
-                                return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current) return;
+                            if (!show_auto_ref.current || unmountedRef.current) return;
                             if (data?.error) {
                                 if (!isExpectedStreamInterruption(data.error)) {
                                     console.warn(`[AutoTrades] Tick stream error for ${market.symbol}:`, data.error);
@@ -1315,8 +1327,8 @@ const AutoTrades = observer(() => {
                             if (data?.tick?.quote !== undefined) handleTickRef.current(market.symbol, data.tick);
                         },
                         (streamError: unknown) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
-                                return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current) return;
+                            if (!show_auto_ref.current || unmountedRef.current) return;
                             if (!isExpectedStreamInterruption(streamError)) {
                                 console.warn(`[AutoTrades] Tick stream error for ${market.symbol}:`, streamError);
                             }
@@ -1346,8 +1358,8 @@ const AutoTrades = observer(() => {
                     const sub = safeSubscribe(
                         obs,
                         (data: any) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
-                                return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current) return;
+                            if (!show_auto_ref.current || unmountedRef.current) return;
                             if (data?.error) {
                                 if (!isExpectedStreamInterruption(data.error)) {
                                     console.warn(`[AutoTrades] Candle stream error for ${market.symbol}:`, data.error);
@@ -1363,8 +1375,8 @@ const AutoTrades = observer(() => {
                             if (candle) handleCandleRef.current(market.symbol, candle);
                         },
                         (streamError: unknown) => {
-                            if (subscriptionVersion !== subscriptionVersionRef.current || !show_auto_ref.current)
-                                return;
+                            if (subscriptionVersion !== subscriptionVersionRef.current) return;
+                            if (!show_auto_ref.current || unmountedRef.current) return;
                             if (!isExpectedStreamInterruption(streamError)) {
                                 console.warn(`[AutoTrades] Candle stream error for ${market.symbol}:`, streamError);
                             }
@@ -1435,31 +1447,8 @@ const AutoTrades = observer(() => {
         cooldownTicksRef.current = 0;
 
         selectedMarkets.forEach(m => {
-            const prev = marketStatesRef.current[m.symbol];
-            marketStatesRef.current[m.symbol] = {
-                consecutive: 0,
-                trading: false,
-                lastDigits: prev?.lastDigits ?? [],
-                directionHistory: prev?.directionHistory ?? [],
-                prevQuote: prev?.prevQuote ?? null,
-                candleDirection: prev?.candleDirection ?? 0,
-                candleOpen: prev?.candleOpen ?? null,
-                candleClose: prev?.candleClose ?? null,
-                directionSampleHistory: prev?.directionSampleHistory ?? [],
-                tradeCount: 0,
-                lastResult: null,
-                lastQuote: prev?.lastQuote ?? null,
-                tradeStartTime: null,
-                verificationId: null,
-                digitHistory: prev?.digitHistory ?? [],
-                digitPercentages: prev?.digitPercentages ?? {},
-                confidenceScore: prev?.confidenceScore ?? 0,
-                momentumCount: prev?.momentumCount ?? 0,
-                percentageQuoteHistory: prev?.percentageQuoteHistory ?? [],
-                percentageEpochHistory: prev?.percentageEpochHistory ?? [],
-                percentageBackfilled: prev?.percentageBackfilled ?? false,
-                percentageBackfillInFlight: prev?.percentageBackfillInFlight ?? false,
-            };
+            // Create fresh state — never carry old array references to prevent memory accumulation
+            marketStatesRef.current[m.symbol] = createMarketState();
         });
         totalPnlRef.current = 0;
         totalTradesRef.current = 0;
@@ -1577,15 +1566,19 @@ const AutoTrades = observer(() => {
             dataSilenceIntervalRef.current = null;
         }
 
-        if (!show_auto_ref.current) return undefined;
+        // Only run watchdog when tab is visible
+        if (!show_auto) return undefined;
 
         dataSilenceIntervalRef.current = window.setInterval(() => {
-            if (!show_auto_ref.current) return;
+            // Double-check visibility and unmount state before restarting
+            if (!show_auto_ref.current || unmountedRef.current) return;
             const has_selected_markets = selectedMarketsRef.current.length > 0;
             const silent_for = Date.now() - lastTickAtRef.current;
 
             if (has_selected_markets && silent_for > DATA_SILENCE_RESTART_MS) {
-                restartSubscriptions();
+                if (!restartInFlightRef.current) {
+                    restartSubscriptions();
+                }
             }
         }, 5000);
 
@@ -1595,7 +1588,7 @@ const AutoTrades = observer(() => {
                 dataSilenceIntervalRef.current = null;
             }
         };
-    }, [restartSubscriptions]);
+    }, [restartSubscriptions, show_auto]);
 
     useEffect(() => {
         if (!run_panel.is_running && runningRef.current && show_auto) {
@@ -1606,17 +1599,31 @@ const AutoTrades = observer(() => {
     useEffect(
         () => () => {
             unmountedRef.current = true;
+            // Abort any in-flight contract polling
             pollCancellationRef.current?.abort();
+            // Invalidate all subscription callbacks by bumping version
+            subscriptionVersionRef.current++;
             runningRef.current = false;
             stopTrading();
             try {
                 run_panel.setIsRunning(false);
+                run_panel.setHasOpenContract(false);
             } catch {
                 // Ignore optional run-panel stop failures.
             }
+            // Stop all WebSocket subscriptions
             stopSubscriptions();
+            // Free array memory to prevent heap growth across sessions
+            Object.values(marketStatesRef.current).forEach(state => {
+                state.digitHistory.length = 0;
+                state.directionHistory.length = 0;
+                state.percentageQuoteHistory.length = 0;
+                state.percentageEpochHistory.length = 0;
+                state.directionSampleHistory.length = 0;
+                state.lastDigits.length = 0;
+            });
         },
-        [run_panel]
+        [run_panel, stopTrading, stopSubscriptions]
     );
 
     if (!show_auto) return null;
