@@ -194,6 +194,9 @@
         "ws": "8.18.3",
         "content-type": "1.0.5",
         "@octokit/request": "10.0.8",
-        "framer-motion": "6.5.1"
+        "framer-motion": "6.5.1",
+        "hosted-git-info@9.0.3": {
+            "lru-cache": "11.5.0"
+        }
     }
 }
