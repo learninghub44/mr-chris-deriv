@@ -164,6 +164,8 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         aliases: ['www.riskmanagers.site'],
         clientId: '33cCr2bWsByPgLlormNFw',
         appId: '71937',
+        redirectUri: 'https://riskmanagers.site/',
+        includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -178,7 +180,9 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         aliases: ['www.termicafx.site'],
         clientId: '33h4ThjleZotVMiKQ1gE7',
         appId: '124217',
+        redirectUri: 'https://termicafx.site/',
         botsFolder: 'optimumtraders.site',
+        includeLegacyAppIdInOAuth: true,
         features: {
             botIdeas: false,
             scanner: false,
@@ -191,7 +195,9 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         aliases: ['www.optimumtraders.site'],
         clientId: '33iVPZJo7xEEzyUpjLqcX',
         appId: '116847',
+        redirectUri: 'https://optimumtraders.site/',
         botsFolder: 'optimumtraders.site',
+        includeLegacyAppIdInOAuth: true,
         features: {
             botIdeas: false,
             scanner: false,
@@ -206,8 +212,9 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         aliases: ['www.mrzetuzetu.site'],
         clientId: '33gJ6p5dXzASAIobgv9az',
         appId: '80364',
+        redirectUri: 'https://mrzetuzetu.site/',
         botsFolder: 'mrzetuzetu.site',
-        includeLegacyAppIdInOAuth: false,
+        includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -221,8 +228,9 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         aliases: ['www.masterhunter.site'],
         clientId: '33g5WCS5YOFHD3aWLZZjj',
         appId: '96223',
+        redirectUri: 'https://masterhunter.site/',
         botsFolder: 'masterhunter.site',
-        includeLegacyAppIdInOAuth: false,
+        includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -236,8 +244,9 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         aliases: ['www.tradinghubs.site'],
         clientId: '33hi7ev9NiDjWY640JuSw',
         appId: '122208',
+        redirectUri: 'https://tradinghubs.site/',
         botsFolder: 'tradinghubs.site',
-        includeLegacyAppIdInOAuth: false,
+        includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -251,8 +260,9 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         aliases: ['www.mafiahub.site'],
         clientId: '331bCUS8izRudblAnSACt',
         appId: '120589',
+        redirectUri: 'https://mafiahub.site/',
         botsFolder: 'mafiahub.site',
-        includeLegacyAppIdInOAuth: false,
+        includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
             comboTrades: true,

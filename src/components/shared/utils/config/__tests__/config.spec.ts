@@ -27,6 +27,10 @@ describe('DOMAIN_CONFIG', () => {
             comboTrades: true,
         });
         expect(getDomainConfigForHost('riskmanagers.site')?.ui.brandName).toBe('Risk Managers');
+        expect(getDomainConfigForHost('riskmanagers.site')).toMatchObject({
+            redirectUri: 'https://riskmanagers.site/',
+            includeLegacyAppIdInOAuth: true,
+        });
     });
 
     it.each([
@@ -40,7 +44,7 @@ describe('DOMAIN_CONFIG', () => {
             appId,
             redirectUri: `https://${domain}/`,
             botsFolder: domain,
-            includeLegacyAppIdInOAuth: false,
+            includeLegacyAppIdInOAuth: true,
             ui: {
                 brandName,
             },
@@ -54,7 +58,7 @@ describe('DOMAIN_CONFIG', () => {
             appId,
             redirectUri: `https://${domain}/`,
             botsFolder: domain,
-            includeLegacyAppIdInOAuth: false,
+            includeLegacyAppIdInOAuth: true,
             ui: {
                 brandName,
             },
