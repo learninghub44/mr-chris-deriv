@@ -194,24 +194,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
             printPopups: false,
         },
     }),
-    // ── optimumtraders.site (restricted tabs + dedicated best-bots folder) ──
-    ...createHostedDomainEntries({
-        primaryDomain: 'optimumtraders.site',
-        aliases: ['www.optimumtraders.site'],
-        clientId: '33iVPZJo7xEEzyUpjLqcX',
-        appId: '116847',
-        redirectUri: 'https://optimumtraders.site/',
-        botsFolder: 'optimumtraders.site',
-        includeLegacyAppIdInOAuth: true,
-        features: {
-            botIdeas: false,
-            scanner: false,
-            autoTrades: false,
-            comboTrades: false,
-            printPopups: false,
-        },
-    }),
-    // Dedicated branded domains with their own best-bots folders.
+    // Dedicated branded domains wired with the same OAuth2 flow as the working domains.
     ...createHostedDomainEntries({
         primaryDomain: 'mrzetuzetu.site',
         aliases: ['www.mrzetuzetu.site'],
@@ -220,7 +203,6 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         redirectUri: 'https://mrzetuzetu.site/',
         botsFolder: 'mrzetuzetu.site',
         includeLegacyAppIdInOAuth: true,
-        useLegacyOAuthLogin: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -237,7 +219,6 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         redirectUri: 'https://masterhunter.site/',
         botsFolder: 'masterhunter.site',
         includeLegacyAppIdInOAuth: true,
-        useLegacyOAuthLogin: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -254,7 +235,6 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         redirectUri: 'https://tradinghubs.site/',
         botsFolder: 'tradinghubs.site',
         includeLegacyAppIdInOAuth: true,
-        useLegacyOAuthLogin: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -271,7 +251,6 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         redirectUri: 'https://mafiahub.site/',
         botsFolder: 'mafiahub.site',
         includeLegacyAppIdInOAuth: true,
-        useLegacyOAuthLogin: true,
         features: {
             autoTrades: true,
             comboTrades: true,
@@ -280,23 +259,6 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
             brandName: 'Mafia Hub',
         },
     }),
-    // ── Netlify preview domain (uses same OAuth app; Deriv will redirect back
-    //    to riskmanagers.site after login) ────────────────────────────────────
-    // Netlify preview domain uses the Risk Managers OAuth app and bot folder.
-    'newwapi.netlify.app': {
-        clientId: '33cCr2bWsByPgLlormNFw',
-        appId: '71937',
-        redirectUri: 'https://riskmanagers.site/',
-        botsFolder: 'optimumtraders.site',
-        includeLegacyAppIdInOAuth: true,
-        useLegacyOAuthLogin: false,
-        features: {
-            ...DEFAULT_DOMAIN_FEATURES,
-            autoTrades: false,
-            comboTrades: false,
-        },
-        ui: DEFAULT_DOMAIN_UI,
-    },
 };
 
 export const getDomainConfigForHost = (hostname: string): DomainConfig | undefined => DOMAIN_CONFIG[hostname];

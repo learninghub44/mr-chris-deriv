@@ -14,4 +14,4 @@ services:
           - key: PORT
             value: 10000
           - key: CORS_ORIGIN
-            value: https://riskmanagers.site,https://www.riskmanagers.site,https://termicafx.site,https://www.termicafx.site,https://optimumtraders.site,https://www.optimumtraders.site,https://mrzetuzetu.site,https://www.mrzetuzetu.site,https://masterhunter.site,https://www.masterhunter.site,https://tradinghubs.site,https://www.tradinghubs.site,https://mafiahub.site,https://www.mafiahub.site,https://thenewui.netlify.app,https://newwapi.netlify.app,http://localhost:5000
+            value: https://riskmanagers.site,https://www.riskmanagers.site,https://termicafx.site,https://www.termicafx.site,https://mrzetuzetu.site,https://www.mrzetuzetu.site,https://masterhunter.site,https://www.masterhunter.site,https://tradinghubs.site,https://www.tradinghubs.site,https://mafiahub.site,https://www.mafiahub.site,http://localhost:5000

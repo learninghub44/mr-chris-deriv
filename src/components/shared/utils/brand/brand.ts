@@ -18,13 +18,10 @@ const isDomainAllowed = (domain_name: string) => {
     const custom_domains = [
         'riskmanagers.site',
         'termicafx.site',
-        'optimumtraders.site',
         'mrzetuzetu.site',
         'masterhunter.site',
         'tradinghubs.site',
         'mafiahub.site',
-        'thenewui.netlify.app',
-        'newwapi.netlify.app',
     ];
 
     const hostname = domain_name.split(':')[0].toLowerCase();

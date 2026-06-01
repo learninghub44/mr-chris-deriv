@@ -48,7 +48,7 @@ describe('DOMAIN_CONFIG', () => {
             redirectUri: `https://${domain}/`,
             botsFolder: domain,
             includeLegacyAppIdInOAuth: true,
-            useLegacyOAuthLogin: true,
+            useLegacyOAuthLogin: false,
             ui: {
                 brandName,
             },
@@ -63,7 +63,7 @@ describe('DOMAIN_CONFIG', () => {
             redirectUri: `https://${domain}/`,
             botsFolder: domain,
             includeLegacyAppIdInOAuth: true,
-            useLegacyOAuthLogin: true,
+            useLegacyOAuthLogin: false,
             ui: {
                 brandName,
             },
@@ -72,6 +72,12 @@ describe('DOMAIN_CONFIG', () => {
                 comboTrades: true,
             },
         });
+    });
+
+    it('removes old hosted domain entries that should no longer process login directly', () => {
+        expect(getDomainConfigForHost('optimumtraders.site')).toBeUndefined();
+        expect(getDomainConfigForHost('www.optimumtraders.site')).toBeUndefined();
+        expect(getDomainConfigForHost('newwapi.netlify.app')).toBeUndefined();
     });
 
     it('builds the Best Bots file URL from the configured bot folder', () => {
@@ -83,18 +89,38 @@ describe('DOMAIN_CONFIG', () => {
         ['masterhunter.site', '96223', '33g5WCS5YOFHD3aWLZZjj'],
         ['tradinghubs.site', '122208', '33hi7ev9NiDjWY640JuSw'],
         ['mafiahub.site', '120589', '331bCUS8izRudblAnSACt'],
-    ])('uses legacy OAuth app_id login for %s while OAuth2 client setup is unavailable', async (host, appId) => {
+    ])('uses the working OAuth2 PKCE login wiring for %s', async (host, appId, clientId) => {
+        const originalAppEnv = process.env.APP_ENV;
+        const cryptoMock = {
+            getRandomValues: (array: Uint8Array) => array.fill(1),
+            subtle: {
+                digest: jest.fn().mockResolvedValue(new Uint8Array(32).fill(2).buffer),
+            },
+        };
         const domainConfig = getDomainConfigForHost(host);
 
+        Object.defineProperty(globalThis, 'crypto', {
+            configurable: true,
+            value: cryptoMock,
+        });
+        Object.defineProperty(globalThis, 'TextEncoder', {
+            configurable: true,
+            value: TextEncoder,
+        });
+        process.env.APP_ENV = 'production';
         expect(domainConfig).toBeDefined();
 
         const oauthUrl = await generateOAuthURL(undefined, domainConfig!);
         const url = new URL(oauthUrl);
 
-        expect(url.origin + url.pathname).toBe('https://oauth.deriv.com/oauth2/authorize');
+        expect(url.origin + url.pathname).toBe('https://auth.deriv.com/oauth2/auth');
+        expect(url.searchParams.get('client_id')).toBe(clientId);
         expect(url.searchParams.get('app_id')).toBe(appId);
-        expect(url.searchParams.has('client_id')).toBe(false);
-        expect(url.searchParams.has('redirect_uri')).toBe(false);
+        expect(url.searchParams.get('redirect_uri')).toBe(`https://${host}/`);
+        expect(url.searchParams.get('response_type')).toBe('code');
+        expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+
+        process.env.APP_ENV = originalAppEnv;
     });
 
     it('keeps Risk Managers on OAuth2 with both client_id and legacy app_id routing', async () => {
