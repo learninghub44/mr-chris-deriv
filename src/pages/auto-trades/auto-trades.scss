@@ -724,6 +724,11 @@ $at-text-faint:    #2c4060;
         &::placeholder {
             color: $at-text-muted;
         }
+
+        &:disabled {
+            opacity: 0.68;
+            cursor: wait;
+        }
     }
 
     &__result {
@@ -739,6 +744,26 @@ $at-text-faint:    #2c4060;
             margin: 0;
             padding-left: 1.6rem;
         }
+    }
+
+    &__source {
+        color: $at-text;
+        font-weight: 700;
+        margin-bottom: 0.8rem;
+    }
+
+    &__unsupported,
+    &__custom {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(139, 87, 200, 0.18);
+    }
+
+    &__unsupported strong,
+    &__custom strong {
+        display: block;
+        color: $at-text;
+        margin-bottom: 0.6rem;
     }
 
     &__warning {
@@ -772,6 +797,13 @@ $at-text-faint:    #2c4060;
         background: $at-bg-card-2;
         color: $at-text-dim;
         border: 1px solid $at-border;
+    }
+
+    &__primary:disabled,
+    &__secondary:disabled,
+    &__close:disabled {
+        opacity: 0.56;
+        cursor: wait;
     }
 }
 

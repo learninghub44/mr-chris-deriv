@@ -7,6 +7,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { api_base, observer as globalObserver } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
+import { API_BASE } from '@/utils/api-base';
 import { getLastDigitFromQuote, getMarketPipSize, isExpectedStreamInterruption } from '@/utils/market-data';
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
@@ -37,24 +38,36 @@ const AUTO_MARKET_SYMBOLS = AUTO_MARKETS.map(({ symbol }) => symbol);
 const AUTO_MARKET_LOOKUP = new Map(AUTO_MARKETS.map(market => [market.symbol, market]));
 
 type AiAutoTradeSettings = {
-    tradeType?: TradeType;
-    barrier?: string;
-    predictionBeforeLoss?: string;
-    predictionAfterLoss?: string;
-    analysisTicks?: string;
+    tradeType?: TradeType | null;
+    barrier?: string | null;
+    predictionBeforeLoss?: string | null;
+    predictionAfterLoss?: string | null;
+    analysisTicks?: string | null;
     selectedMarketSymbols?: string[];
-    stake?: string;
-    martingale?: string;
-    takeProfit?: string;
-    stopLoss?: string;
-    streak?: string;
-    strategyMode?: StrategyMode;
+    stake?: string | null;
+    martingale?: string | null;
+    takeProfit?: string | null;
+    stopLoss?: string | null;
+    streak?: string | null;
+    strategyMode?: StrategyMode | null;
+};
+
+type AiCustomStrategy = {
+    intent?: string;
+    entryRules?: string[];
+    exitRules?: string[];
+    riskRules?: string[];
+    notes?: string[];
 };
 
 type AiAutoTradeParseResult = {
     settings: AiAutoTradeSettings;
     summary: string[];
     warnings: string[];
+    unsupportedCapabilities?: string[];
+    customStrategy?: AiCustomStrategy;
+    confidence?: number;
+    source?: 'openai' | 'local';
 };
 
 const COOLDOWN_TICKS = 60;
@@ -266,6 +279,94 @@ const getAiMarketSymbols = (text: string) => {
     return [...symbols];
 };
 
+const isAiTradeType = (value: unknown): value is TradeType =>
+    typeof value === 'string' && Object.prototype.hasOwnProperty.call(TRADE_TYPE_LABELS, value);
+
+const isAiStrategyMode = (value: unknown): value is StrategyMode =>
+    value === 'STANDARD' || value === 'INVERSE' || value === 'PERCENTAGE';
+
+const getAiDigitString = (value: unknown) => {
+    const digit = Number(value);
+    return Number.isInteger(digit) && digit >= 0 && digit <= 9 ? String(digit) : undefined;
+};
+
+const getAiBoundedIntString = (value: unknown, min: number, max: number) => {
+    const numeric = Number(value);
+    return Number.isInteger(numeric) && numeric >= min && numeric <= max ? String(numeric) : undefined;
+};
+
+const getAiPositiveNumberString = (value: unknown) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric > 0 ? String(value) : undefined;
+};
+
+export const normalizeAiAutoTradePlan = (plan: Partial<AiAutoTradeParseResult>): AiAutoTradeParseResult => {
+    const settings = plan.settings || {};
+    const normalizedSettings: AiAutoTradeSettings = {};
+
+    if (isAiTradeType(settings.tradeType)) normalizedSettings.tradeType = settings.tradeType;
+    if (isAiStrategyMode(settings.strategyMode)) normalizedSettings.strategyMode = settings.strategyMode;
+
+    const barrier = getAiDigitString(settings.barrier);
+    if (barrier !== undefined) normalizedSettings.barrier = barrier;
+
+    const predictionBeforeLoss = getAiDigitString(settings.predictionBeforeLoss);
+    if (predictionBeforeLoss !== undefined) normalizedSettings.predictionBeforeLoss = predictionBeforeLoss;
+
+    const predictionAfterLoss = getAiDigitString(settings.predictionAfterLoss);
+    if (predictionAfterLoss !== undefined) normalizedSettings.predictionAfterLoss = predictionAfterLoss;
+
+    const analysisTicks = getAiBoundedIntString(settings.analysisTicks, 1, 10);
+    if (analysisTicks !== undefined) normalizedSettings.analysisTicks = analysisTicks;
+
+    const streak = getAiBoundedIntString(settings.streak, 2, 10);
+    if (streak !== undefined) normalizedSettings.streak = streak;
+
+    if (Array.isArray(settings.selectedMarketSymbols)) {
+        normalizedSettings.selectedMarketSymbols = [
+            ...new Set(settings.selectedMarketSymbols.filter(symbol => AUTO_MARKET_LOOKUP.has(symbol))),
+        ];
+    }
+
+    const stake = getAiPositiveNumberString(settings.stake);
+    if (stake !== undefined) normalizedSettings.stake = stake;
+
+    const martingale = getAiPositiveNumberString(settings.martingale);
+    if (martingale !== undefined) normalizedSettings.martingale = martingale;
+
+    const takeProfit = getAiPositiveNumberString(settings.takeProfit);
+    if (takeProfit !== undefined) normalizedSettings.takeProfit = takeProfit;
+
+    const stopLoss = getAiPositiveNumberString(settings.stopLoss);
+    if (stopLoss !== undefined) normalizedSettings.stopLoss = stopLoss;
+
+    return {
+        settings: normalizedSettings,
+        summary: Array.isArray(plan.summary) ? plan.summary.filter(item => typeof item === 'string') : [],
+        warnings: Array.isArray(plan.warnings) ? plan.warnings.filter(item => typeof item === 'string') : [],
+        unsupportedCapabilities: Array.isArray(plan.unsupportedCapabilities)
+            ? plan.unsupportedCapabilities.filter(item => typeof item === 'string')
+            : [],
+        customStrategy: {
+            intent: typeof plan.customStrategy?.intent === 'string' ? plan.customStrategy.intent : undefined,
+            entryRules: Array.isArray(plan.customStrategy?.entryRules)
+                ? plan.customStrategy.entryRules.filter(item => typeof item === 'string')
+                : [],
+            exitRules: Array.isArray(plan.customStrategy?.exitRules)
+                ? plan.customStrategy.exitRules.filter(item => typeof item === 'string')
+                : [],
+            riskRules: Array.isArray(plan.customStrategy?.riskRules)
+                ? plan.customStrategy.riskRules.filter(item => typeof item === 'string')
+                : [],
+            notes: Array.isArray(plan.customStrategy?.notes)
+                ? plan.customStrategy.notes.filter(item => typeof item === 'string')
+                : [],
+        },
+        confidence: Number.isFinite(Number(plan.confidence)) ? Number(plan.confidence) : undefined,
+        source: plan.source,
+    };
+};
+
 export const parseAiAutoTradeStrategy = (rawText: string): AiAutoTradeParseResult => {
     const text = rawText.toLowerCase().replace(/\s+/g, ' ').trim();
     const settings: AiAutoTradeSettings = {};
@@ -273,7 +374,7 @@ export const parseAiAutoTradeStrategy = (rawText: string): AiAutoTradeParseResul
     const warnings: string[] = [];
 
     if (!text) {
-        return { settings, summary, warnings: ['Enter a strategy before applying settings.'] };
+        return { settings, summary, warnings: ['Enter a strategy before applying settings.'], source: 'local' };
     }
 
     const afterLossMatch = text.match(
@@ -369,7 +470,7 @@ export const parseAiAutoTradeStrategy = (rawText: string): AiAutoTradeParseResul
         warnings.push('I could not identify a contract type or market from that text.');
     }
 
-    return { settings, summary, warnings };
+    return { settings, summary, warnings, source: 'local' };
 };
 
 export const getPredictionForLastOutcome = ({
@@ -795,6 +896,7 @@ const AutoTrades = observer(() => {
     const [showAiStrategy, setShowAiStrategy] = useState(false);
     const [aiStrategyText, setAiStrategyText] = useState('');
     const [aiStrategyResult, setAiStrategyResult] = useState<AiAutoTradeParseResult | null>(null);
+    const [aiStrategyLoading, setAiStrategyLoading] = useState(false);
     const [currentStakeDisplay, setCurrentStakeDisplay] = useState(1);
     const [cooldownDisplay, setCooldownDisplay] = useState(0);
 
@@ -1056,29 +1158,67 @@ const AutoTrades = observer(() => {
         if (!runningRef.current) setSelectedMarketSymbols([]);
     }, []);
 
-    const applyAiStrategy = useCallback(() => {
-        const result = parseAiAutoTradeStrategy(aiStrategyText);
-        setAiStrategyResult(result);
-
-        if (result.warnings.length > 0 && result.summary.length === 0) return;
-
+    const applyAiSettings = useCallback((result: AiAutoTradeParseResult) => {
         const { settings } = result;
 
         if (settings.tradeType) {
             setTradeType(settings.tradeType);
             setBarrier(settings.barrier ?? DEFAULT_BARRIER[settings.tradeType]);
         }
-        if (settings.predictionBeforeLoss !== undefined) setPredictionBeforeLoss(settings.predictionBeforeLoss);
-        if (settings.predictionAfterLoss !== undefined) setPredictionAfterLoss(settings.predictionAfterLoss);
-        if (settings.analysisTicks !== undefined) setAnalysisTicks(settings.analysisTicks);
+        if (settings.predictionBeforeLoss != null) setPredictionBeforeLoss(settings.predictionBeforeLoss);
+        if (settings.predictionAfterLoss != null) setPredictionAfterLoss(settings.predictionAfterLoss);
+        if (settings.analysisTicks != null) setAnalysisTicks(settings.analysisTicks);
         if (settings.selectedMarketSymbols?.length) setSelectedMarketSymbols(settings.selectedMarketSymbols);
-        if (settings.stake !== undefined) setStake(settings.stake);
-        if (settings.martingale !== undefined) setMartingale(settings.martingale);
-        if (settings.takeProfit !== undefined) setTakeProfit(settings.takeProfit);
-        if (settings.stopLoss !== undefined) setStopLoss(settings.stopLoss);
-        if (settings.streak !== undefined) setStreak(settings.streak);
-        if (settings.strategyMode !== undefined) setStrategyMode(settings.strategyMode);
-    }, [aiStrategyText]);
+        if (settings.stake != null) setStake(settings.stake);
+        if (settings.martingale != null) setMartingale(settings.martingale);
+        if (settings.takeProfit != null) setTakeProfit(settings.takeProfit);
+        if (settings.stopLoss != null) setStopLoss(settings.stopLoss);
+        if (settings.streak != null) setStreak(settings.streak);
+        if (settings.strategyMode != null) setStrategyMode(settings.strategyMode);
+    }, []);
+
+    const applyAiStrategy = useCallback(async () => {
+        const localResult = parseAiAutoTradeStrategy(aiStrategyText);
+
+        if (!aiStrategyText.trim()) {
+            setAiStrategyResult(localResult);
+            return;
+        }
+
+        setAiStrategyLoading(true);
+
+        try {
+            const response = await fetch(`${API_BASE}/ai/auto-trade-strategy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ strategyText: aiStrategyText }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => null);
+                throw new Error(error?.error || 'AI strategy service is unavailable.');
+            }
+
+            const aiResult = normalizeAiAutoTradePlan({ ...(await response.json()), source: 'openai' });
+            setAiStrategyResult(aiResult);
+            if (aiResult.warnings.length === 0 || aiResult.summary.length > 0) applyAiSettings(aiResult);
+        } catch (error) {
+            const fallback = normalizeAiAutoTradePlan({
+                ...localResult,
+                warnings: [
+                    ...localResult.warnings,
+                    error instanceof Error
+                        ? `OpenAI unavailable, applied local understanding instead: ${error.message}`
+                        : 'OpenAI unavailable, applied local understanding instead.',
+                ],
+                source: 'local',
+            });
+            setAiStrategyResult(fallback);
+            if (fallback.warnings.length === 0 || fallback.summary.length > 0) applyAiSettings(fallback);
+        } finally {
+            setAiStrategyLoading(false);
+        }
+    }, [aiStrategyText, applyAiSettings]);
 
     const pushContract = useCallback(
         (data: any) => {
@@ -2699,13 +2839,19 @@ const AutoTrades = observer(() => {
                                 <span className='auto-trades-controls__ai-text'>AI</span>
                                 <span className='auto-trades-controls__ai-dot' />
                             </div>
-                            <h3 className='auto-trades-ai-modal__title'>Ai Strategy</h3>
-                            <button className='auto-trades-ai-modal__close' onClick={() => setShowAiStrategy(false)}>
+                            <h3 className='auto-trades-ai-modal__title'>AI Strategy</h3>
+                            <button
+                                className='auto-trades-ai-modal__close'
+                                onClick={() => setShowAiStrategy(false)}
+                                disabled={aiStrategyLoading}
+                                type='button'
+                            >
                                 x
                             </button>
                         </div>
                         <textarea
                             className='auto-trades-ai-modal__textarea'
+                            disabled={aiStrategyLoading}
                             value={aiStrategyText}
                             onChange={e => {
                                 setAiStrategyText(e.target.value);
@@ -2715,6 +2861,12 @@ const AutoTrades = observer(() => {
                         />
                         {aiStrategyResult && (
                             <div className='auto-trades-ai-modal__result'>
+                                <div className='auto-trades-ai-modal__source'>
+                                    {aiStrategyResult.source === 'openai' ? 'OpenAI reasoning' : 'Local fallback'}
+                                    {typeof aiStrategyResult.confidence === 'number'
+                                        ? ` - ${Math.round(aiStrategyResult.confidence * 100)}% confidence`
+                                        : ''}
+                                </div>
                                 {aiStrategyResult.summary.length > 0 && (
                                     <ul>
                                         {aiStrategyResult.summary.map(item => (
@@ -2722,6 +2874,34 @@ const AutoTrades = observer(() => {
                                         ))}
                                     </ul>
                                 )}
+                                {aiStrategyResult.unsupportedCapabilities &&
+                                    aiStrategyResult.unsupportedCapabilities.length > 0 && (
+                                        <div className='auto-trades-ai-modal__unsupported'>
+                                            <strong>Needs new bot logic</strong>
+                                            <ul>
+                                                {aiStrategyResult.unsupportedCapabilities.map(item => (
+                                                    <li key={item}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                {aiStrategyResult.customStrategy?.entryRules &&
+                                    aiStrategyResult.customStrategy.entryRules.length > 0 && (
+                                        <div className='auto-trades-ai-modal__custom'>
+                                            <strong>Understood strategy rules</strong>
+                                            <ul>
+                                                {aiStrategyResult.customStrategy.entryRules.map(item => (
+                                                    <li key={item}>{item}</li>
+                                                ))}
+                                                {aiStrategyResult.customStrategy.exitRules?.map(item => (
+                                                    <li key={item}>{item}</li>
+                                                ))}
+                                                {aiStrategyResult.customStrategy.riskRules?.map(item => (
+                                                    <li key={item}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                 {aiStrategyResult.warnings.map(item => (
                                     <p key={item} className='auto-trades-ai-modal__warning'>
                                         {item}
@@ -2733,12 +2913,18 @@ const AutoTrades = observer(() => {
                             <button
                                 className='auto-trades-ai-modal__secondary'
                                 onClick={() => setShowAiStrategy(false)}
+                                disabled={aiStrategyLoading}
                                 type='button'
                             >
                                 Cancel
                             </button>
-                            <button className='auto-trades-ai-modal__primary' onClick={applyAiStrategy} type='button'>
-                                Apply Settings
+                            <button
+                                className='auto-trades-ai-modal__primary'
+                                onClick={applyAiStrategy}
+                                disabled={aiStrategyLoading}
+                                type='button'
+                            >
+                                {aiStrategyLoading ? 'Thinking...' : 'Apply Settings'}
                             </button>
                         </div>
                     </div>

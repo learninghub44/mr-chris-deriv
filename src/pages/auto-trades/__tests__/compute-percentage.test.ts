@@ -3,6 +3,7 @@ import {
     getPercentageSnapshot,
     getPredictionForLastOutcome,
     isPercentageSignalReady,
+    normalizeAiAutoTradePlan,
     parseAiAutoTradeStrategy,
 } from '../auto-trades';
 
@@ -180,5 +181,34 @@ describe('parseAiAutoTradeStrategy', () => {
             takeProfit: '20',
             stopLoss: '10',
         });
+    });
+
+    it('normalizes OpenAI strategy plans before applying settings', () => {
+        const result = normalizeAiAutoTradePlan({
+            settings: {
+                tradeType: 'DIGITOVER',
+                predictionBeforeLoss: '1',
+                predictionAfterLoss: '99',
+                analysisTicks: '3',
+                selectedMarketSymbols: ['R_25', 'BOOM500'],
+                stake: '2',
+                strategyMode: 'PERCENTAGE',
+            },
+            summary: ['Use over 1'],
+            warnings: [],
+            unsupportedCapabilities: ['BOOM500 market is not supported by Auto Trades.'],
+            source: 'openai',
+        });
+
+        expect(result.settings).toMatchObject({
+            tradeType: 'DIGITOVER',
+            predictionBeforeLoss: '1',
+            analysisTicks: '3',
+            selectedMarketSymbols: ['R_25'],
+            stake: '2',
+            strategyMode: 'PERCENTAGE',
+        });
+        expect(result.settings.predictionAfterLoss).toBeUndefined();
+        expect(result.unsupportedCapabilities).toEqual(['BOOM500 market is not supported by Auto Trades.']);
     });
 });
