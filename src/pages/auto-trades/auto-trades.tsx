@@ -177,7 +177,12 @@ const isInverseDirectionMatch = (trade_type: TradeType, direction: Direction) =>
     return false;
 };
 
-const isInverseRunCandleMatch = (trade_type: TradeType, candle_direction: Direction) => {
+const isCandleConfirmedTradeType = (trade_type: TradeType) =>
+    trade_type === 'CALL' || trade_type === 'PUT' || trade_type === 'RUNHIGH' || trade_type === 'RUNLOW';
+
+const isInverseCandleMatch = (trade_type: TradeType, candle_direction: Direction) => {
+    if (trade_type === 'CALL') return candle_direction === 1;
+    if (trade_type === 'PUT') return candle_direction === -1;
     if (trade_type === 'RUNHIGH') return candle_direction === -1;
     if (trade_type === 'RUNLOW') return candle_direction === 1;
     return true;
@@ -225,7 +230,9 @@ const isDirectionMatch = (trade_type: TradeType, direction: Direction) => {
     return false;
 };
 
-const isRunCandleMatch = (trade_type: TradeType, candle_direction: Direction) => {
+const isCandleMatch = (trade_type: TradeType, candle_direction: Direction) => {
+    if (trade_type === 'CALL') return candle_direction === 1;
+    if (trade_type === 'PUT') return candle_direction === -1;
     if (trade_type === 'RUNHIGH') return candle_direction === 1;
     if (trade_type === 'RUNLOW') return candle_direction === -1;
     return true;
@@ -238,15 +245,15 @@ const getCandleDirectionLabel = (direction: Direction) => {
 };
 
 const getDirectionCondition = (trade_type: TradeType, target_len: number) => {
-    if (trade_type === 'CALL') return `consecutive falling ticks ≥ ${target_len}`;
-    if (trade_type === 'PUT') return `consecutive rising ticks ≥ ${target_len}`;
+    if (trade_type === 'CALL') return `5m candle bullish + consecutive falling ticks ≥ ${target_len}`;
+    if (trade_type === 'PUT') return `5m candle bearish + consecutive rising ticks ≥ ${target_len}`;
     if (trade_type === 'RUNHIGH') return `5m candle bullish + consecutive falling ticks ≥ ${target_len}`;
     return `5m candle bearish + consecutive rising ticks ≥ ${target_len}`;
 };
 
 const getDirectionStreakLabel = (trade_type: TradeType) => {
-    if (trade_type === 'CALL') return 'falling ticks';
-    if (trade_type === 'PUT') return 'rising ticks';
+    if (trade_type === 'CALL') return 'falling ticks + bullish 5m candle';
+    if (trade_type === 'PUT') return 'rising ticks + bearish 5m candle';
     if (trade_type === 'RUNHIGH') return 'falling ticks + bullish 5m candle';
     return 'rising ticks + bearish 5m candle';
 };
@@ -671,6 +678,7 @@ const AutoTrades = observer(() => {
     const nextStakeRef = useRef(1);
     const consecutiveLossRef = useRef(0);
     const cooldownTicksRef = useRef(0);
+    const previousContractResultRef = useRef<'win' | 'loss' | null>(null);
     const lastTickAtRef = useRef(0);
     const restartInFlightRef = useRef(false);
     const subscriptionVersionRef = useRef(0);
@@ -1021,10 +1029,7 @@ const AutoTrades = observer(() => {
                 });
 
                 const contract = await pollContractResult(contract_id);
-                const resultTime = Math.floor(Date.now() / 1000);
-                const isValidResult = resultTime > tradeStartTime;
-                const profit = isValidResult ? Number(contract.profit ?? 0) : 0;
-                return profit;
+                return Number(contract.profit ?? 0);
             } catch (err) {
                 console.error('[AutoTrades] executeTrade exception:', err);
                 setError(err instanceof Error ? err.message : 'Auto Trades could not purchase this contract.');
@@ -1060,6 +1065,7 @@ const AutoTrades = observer(() => {
             }
 
             state.lastResult = isLoss ? 'loss' : 'win';
+            previousContractResultRef.current = state.lastResult;
             state.tradeCount++;
             state.trading = false;
             globalTradingRef.current = false;
@@ -1079,8 +1085,9 @@ const AutoTrades = observer(() => {
     );
 
     const isPatternDigit = useCallback(
-        (symbol: string, digit: number, lastResult: 'win' | 'loss' | null): boolean => {
+        (symbol: string, digit: number): boolean => {
             const ct = tradeTypeRef.current;
+            const lastResult = previousContractResultRef.current;
 
             if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
                 const state = marketStatesRef.current[symbol];
@@ -1128,7 +1135,9 @@ const AutoTrades = observer(() => {
                     return;
                 }
 
-                executeTrade(symbol, stakeNow, state.lastResult).then(profit => handleAfterTrade(symbol, profit));
+                executeTrade(symbol, stakeNow, previousContractResultRef.current).then(profit =>
+                    handleAfterTrade(symbol, profit)
+                );
             }
         },
         [executeTrade, handleAfterTrade, refreshDisplays]
@@ -1151,9 +1160,11 @@ const AutoTrades = observer(() => {
 
             const ct = tradeTypeRef.current;
             const signalReady =
-                isRunTradeType(ct) &&
+                isCandleConfirmedTradeType(ct) &&
                 state.consecutive >= streakRef.current &&
-                isRunCandleMatch(ct, state.candleDirection);
+                (inverseModeRef.current
+                    ? isInverseCandleMatch(ct, state.candleDirection)
+                    : isCandleMatch(ct, state.candleDirection));
             tryExecuteSignal(symbol, state, signalReady);
 
             refreshDisplays();
@@ -1210,7 +1221,7 @@ const AutoTrades = observer(() => {
                 state.lastDigits = [...state.lastDigits.slice(-9), lastDigit];
                 state.prevQuote = quote;
 
-                if (isPatternDigit(symbol, lastDigit, state.lastResult)) {
+                if (isPatternDigit(symbol, lastDigit)) {
                     state.consecutive = Math.min(state.consecutive + 1, 10);
                 } else {
                     state.consecutive = 0;
@@ -1218,17 +1229,19 @@ const AutoTrades = observer(() => {
             }
 
             const candleMatch = inverseModeRef.current
-                ? isInverseRunCandleMatch(ct, state.candleDirection)
-                : isRunCandleMatch(ct, state.candleDirection);
+                ? isInverseCandleMatch(ct, state.candleDirection)
+                : isCandleMatch(ct, state.candleDirection);
+            const requiresCandle = isCandleConfirmedTradeType(ct);
+            const lastPredictionResult = previousContractResultRef.current;
             const signalReady =
                 strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current
-                    ? isPercentageSignalReady(ct, state, getActiveDigitBarrier(ct, state.lastResult)) &&
-                      (!isRunTradeType(ct) || candleMatch)
-                    : state.consecutive >= targetLen && (!isRunTradeType(ct) || candleMatch);
+                    ? isPercentageSignalReady(ct, state, getActiveDigitBarrier(ct, lastPredictionResult)) &&
+                      (!requiresCandle || candleMatch)
+                    : state.consecutive >= targetLen && (!requiresCandle || candleMatch);
 
             if (runningRef.current) {
                 const ct = tradeTypeRef.current;
-                const bar = getActiveDigitBarrier(ct, state.lastResult);
+                const bar = getActiveDigitBarrier(ct, lastPredictionResult);
                 const mkt = AUTO_MARKET_LOOKUP.get(symbol);
                 const inv = inverseModeRef.current;
                 let condStr = '';
@@ -1237,8 +1250,9 @@ const AutoTrades = observer(() => {
                     const dirs = state.directionHistory.slice(-targetLen);
                     digitsStr = `[${dirs.map(d => (d === 1 ? '↑' : d === -1 ? '↓' : '—')).join(', ')}]`;
                     if (inv) {
-                        if (ct === 'CALL') condStr = `consecutive rising ticks ≥ ${targetLen}`;
-                        else if (ct === 'PUT') condStr = `consecutive falling ticks ≥ ${targetLen}`;
+                        if (ct === 'CALL') condStr = `5m candle bullish + consecutive rising ticks ≥ ${targetLen}`;
+                        else if (ct === 'PUT')
+                            condStr = `5m candle bearish + consecutive falling ticks ≥ ${targetLen}`;
                         else if (ct === 'RUNHIGH')
                             condStr = `5m candle bearish + consecutive rising ticks ≥ ${targetLen}`;
                         else condStr = `5m candle bullish + consecutive falling ticks ≥ ${targetLen}`;
@@ -1531,6 +1545,7 @@ const AutoTrades = observer(() => {
         const baseStake = configRef.current.stake;
         nextStakeRef.current = baseStake;
         globalTradingRef.current = false;
+        previousContractResultRef.current = null;
         consecutiveLossRef.current = 0;
         cooldownTicksRef.current = 0;
 
@@ -1725,7 +1740,8 @@ const AutoTrades = observer(() => {
     const inCooldown = cooldownDisplay > 0;
     const streakNum = Math.min(10, Math.max(2, Number(streak) || 4));
     const isDirection = IS_DIRECTION_TYPE[tradeType];
-    const activeBarrier = getActiveDigitBarrier(tradeType, null);
+    const previousContractResult = previousContractResultRef.current;
+    const activeBarrier = getActiveDigitBarrier(tradeType, previousContractResult);
 
     const subtitleTxt = (() => {
         const inv = inverseModeRef.current;
@@ -1735,9 +1751,9 @@ const AutoTrades = observer(() => {
         if (tradeType === 'DIGITUNDER')
             return `Streak: ${streakNum}+ digits ${inv ? '<' : '≥'} ${activeBarrier} → ${label}`;
         if (tradeType === 'CALL')
-            return `Streak: ${streakNum}+ consecutive ${inv ? 'Rising' : 'Falling'} ticks → ${label}`;
+            return `5m bullish candle + ${streakNum}+ consecutive ${inv ? 'rising' : 'falling'} ticks → ${label} (${analysisTicks} ticks)`;
         if (tradeType === 'PUT')
-            return `Streak: ${streakNum}+ consecutive ${inv ? 'Falling' : 'Rising'} ticks → ${label}`;
+            return `5m bearish candle + ${streakNum}+ consecutive ${inv ? 'falling' : 'rising'} ticks → ${label} (${analysisTicks} ticks)`;
         if (tradeType === 'RUNHIGH')
             return `${inv ? '5m bearish' : '5m bullish'} candle + ${streakNum}+ ${inv ? 'rising' : 'falling'} ticks → ${label} (${analysisTicks} ticks)`;
         if (tradeType === 'RUNLOW')
@@ -2137,7 +2153,10 @@ const AutoTrades = observer(() => {
                                 {marketDisplays.map(m => {
                                     const dots = Math.min(m.consecutive, streakNum);
                                     const candleReady =
-                                        !isRunTradeType(tradeType) || isRunCandleMatch(tradeType, m.candleDirection);
+                                        !isCandleConfirmedTradeType(tradeType) ||
+                                        (inverseModeRef.current
+                                            ? isInverseCandleMatch(tradeType, m.candleDirection)
+                                            : isCandleMatch(tradeType, m.candleDirection));
                                     const isReady =
                                         ((m.consecutive >= streakNum && candleReady) || m.trading) && !inCooldown;
                                     return (
@@ -2203,7 +2222,7 @@ const AutoTrades = observer(() => {
                                                 </div>
                                             )}
 
-                                            {isRunTradeType(tradeType) && (
+                                            {isCandleConfirmedTradeType(tradeType) && (
                                                 <div
                                                     className={classNames('auto-trades-market__candle', {
                                                         'auto-trades-market__candle--bullish': m.candleDirection === 1,
@@ -2274,11 +2293,11 @@ const AutoTrades = observer(() => {
                                                         const snapshot = getPercentageSnapshot(
                                                             tradeType,
                                                             m,
-                                                            getActiveDigitBarrier(tradeType, m.lastResult)
+                                                            getActiveDigitBarrier(tradeType, previousContractResult)
                                                         );
                                                         const threshold = getPercentageThreshold(
                                                             tradeType,
-                                                            getActiveDigitBarrier(tradeType, m.lastResult)
+                                                            getActiveDigitBarrier(tradeType, previousContractResult)
                                                         );
                                                         const hasEnoughSamples =
                                                             snapshot.sampleSize >= PERCENTAGE_MIN_SAMPLE_SIZE;

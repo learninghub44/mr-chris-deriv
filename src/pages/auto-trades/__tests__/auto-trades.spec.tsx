@@ -239,6 +239,116 @@ describe('<AutoTrades />', () => {
         });
     });
 
+    it('uses the previous global contract result when selecting Over/Under predictions', async () => {
+        const user = userEvent.setup();
+        const store = createMockStore();
+        mockUseStore.mockReturnValue(store);
+        (buyContractForUi as jest.Mock).mockResolvedValue({
+            contract_id: 1,
+            buy_price: 1,
+            transaction_id: 10,
+        });
+        mockApiSend.mockImplementation((request: any) => {
+            if (request?.proposal_open_contract) {
+                return Promise.resolve({ proposal_open_contract: { is_sold: true, profit: -1 } });
+            }
+            return Promise.resolve({
+                history: {
+                    prices: Array.from({ length: 1000 }, (_, index) => 100 + index / 100),
+                    times: Array.from({ length: 1000 }, (_, index) => 1700000000 + index),
+                },
+            });
+        });
+
+        render(<AutoTrades />);
+
+        await user.click(screen.getByRole('button', { name: /Run Auto Trades/i }));
+
+        await waitFor(() => {
+            expect(tickSubscribers['1HZ10V']).toBeDefined();
+            expect(tickSubscribers['1HZ15V']).toBeDefined();
+        });
+
+        act(() => {
+            [100.04, 100.14, 100.24, 100.34].forEach(quote =>
+                tickSubscribers['1HZ10V']({ tick: { quote } })
+            );
+        });
+
+        await waitFor(() => {
+            expect(buyContractForUi).toHaveBeenCalledTimes(1);
+        });
+        expect(buyContractForUi).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                parameters: expect.objectContaining({ barrier: '4', symbol: '1HZ10V' }),
+            })
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/1 trade/i)).toBeInTheDocument();
+        });
+
+        act(() => {
+            [100.005, 100.015, 100.025, 100.035].forEach(quote =>
+                tickSubscribers['1HZ15V']({ tick: { quote } })
+            );
+        });
+
+        await waitFor(() => {
+            expect(buyContractForUi).toHaveBeenCalledTimes(2);
+        });
+        expect(buyContractForUi).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                parameters: expect.objectContaining({ barrier: '5', symbol: '1HZ15V' }),
+            })
+        );
+    });
+
+    it('requires bullish 5m candle and falling streak before Rise execution', async () => {
+        const user = userEvent.setup();
+        const store = createMockStore();
+        mockUseStore.mockReturnValue(store);
+        (buyContractForUi as jest.Mock).mockResolvedValue({
+            contract_id: 1,
+            buy_price: 1,
+            transaction_id: 10,
+        });
+
+        render(<AutoTrades />);
+
+        await user.selectOptions(screen.getAllByRole('combobox')[0], 'CALL');
+        await user.click(screen.getByRole('button', { name: /Run Auto Trades/i }));
+
+        await waitFor(() => {
+            expect(tickSubscribers['1HZ10V']).toBeDefined();
+            expect(candleSubscribers['1HZ10V']).toBeDefined();
+        });
+
+        act(() => {
+            [105, 104, 103, 102, 101].forEach(quote => tickSubscribers['1HZ10V']({ tick: { quote } }));
+        });
+
+        expect(buyContractForUi).not.toHaveBeenCalled();
+
+        act(() => {
+            candleSubscribers['1HZ10V']({ ohlc: { open: 100, close: 99 } });
+        });
+
+        expect(buyContractForUi).not.toHaveBeenCalled();
+
+        act(() => {
+            candleSubscribers['1HZ10V']({ ohlc: { open: 100, close: 101 } });
+        });
+
+        await waitFor(() => {
+            expect(buyContractForUi).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    parameters: expect.objectContaining({ contract_type: 'CALL', duration: 1 }),
+                })
+            );
+        });
+    });
+
     it('allows removing markets directly from market cards', async () => {
         const user = userEvent.setup();
 
