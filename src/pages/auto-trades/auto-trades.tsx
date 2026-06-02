@@ -36,6 +36,27 @@ const AUTO_MARKETS: AutoMarket[] = [
 const AUTO_MARKET_SYMBOLS = AUTO_MARKETS.map(({ symbol }) => symbol);
 const AUTO_MARKET_LOOKUP = new Map(AUTO_MARKETS.map(market => [market.symbol, market]));
 
+type AiAutoTradeSettings = {
+    tradeType?: TradeType;
+    barrier?: string;
+    predictionBeforeLoss?: string;
+    predictionAfterLoss?: string;
+    analysisTicks?: string;
+    selectedMarketSymbols?: string[];
+    stake?: string;
+    martingale?: string;
+    takeProfit?: string;
+    stopLoss?: string;
+    streak?: string;
+    strategyMode?: StrategyMode;
+};
+
+type AiAutoTradeParseResult = {
+    settings: AiAutoTradeSettings;
+    summary: string[];
+    warnings: string[];
+};
+
 const COOLDOWN_TICKS = 60;
 const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
@@ -203,6 +224,153 @@ const DEFAULT_BARRIER: Record<TradeType, string> = {
 
 const isRunTradeType = (trade_type: TradeType) => trade_type === 'RUNHIGH' || trade_type === 'RUNLOW';
 const usesLossPrediction = (trade_type: TradeType) => trade_type === 'DIGITOVER' || trade_type === 'DIGITUNDER';
+
+const getAiNumber = (text: string, patterns: RegExp[], min: number, max: number) => {
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        const value = Number(match?.[1]);
+        if (Number.isFinite(value) && value >= min && value <= max) return String(value);
+    }
+    return undefined;
+};
+
+const getAiMoney = (text: string, patterns: RegExp[]) => {
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        const value = Number(match?.[1]);
+        if (Number.isFinite(value) && value > 0) return String(value);
+    }
+    return undefined;
+};
+
+const getAiMarketSymbols = (text: string) => {
+    const symbols = new Set<string>();
+    const normalized = text.toLowerCase();
+
+    AUTO_MARKETS.forEach(market => {
+        if (normalized.includes(market.symbol.toLowerCase()) || normalized.includes(market.label.toLowerCase())) {
+            symbols.add(market.symbol);
+        }
+    });
+
+    const volatilityMatches = normalized.matchAll(/\b(?:v|vol|volatility)\s*(10|15|25|30|50|75|90|100)\b/g);
+    for (const match of volatilityMatches) {
+        const value = match[1];
+        const wantsOneSecond = /\b(?:1s|1\s*second|one\s*second|1hz)\b/.test(normalized);
+        const oneSecondSymbol = `1HZ${value}V`;
+        const standardSymbol = `R_${value}`;
+        const symbol = wantsOneSecond && AUTO_MARKET_LOOKUP.has(oneSecondSymbol) ? oneSecondSymbol : standardSymbol;
+        if (AUTO_MARKET_LOOKUP.has(symbol)) symbols.add(symbol);
+    }
+
+    return [...symbols];
+};
+
+export const parseAiAutoTradeStrategy = (rawText: string): AiAutoTradeParseResult => {
+    const text = rawText.toLowerCase().replace(/\s+/g, ' ').trim();
+    const settings: AiAutoTradeSettings = {};
+    const summary: string[] = [];
+    const warnings: string[] = [];
+
+    if (!text) {
+        return { settings, summary, warnings: ['Enter a strategy before applying settings.'] };
+    }
+
+    const afterLossMatch = text.match(
+        /(?:after|if|when|incase|in case|following)\s+(?:of\s+)?(?:a\s+)?loss.*?\b(over|under)\s*(?:digit\s*)?([0-9])\b/
+    );
+    const firstOverUnderMatch = text.match(/\b(over|under)\s*(?:digit\s*)?([0-9])\b/);
+
+    if (firstOverUnderMatch) {
+        settings.tradeType = firstOverUnderMatch[1] === 'under' ? 'DIGITUNDER' : 'DIGITOVER';
+        settings.predictionBeforeLoss = firstOverUnderMatch[2];
+        settings.strategyMode = 'STANDARD';
+        summary.push(
+            `${settings.tradeType === 'DIGITUNDER' ? 'Digit Under' : 'Digit Over'} before-loss prediction ${firstOverUnderMatch[2]}`
+        );
+
+        if (afterLossMatch) {
+            const afterLossType = afterLossMatch[1] === 'under' ? 'DIGITUNDER' : 'DIGITOVER';
+            if (afterLossType !== settings.tradeType) {
+                warnings.push('After-loss prediction type was different, so only the digit value was applied.');
+            }
+            settings.predictionAfterLoss = afterLossMatch[2];
+            summary.push(`After-loss prediction ${afterLossMatch[2]}`);
+        }
+    } else if (/\b(?:rise|call)\b/.test(text)) {
+        settings.tradeType = 'CALL';
+        settings.strategyMode = 'STANDARD';
+        summary.push('Trade type Rise');
+    } else if (/\b(?:fall|put)\b/.test(text)) {
+        settings.tradeType = 'PUT';
+        settings.strategyMode = 'STANDARD';
+        summary.push('Trade type Fall');
+    } else if (/\b(?:only\s*ups?|run\s*high|higher)\b/.test(text)) {
+        settings.tradeType = 'RUNHIGH';
+        settings.strategyMode = 'STANDARD';
+        summary.push('Trade type Only Ups');
+    } else if (/\b(?:only\s*downs?|run\s*low|lower)\b/.test(text)) {
+        settings.tradeType = 'RUNLOW';
+        settings.strategyMode = 'STANDARD';
+        summary.push('Trade type Only Downs');
+    } else if (/\b(?:even)\b/.test(text)) {
+        settings.tradeType = 'DIGITEVEN';
+        settings.strategyMode = 'STANDARD';
+        summary.push('Trade type Digit Even');
+    } else if (/\b(?:odd)\b/.test(text)) {
+        settings.tradeType = 'DIGITODD';
+        settings.strategyMode = 'STANDARD';
+        summary.push('Trade type Digit Odd');
+    }
+
+    const analysisTicks = getAiNumber(text, [/\b(?:using|use|duration|for)\s*(\d+)\s*ticks?\b/, /\b(\d+)\s*ticks?\b/], 1, 10);
+    if (analysisTicks) {
+        settings.analysisTicks = analysisTicks;
+        summary.push(`${analysisTicks} analysis tick${analysisTicks === '1' ? '' : 's'}`);
+    }
+
+    const streak = getAiNumber(text, [/\bstreak\s*(?:of|=|is)?\s*(\d+)\b/, /\b(\d+)\s*(?:match|matches|streak)\b/], 2, 10);
+    if (streak) {
+        settings.streak = streak;
+        summary.push(`Streak ${streak}`);
+    }
+
+    const stake = getAiMoney(text, [/\bstake\s*(?:of|=|is)?\s*(\d+(?:\.\d+)?)\b/, /\bamount\s*(?:of|=|is)?\s*(\d+(?:\.\d+)?)\b/]);
+    if (stake) {
+        settings.stake = stake;
+        summary.push(`Stake ${stake}`);
+    }
+
+    const martingale = getAiMoney(text, [/\bmartingale\s*(?:x|of|=|is)?\s*(\d+(?:\.\d+)?)\b/]);
+    if (martingale) {
+        settings.martingale = martingale;
+        summary.push(`Martingale ${martingale}`);
+    }
+
+    const takeProfit = getAiMoney(text, [/\btake\s*profit\s*(?:of|=|is)?\s*(\d+(?:\.\d+)?)\b/, /\btp\s*(?:of|=|is)?\s*(\d+(?:\.\d+)?)\b/]);
+    if (takeProfit) {
+        settings.takeProfit = takeProfit;
+        summary.push(`Take profit ${takeProfit}`);
+    }
+
+    const stopLoss = getAiMoney(text, [/\bstop\s*loss\s*(?:of|=|is)?\s*(\d+(?:\.\d+)?)\b/, /\bsl\s*(?:of|=|is)?\s*(\d+(?:\.\d+)?)\b/]);
+    if (stopLoss) {
+        settings.stopLoss = stopLoss;
+        summary.push(`Stop loss ${stopLoss}`);
+    }
+
+    const marketSymbols = getAiMarketSymbols(text);
+    if (marketSymbols.length > 0) {
+        settings.selectedMarketSymbols = marketSymbols;
+        summary.push(`Markets: ${marketSymbols.join(', ')}`);
+    }
+
+    if (!settings.tradeType && !settings.selectedMarketSymbols?.length) {
+        warnings.push('I could not identify a contract type or market from that text.');
+    }
+
+    return { settings, summary, warnings };
+};
 
 export const getPredictionForLastOutcome = ({
     trade_type,
@@ -624,6 +792,9 @@ const AutoTrades = observer(() => {
     const modeTransitionLockRef = useRef(false);
     const isRecoveringDataRef = useRef(false);
     const [showDisclaimer, setShowDisclaimer] = useState(false);
+    const [showAiStrategy, setShowAiStrategy] = useState(false);
+    const [aiStrategyText, setAiStrategyText] = useState('');
+    const [aiStrategyResult, setAiStrategyResult] = useState<AiAutoTradeParseResult | null>(null);
     const [currentStakeDisplay, setCurrentStakeDisplay] = useState(1);
     const [cooldownDisplay, setCooldownDisplay] = useState(0);
 
@@ -884,6 +1055,30 @@ const AutoTrades = observer(() => {
     const handleClearMarkets = useCallback(() => {
         if (!runningRef.current) setSelectedMarketSymbols([]);
     }, []);
+
+    const applyAiStrategy = useCallback(() => {
+        const result = parseAiAutoTradeStrategy(aiStrategyText);
+        setAiStrategyResult(result);
+
+        if (result.warnings.length > 0 && result.summary.length === 0) return;
+
+        const { settings } = result;
+
+        if (settings.tradeType) {
+            setTradeType(settings.tradeType);
+            setBarrier(settings.barrier ?? DEFAULT_BARRIER[settings.tradeType]);
+        }
+        if (settings.predictionBeforeLoss !== undefined) setPredictionBeforeLoss(settings.predictionBeforeLoss);
+        if (settings.predictionAfterLoss !== undefined) setPredictionAfterLoss(settings.predictionAfterLoss);
+        if (settings.analysisTicks !== undefined) setAnalysisTicks(settings.analysisTicks);
+        if (settings.selectedMarketSymbols?.length) setSelectedMarketSymbols(settings.selectedMarketSymbols);
+        if (settings.stake !== undefined) setStake(settings.stake);
+        if (settings.martingale !== undefined) setMartingale(settings.martingale);
+        if (settings.takeProfit !== undefined) setTakeProfit(settings.takeProfit);
+        if (settings.stopLoss !== undefined) setStopLoss(settings.stopLoss);
+        if (settings.streak !== undefined) setStreak(settings.streak);
+        if (settings.strategyMode !== undefined) setStrategyMode(settings.strategyMode);
+    }, [aiStrategyText]);
 
     const pushContract = useCallback(
         (data: any) => {
@@ -2103,6 +2298,19 @@ const AutoTrades = observer(() => {
                                 </div>
 
                                 <div className='auto-trades-controls'>
+                                    <button
+                                        className='auto-trades-controls__ai'
+                                        onClick={() => setShowAiStrategy(true)}
+                                        disabled={isRunning}
+                                        type='button'
+                                        title='AI strategy setup'
+                                    >
+                                        <span className='auto-trades-controls__ai-orbit'>
+                                            <span className='auto-trades-controls__ai-text'>AI</span>
+                                            <span className='auto-trades-controls__ai-dot' />
+                                        </span>
+                                        <span className='auto-trades-controls__ai-label'>Ai</span>
+                                    </button>
                                     {!isRunning ? (
                                         <button
                                             className='auto-trades-controls__run'
@@ -2477,6 +2685,60 @@ const AutoTrades = observer(() => {
                                 onClick={() => setShowDisclaimer(false)}
                             >
                                 I Understand
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showAiStrategy && (
+                <div className='auto-trades-ai-overlay' onClick={() => setShowAiStrategy(false)}>
+                    <div className='auto-trades-ai-modal' onClick={e => e.stopPropagation()}>
+                        <div className='auto-trades-ai-modal__header'>
+                            <div className='auto-trades-controls__ai-orbit auto-trades-controls__ai-orbit--small'>
+                                <span className='auto-trades-controls__ai-text'>AI</span>
+                                <span className='auto-trades-controls__ai-dot' />
+                            </div>
+                            <h3 className='auto-trades-ai-modal__title'>Ai Strategy</h3>
+                            <button className='auto-trades-ai-modal__close' onClick={() => setShowAiStrategy(false)}>
+                                x
+                            </button>
+                        </div>
+                        <textarea
+                            className='auto-trades-ai-modal__textarea'
+                            value={aiStrategyText}
+                            onChange={e => {
+                                setAiStrategyText(e.target.value);
+                                setAiStrategyResult(null);
+                            }}
+                            placeholder='Trade Over 1. In case of a loss trade Over 3. Use 1 tick. Only trade V25 index.'
+                        />
+                        {aiStrategyResult && (
+                            <div className='auto-trades-ai-modal__result'>
+                                {aiStrategyResult.summary.length > 0 && (
+                                    <ul>
+                                        {aiStrategyResult.summary.map(item => (
+                                            <li key={item}>{item}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {aiStrategyResult.warnings.map(item => (
+                                    <p key={item} className='auto-trades-ai-modal__warning'>
+                                        {item}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
+                        <div className='auto-trades-ai-modal__footer'>
+                            <button
+                                className='auto-trades-ai-modal__secondary'
+                                onClick={() => setShowAiStrategy(false)}
+                                type='button'
+                            >
+                                Cancel
+                            </button>
+                            <button className='auto-trades-ai-modal__primary' onClick={applyAiStrategy} type='button'>
+                                Apply Settings
                             </button>
                         </div>
                     </div>

@@ -3,6 +3,7 @@ import {
     getPercentageSnapshot,
     getPredictionForLastOutcome,
     isPercentageSignalReady,
+    parseAiAutoTradeStrategy,
 } from '../auto-trades';
 
 describe('computePercentage', () => {
@@ -136,5 +137,48 @@ describe('Over/Under prediction selection', () => {
                 ...baseConfig,
             })
         ).toBe(2);
+    });
+});
+
+describe('parseAiAutoTradeStrategy', () => {
+    it('understands an Over strategy with after-loss prediction, ticks, and V25 market', () => {
+        const result = parseAiAutoTradeStrategy(
+            'I want to trade over 1 and in case of a loss over 3 using 1 tick only on V25 index'
+        );
+
+        expect(result.settings).toMatchObject({
+            tradeType: 'DIGITOVER',
+            predictionBeforeLoss: '1',
+            predictionAfterLoss: '3',
+            analysisTicks: '1',
+            selectedMarketSymbols: ['R_25'],
+            strategyMode: 'STANDARD',
+        });
+        expect(result.warnings).toHaveLength(0);
+    });
+
+    it('maps one-second volatility requests to 1HZ symbols', () => {
+        const result = parseAiAutoTradeStrategy('Only trade over 4 on volatility 25 1s using 2 ticks');
+
+        expect(result.settings).toMatchObject({
+            tradeType: 'DIGITOVER',
+            predictionBeforeLoss: '4',
+            analysisTicks: '2',
+            selectedMarketSymbols: ['1HZ25V'],
+        });
+    });
+
+    it('understands direction strategies and risk settings', () => {
+        const result = parseAiAutoTradeStrategy('Rise on V50 with streak 5 stake 2 martingale 3 take profit 20 stop loss 10');
+
+        expect(result.settings).toMatchObject({
+            tradeType: 'CALL',
+            selectedMarketSymbols: ['R_50'],
+            streak: '5',
+            stake: '2',
+            martingale: '3',
+            takeProfit: '20',
+            stopLoss: '10',
+        });
     });
 });
