@@ -65,8 +65,13 @@ const AppWrapper = observer(() => {
     const {
         active_tab,
         active_tour,
+        active_trading_module,
+        cancelPendingTradingNavigation,
+        confirmPendingTradingNavigation,
         is_chart_modal_visible,
+        is_leave_trading_dialog_open,
         is_trading_view_modal_visible,
+        navigation_stop_in_progress,
         setActiveTab,
         setWebSocketState,
         setActiveTour,
@@ -356,6 +361,19 @@ const AppWrapper = observer(() => {
     }, [active_tab, is_drawer_open]);
 
     useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (!active_trading_module) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [active_trading_module]);
+
+    useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
         if (dashboard_strategies.length > 0) {
             // Needed to pass this to the Callback Queue as on tab changes
@@ -372,6 +390,7 @@ const AppWrapper = observer(() => {
     const handleTabChange = React.useCallback(
         (tab_index: number) => {
             setActiveTab(tab_index);
+            if (dashboard.active_tab !== tab_index) return;
             const el_id = TAB_IDS[tab_index];
             if (el_id) {
                 const el_tab = document.getElementById(el_id);
@@ -381,7 +400,7 @@ const AppWrapper = observer(() => {
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [active_tab]
+        [dashboard, setActiveTab]
     );
 
     // [AI]
@@ -609,6 +628,33 @@ const AppWrapper = observer(() => {
                 <TradingViewModal />
             </DesktopWrapper>
             <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
+            <Dialog
+                cancel_button_text={
+                    navigation_stop_in_progress ? undefined : localize('Stay')
+                }
+                className='dc-dialog__wrapper--fixed'
+                confirm_button_text={
+                    navigation_stop_in_progress ? localize('Stopping trades...') : localize('Stop and switch')
+                }
+                has_close_icon={!navigation_stop_in_progress}
+                is_mobile_full_width={false}
+                is_visible={is_leave_trading_dialog_open}
+                onCancel={navigation_stop_in_progress ? undefined : cancelPendingTradingNavigation}
+                onClose={navigation_stop_in_progress ? undefined : cancelPendingTradingNavigation}
+                onConfirm={() => {
+                    if (!navigation_stop_in_progress) {
+                        void confirmPendingTradingNavigation();
+                    }
+                }}
+                portal_element_id='modal_root'
+                title={localize('Active trading is running')}
+                login={handleLoginGeneration}
+                dismissable={!navigation_stop_in_progress}
+                is_closed_on_cancel={false}
+                is_closed_on_confirm={false}
+            >
+                <Localize i18n_default_text='Leaving this page now can interrupt live executions. Stop the active trades and switch tabs, or stay here and keep the session running.' />
+            </Dialog>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
                 className='dc-dialog__wrapper--fixed'

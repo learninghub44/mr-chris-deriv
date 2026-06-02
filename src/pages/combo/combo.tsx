@@ -712,7 +712,8 @@ const Combo = observer(() => {
             run_panel.setRunId(`run-${Date.now()}`);
             run_panel.toggleDrawer(true);
         } catch {}
-    }, [run_panel]);
+        dashboard.setActiveTradingModule('combo');
+    }, [dashboard, run_panel]);
 
     const stopTrading = useCallback(() => {
         runningRef.current = false;
@@ -727,8 +728,9 @@ const Combo = observer(() => {
         isRecoveringDataRef.current = false;
         setIsRecoveringData(false);
         setCooldownDisplay(0);
+        dashboard.setActiveTradingModule(null);
         refresh();
-    }, [refresh]);
+    }, [dashboard, refresh]);
 
     const handleStop = useCallback(() => {
         stopTrading();
@@ -741,6 +743,7 @@ const Combo = observer(() => {
     useEffect(() => {
         if (!show_combo) return undefined;
 
+        dashboard.registerTradingStopHandler('combo', stopTrading);
         globalObserver.register('bot.running', run_panel.onBotRunningEvent);
         globalObserver.register('contract.status', run_panel.onContractStatusEvent);
         globalObserver.register('Error', run_panel.onError);
@@ -748,13 +751,14 @@ const Combo = observer(() => {
         globalObserver.register('bot.manual_stop', stopTrading);
 
         return () => {
+            dashboard.unregisterTradingStopHandler('combo');
             globalObserver.unregister('bot.running', run_panel.onBotRunningEvent);
             globalObserver.unregister('contract.status', run_panel.onContractStatusEvent);
             globalObserver.unregister('Error', run_panel.onError);
             globalObserver.unregister('bot.setPurchaseInProgress', run_panel.SetpurchaseInProgress);
             globalObserver.unregister('bot.manual_stop', stopTrading);
         };
-    }, [run_panel, show_combo, stopTrading]);
+    }, [dashboard, run_panel, show_combo, stopTrading]);
 
     // Row management
     const addRow = useCallback(() => {

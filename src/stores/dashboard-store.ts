@@ -2,6 +2,7 @@ import DOMPurify from 'dompurify';
 import { action, makeObservable, observable, reaction } from 'mobx';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message, NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
+import { DBOT_TABS } from '@/constants/bot-contents';
 import { TStores } from '@deriv/stores/types';
 import * as strategy_description from '../constants/quick-strategies';
 import { TDescriptionItem } from '../pages/bot-builder/quick-strategy/types';
@@ -27,6 +28,9 @@ type TDialogOptions = {
     url?: string;
     type?: string;
 };
+
+type TTradingModule = 'auto_trades' | 'combo';
+type TStopTradingHandler = () => void | Promise<void>;
 
 export interface IDashboardStore {
     active_tab: number;
@@ -61,6 +65,15 @@ export interface IDashboardStore {
     is_chart_modal_visible: boolean;
     is_trading_view_modal_visible: boolean;
     setPreviewOnPopup: (is_preview_on_popup: boolean) => void;
+    active_trading_module: TTradingModule | null;
+    is_leave_trading_dialog_open: boolean;
+    pending_active_tab: number | null;
+    navigation_stop_in_progress: boolean;
+    cancelPendingTradingNavigation: () => void;
+    confirmPendingTradingNavigation: () => Promise<void>;
+    registerTradingStopHandler: (module: TTradingModule, handler: TStopTradingHandler) => void;
+    unregisterTradingStopHandler: (module: TTradingModule) => void;
+    setActiveTradingModule: (module: TTradingModule | null) => void;
 }
 
 export default class DashboardStore implements IDashboardStore {
@@ -112,6 +125,10 @@ export default class DashboardStore implements IDashboardStore {
             showVideoDialog: action.bound,
             strategy_save_type: observable,
             toast_message: observable,
+            active_trading_module: observable,
+            is_leave_trading_dialog_open: observable,
+            pending_active_tab: observable,
+            navigation_stop_in_progress: observable,
             guide_tab_content: observable,
             faq_tab_content: observable,
             quick_strategy_tab_content: observable,
@@ -121,6 +138,11 @@ export default class DashboardStore implements IDashboardStore {
             is_chart_modal_visible: observable,
             is_trading_view_modal_visible: observable,
             bot_builder_symbol: observable,
+            cancelPendingTradingNavigation: action.bound,
+            confirmPendingTradingNavigation: action.bound,
+            registerTradingStopHandler: action.bound,
+            unregisterTradingStopHandler: action.bound,
+            setActiveTradingModule: action.bound,
         });
         this.root_store = root_store;
         this.core = core;
@@ -206,6 +228,12 @@ export default class DashboardStore implements IDashboardStore {
     is_chart_modal_visible = false;
     is_trading_view_modal_visible = false;
     faq_title = '';
+    active_trading_module: TTradingModule | null = null;
+    is_leave_trading_dialog_open = false;
+    pending_active_tab: number | null = null;
+    navigation_stop_in_progress = false;
+    private trading_stop_handlers: Partial<Record<TTradingModule, TStopTradingHandler>> = {};
+    private is_forcing_tab_switch = false;
 
     setFaqTitle = (faq_title: string) => {
         this.faq_title = faq_title;
@@ -345,9 +373,73 @@ export default class DashboardStore implements IDashboardStore {
         this.is_dialog_open = false;
     };
 
-    setActiveTab = (active_tab: number): void => {
+    private applyActiveTab = (active_tab: number): void => {
         this.active_tab = active_tab;
         localStorage.setItem('active_tab', active_tab.toString());
+    };
+
+    private isTradingTab = (active_tab: number) => [DBOT_TABS.AUTO_TRADES, DBOT_TABS.COMBO].includes(active_tab);
+
+    private shouldGuardTabChange = (next_tab: number): boolean =>
+        !this.is_forcing_tab_switch &&
+        !!this.active_trading_module &&
+        next_tab !== this.active_tab &&
+        this.isTradingTab(this.active_tab);
+
+    setActiveTab = (active_tab: number): void => {
+        if (this.shouldGuardTabChange(active_tab)) {
+            this.pending_active_tab = active_tab;
+            this.is_leave_trading_dialog_open = true;
+            return;
+        }
+
+        this.applyActiveTab(active_tab);
+    };
+
+    registerTradingStopHandler = (module: TTradingModule, handler: TStopTradingHandler): void => {
+        this.trading_stop_handlers[module] = handler;
+    };
+
+    unregisterTradingStopHandler = (module: TTradingModule): void => {
+        delete this.trading_stop_handlers[module];
+        if (this.active_trading_module === module) {
+            this.active_trading_module = null;
+        }
+    };
+
+    setActiveTradingModule = (module: TTradingModule | null): void => {
+        this.active_trading_module = module;
+        if (!module) {
+            this.navigation_stop_in_progress = false;
+        }
+    };
+
+    cancelPendingTradingNavigation = (): void => {
+        if (this.navigation_stop_in_progress) return;
+        this.pending_active_tab = null;
+        this.is_leave_trading_dialog_open = false;
+    };
+
+    confirmPendingTradingNavigation = async (): Promise<void> => {
+        if (this.pending_active_tab === null || this.navigation_stop_in_progress) return;
+
+        const target_tab = this.pending_active_tab;
+        const active_module = this.active_trading_module;
+        const stop_handler = active_module ? this.trading_stop_handlers[active_module] : undefined;
+
+        this.navigation_stop_in_progress = true;
+
+        try {
+            await stop_handler?.();
+            this.active_trading_module = null;
+            this.pending_active_tab = null;
+            this.is_leave_trading_dialog_open = false;
+            this.is_forcing_tab_switch = true;
+            this.applyActiveTab(target_tab);
+        } finally {
+            this.is_forcing_tab_switch = false;
+            this.navigation_stop_in_progress = false;
+        }
     };
 
     setActiveTabTutorial = (active_tab_tutorials: number): void => {

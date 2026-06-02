@@ -12,7 +12,12 @@ import {
 
 jest.mock('@/hooks/useStore', () => ({
     useStore: jest.fn(() => ({
-        dashboard: { active_tab: 'auto_trades' },
+        dashboard: {
+            active_tab: 'auto_trades',
+            setActiveTradingModule: jest.fn(),
+            registerTradingStopHandler: jest.fn(),
+            unregisterTradingStopHandler: jest.fn(),
+        },
         client: { currency: 'USD', is_logged_in: true },
         summary_card: { onBotContractEvent: jest.fn() },
         transactions: { pushTransaction: jest.fn() },

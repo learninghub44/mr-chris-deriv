@@ -52,7 +52,12 @@ jest.mock('@/stores/condition-notifier-store', () => ({
 const mockUseStore = useStore as jest.Mock;
 
 const createMockStore = () => ({
-    dashboard: { active_tab: DBOT_TABS.COMBO },
+    dashboard: {
+        active_tab: DBOT_TABS.COMBO,
+        setActiveTradingModule: jest.fn(),
+        registerTradingStopHandler: jest.fn(),
+        unregisterTradingStopHandler: jest.fn(),
+    },
     client: { currency: 'USD', is_logged_in: true },
     summary_card: { onBotContractEvent: jest.fn() },
     transactions: { pushTransaction: jest.fn() },

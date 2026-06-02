@@ -2268,9 +2268,10 @@ const AutoTrades = observer(() => {
         } catch {
             // Ignore optional run-panel mount failures.
         }
+        dashboard.setActiveTradingModule('auto_trades');
         runningRef.current = true;
         setIsRunning(true);
-    }, [resetSession, run_panel, selectedMarkets.length]);
+    }, [dashboard, resetSession, run_panel, selectedMarkets.length]);
 
     const stopTrading = useCallback(() => {
         runningRef.current = false;
@@ -2292,9 +2293,10 @@ const AutoTrades = observer(() => {
         setCooldownDisplay(0);
         setCurrentStakeDisplay(configRef.current.stake);
         nextStakeRef.current = configRef.current.stake;
+        dashboard.setActiveTradingModule(null);
         completeRunPanelStop();
         refreshDisplays();
-    }, [clearDataRecoveryLoading, clearDeferredWork, completeRunPanelStop, refreshDisplays]);
+    }, [clearDataRecoveryLoading, clearDeferredWork, completeRunPanelStop, dashboard, refreshDisplays]);
 
     const handleStop = useCallback(() => {
         stopTrading();
@@ -2303,6 +2305,7 @@ const AutoTrades = observer(() => {
     useEffect(() => {
         if (!show_auto) return undefined;
 
+        dashboard.registerTradingStopHandler('auto_trades', stopTrading);
         globalObserver.register('bot.running', run_panel.onBotRunningEvent);
         globalObserver.register('contract.status', run_panel.onContractStatusEvent);
         globalObserver.register('Error', run_panel.onError);
@@ -2310,13 +2313,14 @@ const AutoTrades = observer(() => {
         globalObserver.register('bot.manual_stop', stopTrading);
 
         return () => {
+            dashboard.unregisterTradingStopHandler('auto_trades');
             globalObserver.unregister('bot.running', run_panel.onBotRunningEvent);
             globalObserver.unregister('contract.status', run_panel.onContractStatusEvent);
             globalObserver.unregister('Error', run_panel.onError);
             globalObserver.unregister('bot.setPurchaseInProgress', run_panel.SetpurchaseInProgress);
             globalObserver.unregister('bot.manual_stop', stopTrading);
         };
-    }, [run_panel, show_auto, stopTrading]);
+    }, [dashboard, run_panel, show_auto, stopTrading]);
 
     useEffect(() => {
         if (show_auto) {
