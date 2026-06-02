@@ -1,4 +1,9 @@
 import { getSocketURL } from '@/components/shared';
+import {
+    assertApiTokenScope,
+    getPendingApiToken,
+    isApiTokenSession,
+} from '@/utils/api-token-permissions';
 import DerivAPIBasic from '@deriv/deriv-api/dist/DerivAPIBasic';
 import APIMiddleware from './api-middleware';
 
@@ -80,6 +85,23 @@ export const generateDerivApiInstance = async (forceNew = false) => {
                 middleware: new APIMiddleware({}),
             });
 
+            const rawSend = deriv_api.send.bind(deriv_api);
+            deriv_api.send = request => {
+                if (isApiTokenSession() && request && typeof request === 'object') {
+                    if ('balance' in request) assertApiTokenScope('read');
+                    if (
+                        'buy' in request ||
+                        'sell' in request ||
+                        'proposal' in request ||
+                        'transaction' in request ||
+                        'proposal_open_contract' in request
+                    ) {
+                        assertApiTokenScope('trade');
+                    }
+                }
+                return rawSend(request);
+            };
+
             // Store the instance immediately (don't wait for connection)
             derivApiInstance = deriv_api;
 
@@ -132,6 +154,15 @@ export const V2GetActiveAccountId = () => {
 
 export const getToken = () => {
     const active_loginid = getLoginId();
+    const pending_api_token = getPendingApiToken();
+
+    if (pending_api_token && !active_loginid) {
+        return {
+            token: pending_api_token,
+            account_id: undefined,
+        };
+    }
+
     const accountsList_raw = localStorage.getItem('accountsList');
     let client_accounts;
 

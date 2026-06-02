@@ -1,4 +1,5 @@
 import { api_base, observer as globalObserver } from '@/external/bot-skeleton';
+import { assertApiTokenScope } from '@/utils/api-token-permissions';
 import type { Buy } from '@deriv/api-types';
 
 type TTradeParameters = Record<string, number | string>;
@@ -58,6 +59,7 @@ const ensureAuthorizedForTrading = async () => {
 
 export const buyContractForUi = async ({ parameters, price, source }: TBuyContractArgs): Promise<Buy> => {
     await ensureAuthorizedForTrading();
+    assertApiTokenScope('trade');
 
     globalObserver.emit('bot.running');
     globalObserver.emit('bot.setPurchaseInProgress');

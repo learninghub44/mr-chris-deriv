@@ -3,12 +3,14 @@ import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { generateOAuthURL } from '@/components/shared';
 import Button from '@/components/shared_ui/button';
+import Dialog from '@/components/shared_ui/dialog';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useLogout } from '@/hooks/useLogout';
 import { useStore } from '@/hooks/useStore';
+import { ApiTokenAuthService } from '@/services/api-token-auth.service';
 import { navigateToTransfer } from '@/utils/transfer-utils';
-import { Localize } from '@deriv-com/translations';
+import { Localize, localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { AppLogo } from '../app-logo';
 import AccountSwitcher from './account-switcher';
@@ -22,6 +24,10 @@ const AppHeader = observer(() => {
     const { isAuthorizing, activeLoginid, setIsAuthorizing, authData } = useApiBase();
     const { client } = useStore() ?? {};
     const [authTimeout, setAuthTimeout] = useState(false);
+    const [isTokenLoginVisible, setIsTokenLoginVisible] = useState(false);
+    const [apiToken, setApiToken] = useState('');
+    const [apiTokenError, setApiTokenError] = useState('');
+    const [isTokenLoginLoading, setIsTokenLoginLoading] = useState(false);
     const is_account_regenerating = client?.is_account_regenerating || false;
 
     // Detect OAuth callback on mount (before App.tsx cleans up the URL).
@@ -122,6 +128,24 @@ const AppHeader = observer(() => {
         }
     }, [setIsAuthorizing]);
 
+    const handleApiTokenLogin = useCallback(async () => {
+        setApiTokenError('');
+        setIsTokenLoginLoading(true);
+        setIsAuthorizing(true);
+
+        try {
+            await ApiTokenAuthService.loginWithToken(apiToken);
+            setApiToken('');
+            setIsTokenLoginVisible(false);
+            setAuthTimeout(false);
+        } catch (error) {
+            setApiTokenError(error instanceof Error ? error.message : localize('Token login failed.'));
+            setIsAuthorizing(false);
+        } finally {
+            setIsTokenLoginLoading(false);
+        }
+    }, [apiToken, setIsAuthorizing]);
+
     const handleTransfer = useCallback(() => {
         const transferCurrency = authData?.currency;
         if (!transferCurrency) {
@@ -173,6 +197,9 @@ const AppHeader = observer(() => {
             ) {
                 return (
                     <div className='auth-actions'>
+                        <Button tertiary type='button' onClick={() => setIsTokenLoginVisible(true)}>
+                            <Localize i18n_default_text='API token' />
+                        </Button>
                         <Button tertiary type='button' onClick={handleLogin}>
                             <Localize i18n_default_text='Log in' />
                         </Button>
@@ -245,6 +272,48 @@ const AppHeader = observer(() => {
                     {renderAccountSection('right')}
                 </Wrapper>
             </Header>
+            <Dialog
+                cancel_button_text={localize('Cancel')}
+                confirm_button_text={isTokenLoginLoading ? localize('Checking...') : localize('Log in')}
+                has_close_icon
+                is_mobile_full_width={false}
+                is_visible={isTokenLoginVisible}
+                login={handleLogin}
+                onCancel={() => {
+                    if (!isTokenLoginLoading) {
+                        setIsTokenLoginVisible(false);
+                        setApiTokenError('');
+                    }
+                }}
+                onClose={() => {
+                    if (!isTokenLoginLoading) {
+                        setIsTokenLoginVisible(false);
+                        setApiTokenError('');
+                    }
+                }}
+                onConfirm={handleApiTokenLogin}
+                portal_element_id='modal_root'
+                title={localize('API token login')}
+            >
+                <div className='api-token-login'>
+                    <label className='api-token-login__label' htmlFor='api-token-login-input'>
+                        <Localize i18n_default_text='API token' />
+                    </label>
+                    <textarea
+                        id='api-token-login-input'
+                        className='api-token-login__input'
+                        value={apiToken}
+                        onChange={event => {
+                            setApiToken(event.target.value);
+                            if (apiTokenError) setApiTokenError('');
+                        }}
+                        disabled={isTokenLoginLoading}
+                        autoComplete='off'
+                        spellCheck={false}
+                    />
+                    {apiTokenError && <p className='api-token-login__error'>{apiTokenError}</p>}
+                </div>
+            </Dialog>
         </>
     );
 });

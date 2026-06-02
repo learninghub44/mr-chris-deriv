@@ -1,4 +1,5 @@
 import { LogTypes } from '../../../constants/messages';
+import { assertApiTokenScope } from '@/utils/api-token-permissions';
 import { api_base } from '../../api/api-base';
 import { contractStatus, info, log } from '../utils/broadcast';
 import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
@@ -11,6 +12,8 @@ let purchase_reference;
 export default Engine =>
     class Purchase extends Engine {
         purchase(contract_type) {
+            assertApiTokenScope('trade');
+
             // Prevent calling purchase twice
             if (this.store.getState().scope !== BEFORE_PURCHASE) {
                 return Promise.resolve();

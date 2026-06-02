@@ -332,6 +332,44 @@
     }
 }
 
+.api-token-login {
+    display: grid;
+    gap: 0.8rem;
+    min-width: min(42rem, 78vw);
+
+    &__label {
+        color: var(--text-prominent);
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+
+    &__input {
+        min-height: 9.6rem;
+        resize: vertical;
+        border: 1px solid rgba(200, 164, 93, 0.42);
+        border-radius: 4px;
+        background: var(--general-main-1);
+        color: var(--text-prominent);
+        font-family: monospace;
+        font-size: 1.2rem;
+        line-height: 1.5;
+        padding: 0.8rem;
+        width: 100%;
+
+        &:focus {
+            border-color: #d4af37;
+            outline: none;
+        }
+    }
+
+    &__error {
+        color: var(--status-danger, #ff444f);
+        font-size: 1.2rem;
+        line-height: 1.4;
+        margin: 0;
+    }
+}
+
 .deriv-accordion--underline {
     border-bottom: none;
 }

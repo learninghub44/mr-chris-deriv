@@ -8,6 +8,7 @@ import { removeCookies } from '@/components/shared/utils/storage/storage';
 import { observer as globalObserver, observer } from '@/external/bot-skeleton';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import { ErrorLogger } from '@/utils/error-logger';
+import { clearApiTokenSession } from '@/utils/api-token-permissions';
 import type { Balance } from '@deriv/api-types';
 import {
     authData$,
@@ -255,6 +256,7 @@ export default class ClientStore {
             // Clear OAuth token from sessionStorage
             const { OAuthTokenExchangeService } = await import('@/services/oauth-token-exchange.service');
             OAuthTokenExchangeService.clearAuthInfo();
+            clearApiTokenSession();
 
             // Reset all the states
             this.account_list = [];

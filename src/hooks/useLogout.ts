@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useStore } from '@/hooks/useStore';
+import { clearApiTokenSession } from '@/utils/api-token-permissions';
 import { ErrorLogger } from '@/utils/error-logger';
 
 /**
@@ -25,6 +26,7 @@ export const useLogout = () => {
                 sessionStorage.removeItem('auth_info');
 
                 // Clear auth-related localStorage items
+                clearApiTokenSession();
                 localStorage.removeItem('active_loginid');
                 localStorage.removeItem('authToken');
                 localStorage.removeItem('accountsList');

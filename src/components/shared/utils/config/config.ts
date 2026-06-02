@@ -1,5 +1,6 @@
 import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import { OAuthTokenExchangeService } from '@/services/oauth-token-exchange.service';
+import { getPendingApiToken } from '@/utils/api-token-permissions';
 import brandConfig from '../../../../../brand.config.json';
 
 // =============================================================================
@@ -428,6 +429,13 @@ export const getSocketURL = async (): Promise<string> => {
         // Check for legacy token in localStorage (legacy platform users)
         // Legacy tokens are stored by storeLegacyAccounts() from OAuth redirect params
         const accountsList_raw = localStorage.getItem('accountsList');
+        const pendingApiToken = getPendingApiToken();
+        if (pendingApiToken) {
+            const legacyWsUrl = getLegacyServerURL();
+            console.log('[getSocketURL] API token login detected - using classic WebSocket URL');
+            return legacyWsUrl;
+        }
+
         if (accountsList_raw) {
             try {
                 const accountsList = JSON.parse(accountsList_raw);

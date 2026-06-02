@@ -4,6 +4,18 @@ import { getAccountId, getAccountType, isDemoAccount, removeUrlParameter } from 
 import CommonStore from '@/stores/common-store';
 import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import { TAuthData } from '@/types/api-types';
+import {
+    buildApiTokenAccountDetails,
+    canAccessApiTokenBalance,
+    canTradeWithApiToken,
+    completeApiTokenSession,
+    getApiTokenPermissionError,
+    getPendingApiToken,
+    isApiTokenSession,
+    normalizeScopes,
+    setApiTokenLoginError,
+    storeApiTokenAccountDetails,
+} from '@/utils/api-token-permissions';
 import { clearAuthData } from '@/utils/auth-utils';
 import { handleBackendError, isBackendError } from '@/utils/error-handler';
 import { activeSymbolsProcessorService } from '../../../../services/active-symbols-processor.service';
@@ -347,6 +359,7 @@ class APIBase {
             });
 
             // Authorize with the token first (required for legacy API)
+            let authorizeData: TAuthData | undefined;
             if (storedToken) {
                 try {
                     console.log('[authorizeAndSubscribe] 🔐 Calling api.authorize() with legacy token...');
@@ -379,6 +392,17 @@ class APIBase {
                         setIsAuthorizing(false);
                         return { ...authError, localizedMessage: errorMessage };
                     }
+                    authorizeData = authorize as TAuthData;
+                    const pendingApiToken = getPendingApiToken();
+                    if (pendingApiToken && authorize?.loginid) {
+                        const scopes = normalizeScopes(authorize?.scopes || (authorize as any)?.scope);
+                        completeApiTokenSession({
+                            loginid: authorize.loginid,
+                            token: pendingApiToken,
+                            currency: authorize.currency,
+                            scopes,
+                        });
+                    }
                     console.log('✅ [authorizeAndSubscribe] Authorization successful!');
                 } catch (authException: any) {
                     console.error('❌ [authorizeAndSubscribe] Exception during api.authorize():', {
@@ -394,6 +418,14 @@ class APIBase {
                     active_loginid: accountId,
                     accountsList: localStorage.getItem('accountsList') ? 'Present' : 'MISSING',
                 });
+            }
+
+            if (isApiTokenSession() && !canAccessApiTokenBalance()) {
+                const localizedMessage = getApiTokenPermissionError('read');
+                console.error('❌ [authorizeAndSubscribe] API token missing balance scope:', localizedMessage);
+                setApiTokenLoginError(localizedMessage);
+                setIsAuthorizing(false);
+                return { error: { code: 'TokenScopeMissing', message: localizedMessage }, localizedMessage };
             }
 
             // Now fetch balance after successful authorization
@@ -461,12 +493,26 @@ class APIBase {
             this.token = balance?.loginid;
 
             const account_type = getAccountType(balance?.loginid);
+            const apiTokenAccountDetails =
+                isApiTokenSession() && balance?.loginid
+                    ? buildApiTokenAccountDetails({
+                          loginid: balance.loginid,
+                          balance: Number(balance.balance ?? 0),
+                          currency: balance.currency || 'USD',
+                          status: (authorizeData as any)?.status || (authorizeData as any)?.account_status,
+                      })
+                    : null;
+            if (apiTokenAccountDetails) {
+                storeApiTokenAccountDetails(apiTokenAccountDetails);
+            }
             const currentAccount = balance?.loginid
                 ? {
                       balance: balance.balance,
                       currency: balance.currency || 'USD',
                       is_virtual: account_type === 'real' ? 0 : 1,
                       loginid: balance.loginid,
+                      account_type: account_type === 'real' ? 'real' : 'demo',
+                      status: apiTokenAccountDetails?.status || 'active',
                   }
                 : null;
 
@@ -498,6 +544,8 @@ class APIBase {
                 loginid: balance?.loginid,
                 is_virtual: account_type === 'real' ? 0 : 1,
                 account_list: accountList,
+                scopes: normalizeScopes(authorizeData?.scopes || (authorizeData as any)?.scope),
+                token: storedToken,
             });
 
             // // Set account_type in localStorage based on loginid prefix using centralized utility
@@ -548,6 +596,13 @@ class APIBase {
                 this.active_symbols_promise = this.getActiveSymbols();
             }
             this.subscribe();
+            return apiTokenAccountDetails || {
+                account_id: balance?.loginid,
+                balance: balance?.balance,
+                currency: balance?.currency,
+                account_type: account_type === 'real' ? 'real' : 'demo',
+                status: 'active',
+            };
         } catch (e) {
             console.error('❌ [authorizeAndSubscribe] Exception:', e);
             this.is_authorized = false;
@@ -578,7 +633,10 @@ class APIBase {
             );
         };
 
-        const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
+        const streamsToSubscribe = [
+            ...(canAccessApiTokenBalance() ? ['balance'] : []),
+            ...(canTradeWithApiToken() ? ['transaction', 'proposal_open_contract'] : []),
+        ];
 
         await Promise.all(streamsToSubscribe.map(subscribeToStream));
     }

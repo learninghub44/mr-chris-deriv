@@ -667,10 +667,12 @@ export type TSocketResponseData<T extends TSocketEndpointNames> = Omit<
 >;
 
 export type TAccount = {
+    account_type?: 'demo' | 'real';
     balance: number;
     currency: string;
     is_virtual: number;
     loginid: string;
+    status?: string;
 };
 
 export type TAuthData = {
