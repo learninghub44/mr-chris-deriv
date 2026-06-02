@@ -72,6 +72,9 @@ const createMockStore = () => ({
         is_running: false,
         setIsRunning: jest.fn(),
         setRunId: jest.fn(),
+        setHasOpenContract: jest.fn(),
+        setContractStage: jest.fn(),
+        setShowBotStopMessage: jest.fn(),
         toggleDrawer: jest.fn(),
         registerBotListeners: jest.fn(),
         unregisterBotListeners: jest.fn(),
@@ -149,6 +152,22 @@ describe('<AutoTrades />', () => {
             expect(screen.getByText(/Only Downs \(3 ticks\)/i)).toBeInTheDocument();
             expect(screen.getByText(/rising ticks \+ bearish 5m candle/i)).toBeInTheDocument();
         });
+    });
+
+    it('fully clears the shared run panel state when Auto Trades is stopped', async () => {
+        const user = userEvent.setup();
+        const store = createMockStore();
+        mockUseStore.mockReturnValue(store);
+
+        render(<AutoTrades />);
+
+        await user.click(screen.getByRole('button', { name: /Run Auto Trades/i }));
+        await user.click(screen.getByRole('button', { name: /Stop/i }));
+
+        expect(store.run_panel.setIsRunning).toHaveBeenLastCalledWith(false);
+        expect(store.run_panel.setHasOpenContract).toHaveBeenLastCalledWith(false);
+        expect(store.run_panel.setContractStage).toHaveBeenLastCalledWith(0);
+        expect(store.run_panel.setShowBotStopMessage).toHaveBeenLastCalledWith(false);
     });
 
     it('auto-loads the latest 1000 ticks for percentage mode on initialization', async () => {
@@ -270,9 +289,7 @@ describe('<AutoTrades />', () => {
         });
 
         act(() => {
-            [100.04, 100.14, 100.24, 100.34].forEach(quote =>
-                tickSubscribers['1HZ10V']({ tick: { quote } })
-            );
+            [100.04, 100.14, 100.24, 100.34].forEach(quote => tickSubscribers['1HZ10V']({ tick: { quote } }));
         });
 
         await waitFor(() => {
@@ -289,9 +306,7 @@ describe('<AutoTrades />', () => {
         });
 
         act(() => {
-            [100.005, 100.015, 100.025, 100.035].forEach(quote =>
-                tickSubscribers['1HZ15V']({ tick: { quote } })
-            );
+            [100.005, 100.015, 100.025, 100.035].forEach(quote => tickSubscribers['1HZ15V']({ tick: { quote } }));
         });
 
         await waitFor(() => {

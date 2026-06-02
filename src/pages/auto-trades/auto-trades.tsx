@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import Input from '@/components/shared_ui/input';
 import ThemedScrollbars from '@/components/shared_ui/themed-scrollbars';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { contract_stages } from '@/constants/contract-stage';
 import { api_base, observer as globalObserver } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
@@ -12,6 +13,12 @@ import { getLastDigitFromQuote, getMarketPipSize, isExpectedStreamInterruption }
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
 import './auto-trades.scss';
+
+type MartingaleModeType =
+    | 'no_martingale'
+    | 'after_one_loss'
+    | 'after_two_losses'
+    | 'custom_consecutive_loss_trigger';
 
 type AutoMarket = { symbol: string; label: string; pip: number };
 type Direction = 1 | -1 | 0;
@@ -50,6 +57,8 @@ type AiAutoTradeSettings = {
     stopLoss?: string | null;
     streak?: string | null;
     strategyMode?: StrategyMode | null;
+    martingaleMode?: MartingaleModeType | null;
+    consecutiveLossCount?: string | null;
 };
 
 type AiCustomStrategy = {
@@ -237,6 +246,21 @@ const DEFAULT_BARRIER: Record<TradeType, string> = {
 
 const isRunTradeType = (trade_type: TradeType) => trade_type === 'RUNHIGH' || trade_type === 'RUNLOW';
 const usesLossPrediction = (trade_type: TradeType) => trade_type === 'DIGITOVER' || trade_type === 'DIGITUNDER';
+
+const normalizeMartingaleMode = (value: unknown): MartingaleModeType => {
+    if (value === 'no_martingale') return 'no_martingale';
+    if (value === 'after_two_losses') return 'after_two_losses';
+    if (value === 'custom_consecutive_loss_trigger' || value === 'consecutive_loss_trigger') {
+        return 'custom_consecutive_loss_trigger';
+    }
+    return 'after_one_loss';
+};
+
+const clampConsecutiveLossThreshold = (value: unknown) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 2;
+    return Math.min(10, Math.max(1, Math.trunc(numeric)));
+};
 
 const getAiNumber = (text: string, patterns: RegExp[], min: number, max: number) => {
     for (const pattern of patterns) {
@@ -889,7 +913,24 @@ const AutoTrades = observer(() => {
             return 'STANDARD';
         }
     });
+    const [martingaleMode, setMartingaleMode] = useState<MartingaleModeType>(() => {
+        try {
+            return normalizeMartingaleMode(localStorage.getItem('auto_trades_martingaleMode'));
+        } catch {
+            return 'after_one_loss';
+        }
+    });
+    const [consecutiveLossCount, setConsecutiveLossCount] = useState(() => {
+        try {
+            const saved = localStorage.getItem('auto_trades_consecutiveLossCount');
+            return clampConsecutiveLossThreshold(saved || 2);
+        } catch {
+            return 2;
+        }
+    });
     const strategyModeRef = useRef(strategyMode);
+    const martingaleModeRef = useRef(martingaleMode);
+    const consecutiveLossCountRef = useRef(consecutiveLossCount);
     const modeTransitionLockRef = useRef(false);
     const isRecoveringDataRef = useRef(false);
     const [showDisclaimer, setShowDisclaimer] = useState(false);
@@ -942,7 +983,14 @@ const AutoTrades = observer(() => {
     const totalPnlRef = useRef(0);
     const totalTradesRef = useRef(0);
     const runningRef = useRef(false);
-    const configRef = useRef({ stake: 1, martingale: 2, takeProfit: 100, stopLoss: 100 });
+    const configRef = useRef({
+        stake: 1,
+        martingale: 2,
+        takeProfit: 100,
+        stopLoss: 100,
+        martingaleMode: 'after_one_loss' as MartingaleModeType,
+        consecutiveLossThreshold: 2,
+    });
     const tradeTypeRef = useRef<TradeType>('DIGITOVER');
     const barrierRef = useRef(4);
     const predictionBeforeLossRef = useRef(4);
@@ -965,7 +1013,6 @@ const AutoTrades = observer(() => {
     const modeTransitionTimerRef = useRef<number | null>(null);
     const contractPollTimersRef = useRef<Set<number>>(new Set());
     const contractPollResolversRef = useRef<Set<(value: Record<string, any>) => void>>(new Set());
-
     const show_auto = active_tab === DBOT_TABS.AUTO_TRADES;
     const show_auto_ref = useRef(show_auto);
     show_auto_ref.current = show_auto;
@@ -977,6 +1024,8 @@ const AutoTrades = observer(() => {
             martingale: Math.max(1.01, Number(martingale) || 2),
             takeProfit: Number(takeProfit) || 100,
             stopLoss: Number(stopLoss) || 100,
+            martingaleMode,
+            consecutiveLossThreshold: clampConsecutiveLossThreshold(consecutiveLossCount),
         };
         try {
             localStorage.setItem('auto_trades_stake', stake);
@@ -986,7 +1035,7 @@ const AutoTrades = observer(() => {
         } catch {
             // Ignore localStorage write failures.
         }
-    }, [stake, martingale, takeProfit, stopLoss]);
+    }, [stake, martingale, takeProfit, stopLoss, martingaleMode, consecutiveLossCount]);
 
     useEffect(() => {
         tradeTypeRef.current = tradeType;
@@ -1036,6 +1085,24 @@ const AutoTrades = observer(() => {
             // Ignore localStorage write failures.
         }
     }, [analysisTicks]);
+
+    useEffect(() => {
+        martingaleModeRef.current = martingaleMode;
+        try {
+            localStorage.setItem('auto_trades_martingaleMode', martingaleMode);
+        } catch {
+            // Ignore localStorage write failures.
+        }
+    }, [martingaleMode]);
+
+    useEffect(() => {
+        consecutiveLossCountRef.current = clampConsecutiveLossThreshold(consecutiveLossCount);
+        try {
+            localStorage.setItem('auto_trades_consecutiveLossCount', String(consecutiveLossCountRef.current));
+        } catch {
+            // Ignore localStorage write failures.
+        }
+    }, [consecutiveLossCount]);
 
     useEffect(() => {
         selectedMarketsRef.current = selectedMarkets;
@@ -1261,6 +1328,25 @@ const AutoTrades = observer(() => {
         });
     }, []);
 
+    const completeRunPanelStop = useCallback(() => {
+        try {
+            run_panel.is_contract_buying_in_progress = false;
+            run_panel.setIsRunning(false);
+            run_panel.setHasOpenContract?.(false);
+            run_panel.setContractStage?.(contract_stages.NOT_RUNNING);
+            run_panel.setShowBotStopMessage?.(false);
+        } catch {
+            // Ignore optional run-panel cleanup failures.
+        }
+
+        try {
+            api_base.is_stopping = false;
+            api_base.setIsRunning?.(false);
+        } catch {
+            // Ignore optional bot-skeleton cleanup failures.
+        }
+    }, [run_panel]);
+
     const pollCancellationRef = useRef<AbortController | null>(null);
 
     const scheduleContractPoll = useCallback((callback: () => void) => {
@@ -1399,6 +1485,8 @@ const AutoTrades = observer(() => {
             if (!state) return;
 
             const { martingale: mult, takeProfit: tp, stopLoss: sl, stake: baseStake } = configRef.current;
+            const currentMartingaleMode = normalizeMartingaleMode(martingaleModeRef.current);
+            const currentConsecutiveThreshold = clampConsecutiveLossThreshold(consecutiveLossCountRef.current);
 
             totalPnlRef.current = parseFloat((totalPnlRef.current + profit).toFixed(2));
             totalTradesRef.current++;
@@ -1406,8 +1494,22 @@ const AutoTrades = observer(() => {
             const isLoss = profit < 0;
 
             if (isLoss) {
-                nextStakeRef.current = parseFloat((nextStakeRef.current * mult).toFixed(2));
                 consecutiveLossRef.current++;
+
+                if (currentMartingaleMode === 'no_martingale') {
+                    nextStakeRef.current = baseStake;
+                } else if (currentMartingaleMode === 'after_one_loss') {
+                    nextStakeRef.current = parseFloat((nextStakeRef.current * mult).toFixed(2));
+                } else if (currentMartingaleMode === 'after_two_losses') {
+                    nextStakeRef.current =
+                        consecutiveLossRef.current >= 2 ? parseFloat((nextStakeRef.current * mult).toFixed(2)) : baseStake;
+                } else if (currentMartingaleMode === 'custom_consecutive_loss_trigger') {
+                    nextStakeRef.current =
+                        consecutiveLossRef.current >= currentConsecutiveThreshold
+                            ? parseFloat((nextStakeRef.current * mult).toFixed(2))
+                            : baseStake;
+                }
+
                 if (consecutiveLossRef.current >= CONSECUTIVE_LOSSES_FOR_COOLDOWN) {
                     cooldownTicksRef.current = COOLDOWN_TICKS;
                     consecutiveLossRef.current = 0;
@@ -1432,9 +1534,10 @@ const AutoTrades = observer(() => {
                 if (!unmountedRef.current) {
                     setIsRunning(false);
                 }
+                completeRunPanelStop();
             }
         },
-        [refreshDisplays]
+        [completeRunPanelStop, refreshDisplays]
     );
 
     const isPatternDigit = useCallback(
@@ -1928,6 +2031,7 @@ const AutoTrades = observer(() => {
         try {
             run_panel.setIsRunning(true);
             run_panel.setRunId(`run-${Date.now()}`);
+            run_panel.setContractStage?.(contract_stages.RUNNING);
             run_panel.toggleDrawer(true);
         } catch {
             // Ignore optional run-panel mount failures.
@@ -1941,25 +2045,28 @@ const AutoTrades = observer(() => {
         globalTradingRef.current = false;
         cooldownTicksRef.current = 0;
         consecutiveLossRef.current = 0;
+        previousContractResultRef.current = null;
+        clearDeferredWork();
+        pollCancellationRef.current?.abort();
+        pollCancellationRef.current = null;
         Object.values(marketStatesRef.current).forEach(state => {
             state.trading = false;
             state.consecutive = 0;
+            state.tradeStartTime = null;
+            state.verificationId = null;
         });
         setIsRunning(false);
         clearDataRecoveryLoading();
         setCooldownDisplay(0);
+        setCurrentStakeDisplay(configRef.current.stake);
+        nextStakeRef.current = configRef.current.stake;
+        completeRunPanelStop();
         refreshDisplays();
-    }, [clearDataRecoveryLoading, refreshDisplays]);
+    }, [clearDataRecoveryLoading, clearDeferredWork, completeRunPanelStop, refreshDisplays]);
 
     const handleStop = useCallback(() => {
         stopTrading();
-        try {
-            run_panel.setIsRunning(false);
-            run_panel.setHasOpenContract(false);
-        } catch {
-            // Ignore optional run-panel cleanup failures.
-        }
-    }, [run_panel, stopTrading]);
+    }, [stopTrading]);
 
     useEffect(() => {
         if (!show_auto) return undefined;
@@ -2462,6 +2569,53 @@ const AutoTrades = observer(() => {
                                             disabled={isRunning}
                                         />
                                     </div>
+                                </div>
+
+                                {/* Martingale Strategy Selector */}
+                                <div className='auto-trades-config__group'>
+                                    <div className='auto-trades-martingale-selector'>
+                                        <label>Martingale Strategy</label>
+                                        <select
+                                            className='auto-trades-martingale-selector__select'
+                                            value={martingaleMode}
+                                            onChange={e => setMartingaleMode(normalizeMartingaleMode(e.target.value))}
+                                            disabled={isRunning}
+                                        >
+                                            <option value='no_martingale'>No Martingale</option>
+                                            <option value='after_one_loss'>After 1 loss</option>
+                                            <option value='after_two_losses'>After 2 losses</option>
+                                            <option value='custom_consecutive_loss_trigger'>Custom loss count</option>
+                                        </select>
+                                    </div>
+                                    <p className='auto-trades-martingale__hint'>
+                                        {martingaleMode === 'no_martingale'
+                                            ? 'Martingale is disabled. Stake stays at the base amount.'
+                                            : martingaleMode === 'after_one_loss'
+                                              ? 'Martingale engages immediately after one loss.'
+                                              : martingaleMode === 'after_two_losses'
+                                                ? 'Martingale engages only after two consecutive losses.'
+                                                : `Martingale engages after ${clampConsecutiveLossThreshold(
+                                                      consecutiveLossCount
+                                                  )} consecutive losses.`}
+                                    </p>
+                                    {martingaleMode === 'custom_consecutive_loss_trigger' && (
+                                        <div className='auto-trades-config__field' style={{ marginTop: '0.5rem' }}>
+                                            <label>Consecutive losses before martingale</label>
+                                            <Input
+                                                type='number'
+                                                min='1'
+                                                max='10'
+                                                step='1'
+                                                value={consecutiveLossCount}
+                                                onChange={e =>
+                                                    setConsecutiveLossCount(
+                                                        clampConsecutiveLossThreshold(e.target.value)
+                                                    )
+                                                }
+                                                disabled={isRunning}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className='auto-trades-controls'>
