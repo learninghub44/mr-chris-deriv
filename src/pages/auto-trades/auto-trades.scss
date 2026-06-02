@@ -141,6 +141,20 @@ $at-text-faint: #2c4060;
         @media (max-width: 1100px) {
             grid-template-columns: 1fr;
         }
+
+        &--loading {
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+    }
+
+    &__loader {
+        min-height: 38rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     &__sidebar {
@@ -531,6 +545,17 @@ $at-text-faint: #2c4060;
     font-size: 1.25rem;
     font-weight: 700;
 
+    &--panel {
+        min-height: 18rem;
+        width: min(100%, 52rem);
+        margin: 0;
+        justify-content: center;
+        border-radius: 1.2rem;
+        background: rgba(12, 22, 39, 0.95);
+        border-color: rgba(46, 127, 216, 0.32);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    }
+
     &__spinner {
         width: 1.6rem;
         height: 1.6rem;
@@ -539,6 +564,23 @@ $at-text-faint: #2c4060;
         border-radius: 50%;
         flex: 0 0 auto;
         animation: at-spin 0.8s linear infinite;
+    }
+
+    &__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+
+        strong {
+            color: $at-text;
+            font-size: 1.5rem;
+        }
+
+        span {
+            color: $at-text-dim;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
     }
 }
 

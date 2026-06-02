@@ -1460,6 +1460,15 @@ const AutoTrades = observer(() => {
         refreshDisplays();
     }, [refreshDisplays, selectedMarketSymbols]);
 
+    useEffect(() => {
+        if (!show_auto) return;
+        if (selectedMarketSymbols.length === 0) {
+            clearDataRecoveryLoading();
+            return;
+        }
+        setDataRecoveryLoading('Loading selected market data...');
+    }, [clearDataRecoveryLoading, selectedMarketSymbols.length, setDataRecoveryLoading, show_auto]);
+
     const handleAddMarket = useCallback((symbol: string) => {
         if (!AUTO_MARKET_LOOKUP.has(symbol) || runningRef.current) return;
         setSelectedMarketSymbols(current => (current.includes(symbol) ? current : [...current, symbol]));
@@ -2437,7 +2446,12 @@ const AutoTrades = observer(() => {
     const baseStakeNum = Number(stake) || 1;
     const martingaleActive = currentStakeDisplay > baseStakeNum;
     const inCooldown = cooldownDisplay > 0;
-    const isDataLoading = selectedMarketSymbols.length > 0 && (dataStreamLoading || (!isConnected && show_auto));
+    const hasAnyLiveQuote =
+        selectedMarkets.length > 0 &&
+        selectedMarkets.some(market => marketDisplays.find(display => display.symbol === market.symbol)?.lastQuote !== null);
+    const isDataLoading =
+        selectedMarketSymbols.length > 0 &&
+        (dataStreamLoading || (!isConnected && show_auto) || !hasAnyLiveQuote);
     const streakNum = getEffectiveSignalStreak({
         trade_type: tradeType,
         configured_streak: Number(streak) || 4,
@@ -2528,13 +2542,6 @@ const AutoTrades = observer(() => {
                         </div>
                     </div>
 
-                    {isDataLoading && (
-                        <div className='auto-trades-data-loader'>
-                            <span className='auto-trades-data-loader__spinner' />
-                            <span>{dataStreamMessage}</span>
-                        </div>
-                    )}
-
                     {/* Cooldown banner */}
                     {inCooldown && isRunning && (
                         <div className='auto-trades-cooldown'>
@@ -2554,7 +2561,23 @@ const AutoTrades = observer(() => {
 
                     {error && <div className='auto-trades-page__error'>{error}</div>}
 
-                    <div className='auto-trades-page__body'>
+                    {isDataLoading && (
+                        <div className='auto-trades-page__loader'>
+                            <div className='auto-trades-data-loader auto-trades-data-loader--panel'>
+                                <span className='auto-trades-data-loader__spinner' />
+                                <div className='auto-trades-data-loader__copy'>
+                                    <strong>Waiting for live market data</strong>
+                                    <span>{dataStreamMessage}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div
+                        className={classNames('auto-trades-page__body', {
+                            'auto-trades-page__body--loading': isDataLoading,
+                        })}
+                    >
                         {/* Sidebar */}
                         <div className='auto-trades-page__sidebar'>
                             {/* Settings card */}

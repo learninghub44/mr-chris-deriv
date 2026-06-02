@@ -236,6 +236,8 @@ const Combo = observer(() => {
     // UI state
     const [isRunning, setIsRunning] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [dataStreamLoading, setDataStreamLoading] = useState(true);
+    const [dataStreamMessage, setDataStreamMessage] = useState('Loading market data...');
     const [isRecoveringData, setIsRecoveringData] = useState(false);
     const isRecoveringDataRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
@@ -334,6 +336,21 @@ const Combo = observer(() => {
             flushRefresh();
         }, UI_REFRESH_THROTTLE_MS - elapsed);
     }, [flushRefresh]);
+
+    const setDataRecoveryLoading = useCallback((message: string) => {
+        if (unmountedRef.current || !showComboRef.current) return;
+        isRecoveringDataRef.current = true;
+        setIsRecoveringData(true);
+        setDataStreamMessage(message);
+        setDataStreamLoading(true);
+    }, []);
+
+    const clearDataRecoveryLoading = useCallback(() => {
+        if (unmountedRef.current) return;
+        isRecoveringDataRef.current = false;
+        setIsRecoveringData(false);
+        setDataStreamLoading(false);
+    }, []);
 
     const schedulePoll = useCallback((callback: () => void) => {
         const timer = window.setTimeout(() => {
@@ -520,8 +537,7 @@ const Combo = observer(() => {
             live.lastQuote = quote;
             lastTickAtRef.current = Date.now();
             if (isRecoveringDataRef.current) {
-                isRecoveringDataRef.current = false;
-                setIsRecoveringData(false);
+                clearDataRecoveryLoading();
             }
 
             // Cooldown countdown
@@ -611,8 +627,7 @@ const Combo = observer(() => {
                                 console.warn('[Combo] Tick stream error:', data.error);
                             }
                             if (!isRecoveringDataRef.current) {
-                                isRecoveringDataRef.current = true;
-                                if (!unmountedRef.current) setIsRecoveringData(true);
+                                setDataRecoveryLoading(`Reconnecting ${row.symbol} tick stream...`);
                             }
                             return;
                         }
@@ -624,8 +639,7 @@ const Combo = observer(() => {
                             console.warn('[Combo] Tick stream error:', streamError);
                         }
                         if (!isRecoveringDataRef.current) {
-                            isRecoveringDataRef.current = true;
-                            if (!unmountedRef.current) setIsRecoveringData(true);
+                            setDataRecoveryLoading(`Reconnecting ${row.symbol} tick stream...`);
                         }
                     }
                 );
@@ -648,25 +662,29 @@ const Combo = observer(() => {
         });
         subscriptionsRef.current = {};
         if (!unmountedRef.current) setIsConnected(false);
-        isRecoveringDataRef.current = false;
-        if (!unmountedRef.current) setIsRecoveringData(false);
-    }, []);
+        clearDataRecoveryLoading();
+    }, [clearDataRecoveryLoading]);
 
     const subscribeAll = useCallback(() => {
+        if (!rowsRef.current.length) {
+            if (!unmountedRef.current) setIsConnected(false);
+            clearDataRecoveryLoading();
+            return;
+        }
+        setDataRecoveryLoading('Loading market data...');
         rowsRef.current.forEach(row => {
             if (!rowLiveRef.current[row.id]) rowLiveRef.current[row.id] = makeRowLive(Number(row.stake) || 1);
             subscribe(row);
         });
         lastTickAtRef.current = Date.now();
         setIsConnected(true);
-    }, [subscribe]);
+    }, [clearDataRecoveryLoading, setDataRecoveryLoading, subscribe]);
 
     const restartSubscriptions = useCallback(() => {
         if (restartInFlightRef.current) return;
         restartInFlightRef.current = true;
-        isRecoveringDataRef.current = true;
-        if (!unmountedRef.current) setIsRecoveringData(true);
         unsubscribeAll();
+        setDataRecoveryLoading('Market data paused. Reconnecting streams...');
         restartTimerRef.current = window.setTimeout(() => {
             restartTimerRef.current = null;
             if (!showComboRef.current || unmountedRef.current) {
@@ -680,7 +698,7 @@ const Combo = observer(() => {
                 lastTickAtRef.current = Date.now();
             }
         }, 1200);
-    }, [subscribeAll, unsubscribeAll]);
+    }, [setDataRecoveryLoading, subscribeAll, unsubscribeAll]);
 
     // Run / Stop — connect to run_panel so transactions + mobile drawer work
     const handleRun = useCallback(() => {
@@ -830,6 +848,11 @@ const Combo = observer(() => {
             unsubscribeAll();
             return;
         }
+        if (rows.length > 0) {
+            setDataRecoveryLoading('Loading market data...');
+        } else {
+            clearDataRecoveryLoading();
+        }
         rowsRef.current.forEach(row => {
             if (!rowLiveRef.current[row.id]) rowLiveRef.current[row.id] = makeRowLive(Number(row.stake) || 1);
         });
@@ -845,7 +868,7 @@ const Combo = observer(() => {
             return () => clearInterval(id);
         }
         return undefined;
-    }, [show_combo, subscribeAll, unsubscribeAll, run_panel]);
+    }, [clearDataRecoveryLoading, rows.length, setDataRecoveryLoading, show_combo, subscribeAll, unsubscribeAll, run_panel]);
 
     useEffect(
         () => () => {
@@ -890,6 +913,13 @@ const Combo = observer(() => {
     const pnlPos = totalPnl > 0;
     const pnlNeg = totalPnl < 0;
     const anyReady = Object.values(liveSnapshot).some(l => l.ready);
+    const hasAnyLiveQuote =
+        rows.length > 0 &&
+        rows.some(row => {
+            const live = liveSnapshot[row.id];
+            return live?.lastQuote !== null && live?.lastQuote !== undefined;
+        });
+    const isDataLoading = rows.length > 0 && (dataStreamLoading || !isConnected || !hasAnyLiveQuote);
 
     return (
         <div className='combo-page'>
@@ -913,11 +943,14 @@ const Combo = observer(() => {
                                     'combo-status--connected': isConnected && !inCooldown,
                                     'combo-status--running': isRunning && !inCooldown,
                                     'combo-status--cooldown': inCooldown,
+                                    'combo-status--loading': isDataLoading && !inCooldown,
                                 })}
                             />
                             <span className='combo-status__label'>
                                 {inCooldown
                                     ? `Cooldown ${cooldownDisplay}t`
+                                    : isDataLoading
+                                      ? 'Loading data'
                                     : isRunning
                                       ? 'Trading'
                                       : isConnected
@@ -939,7 +972,23 @@ const Combo = observer(() => {
                         <div className='combo-notice'>Please log in to your Deriv account to execute real trades.</div>
                     )}
 
-                    <div className='combo-page__body'>
+                    {isDataLoading && (
+                        <div className='combo-page__loader'>
+                            <div className='combo-data-loader'>
+                                <span className='combo-data-loader__spinner' />
+                                <div className='combo-data-loader__copy'>
+                                    <strong>Waiting for live market data</strong>
+                                    <span>{dataStreamMessage}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div
+                        className={classNames('combo-page__body', {
+                            'combo-page__body--loading': isDataLoading,
+                        })}
+                    >
                         {/* ── Sidebar ──────────────────────────────────── */}
                         <div className='combo-sidebar'>
                             <div className='combo-card'>
