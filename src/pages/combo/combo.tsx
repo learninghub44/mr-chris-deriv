@@ -9,12 +9,14 @@ import { useStore } from '@/hooks/useStore';
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
 import { getLastDigitFromQuote, isExpectedStreamInterruption } from '@/utils/market-data';
+import { safeSubscribe } from '@/utils/websocket-handler';
 import './combo.scss';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const COOLDOWN_TICKS = 60;
 const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
+const UI_REFRESH_THROTTLE_MS = 80;
 
 // ── Trade type helpers ─────────────────────────────────────────────────────────
 type ComboTradeType =
@@ -261,8 +263,15 @@ const Combo = observer(() => {
     const lastTickAtRef = useRef(0);
     const restartInFlightRef = useRef(false);
     const subscriptionVersionRef = useRef(0);
+    const showComboRef = useRef(false);
+    const lastUiRefreshAtRef = useRef(0);
+    const uiRefreshTimerRef = useRef<number | null>(null);
+    const restartTimerRef = useRef<number | null>(null);
+    const pollTimersRef = useRef<Set<number>>(new Set());
+    const pollResolversRef = useRef<Set<(value: Record<string, any>) => void>>(new Set());
 
     const show_combo = active_tab === DBOT_TABS.COMBO;
+    showComboRef.current = show_combo;
 
     // Sync refs + persist to localStorage
     useEffect(() => {
@@ -296,12 +305,58 @@ const Combo = observer(() => {
         } catch {}
     }, [stopLoss]);
 
-    // Snapshot refresh
-    const refresh = useCallback(() => {
+    const flushRefresh = useCallback(() => {
+        if (unmountedRef.current || !showComboRef.current) return;
+        lastUiRefreshAtRef.current = Date.now();
         setLiveSnapshot({ ...rowLiveRef.current });
         setTotalPnl(totalPnlRef.current);
         setTotalRounds(totalRoundsRef.current);
         setCooldownDisplay(cooldownTicksRef.current);
+    }, []);
+
+    // Snapshot refreshes are throttled so volatile streams cannot flood React while tabs switch.
+    const refresh = useCallback(() => {
+        if (unmountedRef.current || !showComboRef.current) return;
+
+        const elapsed = Date.now() - lastUiRefreshAtRef.current;
+        if (elapsed >= UI_REFRESH_THROTTLE_MS) {
+            if (uiRefreshTimerRef.current !== null) {
+                window.clearTimeout(uiRefreshTimerRef.current);
+                uiRefreshTimerRef.current = null;
+            }
+            flushRefresh();
+            return;
+        }
+
+        if (uiRefreshTimerRef.current !== null) return;
+        uiRefreshTimerRef.current = window.setTimeout(() => {
+            uiRefreshTimerRef.current = null;
+            flushRefresh();
+        }, UI_REFRESH_THROTTLE_MS - elapsed);
+    }, [flushRefresh]);
+
+    const schedulePoll = useCallback((callback: () => void) => {
+        const timer = window.setTimeout(() => {
+            pollTimersRef.current.delete(timer);
+            if (!unmountedRef.current && showComboRef.current) callback();
+        }, 800);
+        pollTimersRef.current.add(timer);
+    }, []);
+
+    const clearDeferredWork = useCallback(() => {
+        if (uiRefreshTimerRef.current !== null) {
+            window.clearTimeout(uiRefreshTimerRef.current);
+            uiRefreshTimerRef.current = null;
+        }
+        if (restartTimerRef.current !== null) {
+            window.clearTimeout(restartTimerRef.current);
+            restartTimerRef.current = null;
+        }
+        pollTimersRef.current.forEach(timer => window.clearTimeout(timer));
+        pollTimersRef.current.clear();
+        pollResolversRef.current.forEach(resolve => resolve({ profit: 0, is_sold: true }));
+        pollResolversRef.current.clear();
+        restartInFlightRef.current = false;
     }, []);
 
     // Push to transactions panel and emit contract event for observers
@@ -320,7 +375,16 @@ const Combo = observer(() => {
     const pollContract = useCallback(
         (contractId: number): Promise<Record<string, any>> =>
             new Promise(resolve => {
+                const finish = (value: Record<string, any>) => {
+                    pollResolversRef.current.delete(finish);
+                    resolve(value);
+                };
+                pollResolversRef.current.add(finish);
                 const check = async () => {
+                    if (unmountedRef.current || !showComboRef.current) {
+                        finish({ profit: 0, is_sold: true });
+                        return;
+                    }
                     try {
                         const resp = await (api_base.api as any).send({
                             proposal_open_contract: 1,
@@ -328,21 +392,21 @@ const Combo = observer(() => {
                         });
                         const c = resp?.proposal_open_contract;
                         if (!c) {
-                            setTimeout(check, 800);
+                            schedulePoll(check);
                             return;
                         }
                         pushTx(getContractSnapshot(c));
                         if (c.is_sold) {
                             emitContractSoldStatus(c);
-                            resolve(c);
-                        } else setTimeout(check, 800);
+                            finish(c);
+                        } else schedulePoll(check);
                     } catch {
-                        resolve({ profit: 0, is_sold: true });
+                        finish({ profit: 0, is_sold: true });
                     }
                 };
                 check();
             }),
-        [pushTx]
+        [pushTx, schedulePoll]
     );
 
     // Execute all rows simultaneously; return per-row profits
@@ -538,29 +602,30 @@ const Combo = observer(() => {
             const subscriptionVersion = subscriptionVersionRef.current;
             try {
                 const obs = (api_base.api as any).subscribe({ ticks: row.symbol });
-                const sub = obs.subscribe(
+                const sub = safeSubscribe(
+                    obs,
                     (data: any) => {
-                        if (subscriptionVersion !== subscriptionVersionRef.current || !show_combo) return;
+                        if (subscriptionVersion !== subscriptionVersionRef.current || !showComboRef.current) return;
                         if (data?.error) {
                             if (!isExpectedStreamInterruption(data.error)) {
                                 console.warn('[Combo] Tick stream error:', data.error);
                             }
                             if (!isRecoveringDataRef.current) {
                                 isRecoveringDataRef.current = true;
-                                setIsRecoveringData(true);
+                                if (!unmountedRef.current) setIsRecoveringData(true);
                             }
                             return;
                         }
                         if (data?.tick?.quote !== undefined) handleTick(row.id, row.symbol, data.tick);
                     },
                     (streamError: unknown) => {
-                        if (subscriptionVersion !== subscriptionVersionRef.current || !show_combo) return;
+                        if (subscriptionVersion !== subscriptionVersionRef.current || !showComboRef.current) return;
                         if (!isExpectedStreamInterruption(streamError)) {
                             console.warn('[Combo] Tick stream error:', streamError);
                         }
                         if (!isRecoveringDataRef.current) {
                             isRecoveringDataRef.current = true;
-                            setIsRecoveringData(true);
+                            if (!unmountedRef.current) setIsRecoveringData(true);
                         }
                     }
                 );
@@ -571,7 +636,7 @@ const Combo = observer(() => {
                 }
             }
         },
-        [handleTick, show_combo]
+        [handleTick]
     );
 
     const unsubscribeAll = useCallback(() => {
@@ -582,9 +647,9 @@ const Combo = observer(() => {
             } catch {}
         });
         subscriptionsRef.current = {};
-        setIsConnected(false);
+        if (!unmountedRef.current) setIsConnected(false);
         isRecoveringDataRef.current = false;
-        setIsRecoveringData(false);
+        if (!unmountedRef.current) setIsRecoveringData(false);
     }, []);
 
     const subscribeAll = useCallback(() => {
@@ -600,10 +665,11 @@ const Combo = observer(() => {
         if (restartInFlightRef.current) return;
         restartInFlightRef.current = true;
         isRecoveringDataRef.current = true;
-        setIsRecoveringData(true);
+        if (!unmountedRef.current) setIsRecoveringData(true);
         unsubscribeAll();
-        window.setTimeout(() => {
-            if (!show_combo) {
+        restartTimerRef.current = window.setTimeout(() => {
+            restartTimerRef.current = null;
+            if (!showComboRef.current || unmountedRef.current) {
                 restartInFlightRef.current = false;
                 return;
             }
@@ -614,7 +680,7 @@ const Combo = observer(() => {
                 lastTickAtRef.current = Date.now();
             }
         }, 1200);
-    }, [show_combo, subscribeAll, unsubscribeAll]);
+    }, [subscribeAll, unsubscribeAll]);
 
     // Run / Stop — connect to run_panel so transactions + mobile drawer work
     const handleRun = useCallback(() => {
@@ -727,43 +793,10 @@ const Combo = observer(() => {
                 delete subscriptionsRef.current[id];
                 rowLiveRef.current[id] = makeRowLive(Number(rowsRef.current.find(r => r.id === id)?.stake) || 1);
                 if (isConnected) {
-                    const subscriptionVersion = subscriptionVersionRef.current;
-                    setTimeout(() => {
-                        if (subscriptionVersion !== subscriptionVersionRef.current || !show_combo) return;
-                        try {
-                            const obs = (api_base.api as any).subscribe({ ticks: value });
-                            const sub = obs.subscribe(
-                                (data: any) => {
-                                    if (subscriptionVersion !== subscriptionVersionRef.current || !show_combo) return;
-                                    if (data?.error) {
-                                        if (!isExpectedStreamInterruption(data.error)) {
-                                            console.warn('[Combo] Tick stream error:', data.error);
-                                        }
-                                        if (!isRecoveringDataRef.current) {
-                                            isRecoveringDataRef.current = true;
-                                            setIsRecoveringData(true);
-                                        }
-                                        return;
-                                    }
-                                    if (data?.tick?.quote !== undefined) handleTick(id, value, data.tick);
-                                },
-                                (streamError: unknown) => {
-                                    if (subscriptionVersion !== subscriptionVersionRef.current || !show_combo) return;
-                                    if (!isExpectedStreamInterruption(streamError)) {
-                                        console.warn('[Combo] Tick stream error:', streamError);
-                                    }
-                                    if (!isRecoveringDataRef.current) {
-                                        isRecoveringDataRef.current = true;
-                                        setIsRecoveringData(true);
-                                    }
-                                }
-                            );
-                            subscriptionsRef.current[id] = sub;
-                        } catch (error) {
-                            if (!isExpectedStreamInterruption(error)) {
-                                console.error('[Combo] Subscribe failed:', error);
-                            }
-                        }
+                    window.setTimeout(() => {
+                        if (!showComboRef.current || unmountedRef.current) return;
+                        const updatedRow = rowsRef.current.find(row => row.id === id);
+                        if (updatedRow) subscribe(updatedRow);
                     }, 100);
                 }
             }
@@ -776,7 +809,7 @@ const Combo = observer(() => {
                 }
             }
         },
-        [isConnected, handleTick, show_combo]
+        [isConnected, subscribe]
     );
 
     // Tab / lifecycle effects
@@ -789,6 +822,7 @@ const Combo = observer(() => {
                     run_panel.setIsRunning(false);
                 } catch {}
             }
+            clearDeferredWork();
             unsubscribeAll();
             return;
         }
@@ -812,6 +846,7 @@ const Combo = observer(() => {
     useEffect(
         () => () => {
             unmountedRef.current = true;
+            clearDeferredWork();
             // Invalidate all subscription callbacks by bumping version
             subscriptionVersionRef.current++;
             stopTrading();

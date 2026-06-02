@@ -299,7 +299,9 @@ describe('<AutoTrades />', () => {
             tickSubscribers['1HZ10V']({ tick: { quote: 100.22 } });
         });
 
-        expect(screen.getByText('100.22')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('100.22')).toBeInTheDocument();
+        });
 
         await user.click(screen.getByRole('button', { name: /Stop/i }));
 
@@ -309,7 +311,9 @@ describe('<AutoTrades />', () => {
             tickSubscribers['1HZ10V']({ tick: { quote: 101.33 } });
         });
 
-        expect(screen.getByText('101.33')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('101.33')).toBeInTheDocument();
+        });
         expect(screen.getByText('Live data')).toBeInTheDocument();
     });
 });

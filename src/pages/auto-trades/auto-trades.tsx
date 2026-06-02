@@ -39,6 +39,7 @@ const AUTO_MARKET_LOOKUP = new Map(AUTO_MARKETS.map(market => [market.symbol, ma
 const COOLDOWN_TICKS = 60;
 const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
+const UI_REFRESH_THROTTLE_MS = 80;
 const PERCENTAGE_ANALYSIS_HISTORY_SIZE = 1000;
 const PERCENTAGE_BACKFILL_COUNT = PERCENTAGE_ANALYSIS_HISTORY_SIZE;
 const PERCENTAGE_MIN_SAMPLE_SIZE = 100;
@@ -675,6 +676,12 @@ const AutoTrades = observer(() => {
     const subscriptionVersionRef = useRef(0);
     const handleTickRef = useRef<(symbol: string, tick: any) => void>(() => {});
     const handleCandleRef = useRef<(symbol: string, candle: any) => void>(() => {});
+    const lastUiRefreshAtRef = useRef(0);
+    const uiRefreshTimerRef = useRef<number | null>(null);
+    const restartTimerRef = useRef<number | null>(null);
+    const modeTransitionTimerRef = useRef<number | null>(null);
+    const contractPollTimersRef = useRef<Set<number>>(new Set());
+    const contractPollResolversRef = useRef<Set<(value: Record<string, any>) => void>>(new Set());
 
     const show_auto = active_tab === DBOT_TABS.AUTO_TRADES;
 
@@ -793,7 +800,11 @@ const AutoTrades = observer(() => {
                 state.percentageBackfillInFlight = false;
             });
         }
-        setTimeout(() => {
+        if (modeTransitionTimerRef.current !== null) {
+            window.clearTimeout(modeTransitionTimerRef.current);
+        }
+        modeTransitionTimerRef.current = window.setTimeout(() => {
+            modeTransitionTimerRef.current = null;
             modeTransitionLockRef.current = false;
         }, 100);
     }, [strategyMode]);
@@ -807,8 +818,9 @@ const AutoTrades = observer(() => {
         }
     }, []);
 
-    const refreshDisplays = useCallback(() => {
-        if (unmountedRef.current) return;
+    const flushDisplays = useCallback(() => {
+        if (unmountedRef.current || !show_auto_ref.current) return;
+        lastUiRefreshAtRef.current = Date.now();
         setMarketDisplays(
             selectedMarketsRef.current.map(m => ({
                 ...m,
@@ -822,6 +834,26 @@ const AutoTrades = observer(() => {
         setCurrentStakeDisplay(nextStakeRef.current);
         setCooldownDisplay(cooldownTicksRef.current);
     }, []);
+
+    const refreshDisplays = useCallback(() => {
+        if (unmountedRef.current || !show_auto_ref.current) return;
+
+        const elapsed = Date.now() - lastUiRefreshAtRef.current;
+        if (elapsed >= UI_REFRESH_THROTTLE_MS) {
+            if (uiRefreshTimerRef.current !== null) {
+                window.clearTimeout(uiRefreshTimerRef.current);
+                uiRefreshTimerRef.current = null;
+            }
+            flushDisplays();
+            return;
+        }
+
+        if (uiRefreshTimerRef.current !== null) return;
+        uiRefreshTimerRef.current = window.setTimeout(() => {
+            uiRefreshTimerRef.current = null;
+            flushDisplays();
+        }, UI_REFRESH_THROTTLE_MS - elapsed);
+    }, [flushDisplays]);
 
     useEffect(() => {
         refreshDisplays();
@@ -870,8 +902,42 @@ const AutoTrades = observer(() => {
 
     const pollCancellationRef = useRef<AbortController | null>(null);
 
+    const scheduleContractPoll = useCallback((callback: () => void) => {
+        const timer = window.setTimeout(() => {
+            contractPollTimersRef.current.delete(timer);
+            if (!unmountedRef.current && show_auto_ref.current) callback();
+        }, 800);
+        contractPollTimersRef.current.add(timer);
+    }, []);
+
+    const clearDeferredWork = useCallback(() => {
+        if (uiRefreshTimerRef.current !== null) {
+            window.clearTimeout(uiRefreshTimerRef.current);
+            uiRefreshTimerRef.current = null;
+        }
+        if (restartTimerRef.current !== null) {
+            window.clearTimeout(restartTimerRef.current);
+            restartTimerRef.current = null;
+        }
+        if (modeTransitionTimerRef.current !== null) {
+            window.clearTimeout(modeTransitionTimerRef.current);
+            modeTransitionTimerRef.current = null;
+        }
+        modeTransitionLockRef.current = false;
+        contractPollTimersRef.current.forEach(timer => window.clearTimeout(timer));
+        contractPollTimersRef.current.clear();
+        contractPollResolversRef.current.forEach(resolve => resolve({ profit: 0, is_sold: true }));
+        contractPollResolversRef.current.clear();
+        restartInFlightRef.current = false;
+    }, []);
+
     const pollContractResult = (contractId: number): Promise<Record<string, any>> =>
         new Promise(resolve => {
+            const finish = (value: Record<string, any>) => {
+                contractPollResolversRef.current.delete(finish);
+                resolve(value);
+            };
+            contractPollResolversRef.current.add(finish);
             const abortController = new AbortController();
             pollCancellationRef.current = abortController;
             const { signal } = abortController;
@@ -879,12 +945,12 @@ const AutoTrades = observer(() => {
             let retryCount = 0;
             const check = async () => {
                 if (signal.aborted || unmountedRef.current) {
-                    resolve({ profit: 0, is_sold: true });
+                    finish({ profit: 0, is_sold: true });
                     return;
                 }
                 if (retryCount >= maxRetries) {
                     console.warn('[AutoTrades] Contract polling timeout after max retries');
-                    resolve({ profit: 0, is_sold: true });
+                    finish({ profit: 0, is_sold: true });
                     return;
                 }
                 try {
@@ -893,13 +959,13 @@ const AutoTrades = observer(() => {
                         contract_id: contractId,
                     });
                     if (signal.aborted || unmountedRef.current) {
-                        resolve({ profit: 0, is_sold: true });
+                        finish({ profit: 0, is_sold: true });
                         return;
                     }
                     const c = resp?.proposal_open_contract;
                     if (!c) {
                         retryCount++;
-                        setTimeout(check, 800);
+                        scheduleContractPoll(check);
                         return;
                     }
                     if (!unmountedRef.current) {
@@ -907,14 +973,14 @@ const AutoTrades = observer(() => {
                     }
                     if (c.is_sold) {
                         emitContractSoldStatus(c);
-                        resolve(c);
+                        finish(c);
                     } else {
                         retryCount++;
-                        setTimeout(check, 800);
+                        scheduleContractPoll(check);
                     }
                 } catch (err) {
                     console.error('[AutoTrades] Contract poll error:', err);
-                    resolve({ profit: 0, is_sold: true });
+                    finish({ profit: 0, is_sold: true });
                 }
             };
             check();
@@ -1444,8 +1510,9 @@ const AutoTrades = observer(() => {
         restartInFlightRef.current = true;
         isRecoveringDataRef.current = true;
         stopSubscriptions();
-        window.setTimeout(() => {
-            if (!show_auto_ref.current) {
+        restartTimerRef.current = window.setTimeout(() => {
+            restartTimerRef.current = null;
+            if (!show_auto_ref.current || unmountedRef.current) {
                 restartInFlightRef.current = false;
                 return;
             }
@@ -1569,10 +1636,11 @@ const AutoTrades = observer(() => {
                     // Ignore optional run-panel stop failures.
                 }
             }
+            clearDeferredWork();
             stopSubscriptions();
         }
         return undefined;
-    }, [show_auto, run_panel, startSubscriptions, stopSubscriptions]);
+    }, [clearDeferredWork, show_auto, run_panel, startSubscriptions, stopSubscriptions]);
 
     useEffect(() => {
         if (!show_auto || !api_base.api) return;
@@ -1620,6 +1688,7 @@ const AutoTrades = observer(() => {
     useEffect(
         () => () => {
             unmountedRef.current = true;
+            clearDeferredWork();
             // Abort any in-flight contract polling
             pollCancellationRef.current?.abort();
             // Invalidate all subscription callbacks by bumping version
@@ -1644,7 +1713,7 @@ const AutoTrades = observer(() => {
                 state.lastDigits.length = 0;
             });
         },
-        [run_panel, stopTrading, stopSubscriptions]
+        [clearDeferredWork, run_panel, stopTrading, stopSubscriptions]
     );
 
     if (!show_auto) return null;

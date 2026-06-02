@@ -105,7 +105,9 @@ describe('<Combo />', () => {
             tickSubscribers['1HZ100V']({ tick: { quote: 101.33 } });
         });
 
-        expect(screen.getByText('101.33')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('101.33')).toBeInTheDocument();
+        });
         expect(screen.getByText('Live data')).toBeInTheDocument();
     });
 });
