@@ -1,11 +1,40 @@
 import {
     computePercentage,
+    getNextMartingaleState,
     getPercentageSnapshot,
     getPredictionForLastOutcome,
     isPercentageSignalReady,
     normalizeAiAutoTradePlan,
     parseAiAutoTradeStrategy,
 } from '../auto-trades';
+
+jest.mock('@/hooks/useStore', () => ({
+    useStore: jest.fn(() => ({
+        dashboard: { active_tab: 'auto_trades' },
+        client: { currency: 'USD', is_logged_in: true },
+        summary_card: { onBotContractEvent: jest.fn() },
+        transactions: { pushTransaction: jest.fn() },
+        run_panel: {
+            run_id: 'run-1',
+            is_running: false,
+            setIsRunning: jest.fn(),
+            setRunId: jest.fn(),
+            setHasOpenContract: jest.fn(),
+            setContractStage: jest.fn(),
+            setShowBotStopMessage: jest.fn(),
+            toggleDrawer: jest.fn(),
+            registerBotListeners: jest.fn(),
+            unregisterBotListeners: jest.fn(),
+            onMount: jest.fn(),
+            onUnmount: jest.fn(),
+            onBotRunningEvent: jest.fn(),
+            onContractStatusEvent: jest.fn(),
+            onError: jest.fn(),
+            onBotContractEvent: jest.fn(),
+            SetpurchaseInProgress: jest.fn(),
+        },
+    })),
+}));
 
 describe('computePercentage', () => {
     it('should correctly calculate the percentage', () => {
@@ -120,6 +149,17 @@ describe('Over/Under prediction selection', () => {
         ).toBe(7);
     });
 
+    it('keeps using Prediction After Loss while the loss streak continues beyond two losses', () => {
+        expect(
+            getPredictionForLastOutcome({
+                trade_type: 'DIGITUNDER',
+                last_result: 'loss',
+                consecutive_losses: 3,
+                ...baseConfig,
+            })
+        ).toBe(7);
+    });
+
     it('uses Prediction Before Loss for the first trade before any previous outcome exists', () => {
         expect(
             getPredictionForLastOutcome({
@@ -138,6 +178,76 @@ describe('Over/Under prediction selection', () => {
                 ...baseConfig,
             })
         ).toBe(2);
+    });
+});
+
+describe('martingale progression', () => {
+    it('continues multiplying after the second loss when martingale starts after two losses', () => {
+        const firstLoss = getNextMartingaleState({
+            profit: -0.35,
+            current_stake: 0.35,
+            base_stake: 0.35,
+            multiplier: 2,
+            martingale_mode: 'after_two_losses',
+            consecutive_losses: 0,
+            consecutive_loss_trigger: 2,
+        });
+
+        expect(firstLoss).toMatchObject({
+            consecutiveLosses: 1,
+            lastResult: 'loss',
+            nextStake: 0.35,
+        });
+
+        const secondLoss = getNextMartingaleState({
+            profit: -0.35,
+            current_stake: firstLoss.nextStake,
+            base_stake: 0.35,
+            multiplier: 2,
+            martingale_mode: 'after_two_losses',
+            consecutive_losses: firstLoss.consecutiveLosses,
+            consecutive_loss_trigger: 2,
+        });
+
+        expect(secondLoss).toMatchObject({
+            consecutiveLosses: 2,
+            lastResult: 'loss',
+            nextStake: 0.7,
+        });
+
+        const thirdLoss = getNextMartingaleState({
+            profit: -0.7,
+            current_stake: secondLoss.nextStake,
+            base_stake: 0.35,
+            multiplier: 2,
+            martingale_mode: 'after_two_losses',
+            consecutive_losses: secondLoss.consecutiveLosses,
+            consecutive_loss_trigger: 2,
+        });
+
+        expect(thirdLoss).toMatchObject({
+            consecutiveLosses: 3,
+            lastResult: 'loss',
+            nextStake: 1.4,
+        });
+    });
+
+    it('resets back to base stake after a win', () => {
+        expect(
+            getNextMartingaleState({
+                profit: 0.6,
+                current_stake: 1.4,
+                base_stake: 0.35,
+                multiplier: 2,
+                martingale_mode: 'after_two_losses',
+                consecutive_losses: 3,
+                consecutive_loss_trigger: 2,
+            })
+        ).toMatchObject({
+            consecutiveLosses: 0,
+            lastResult: 'win',
+            nextStake: 0.35,
+        });
     });
 });
 
@@ -170,7 +280,9 @@ describe('parseAiAutoTradeStrategy', () => {
     });
 
     it('understands direction strategies and risk settings', () => {
-        const result = parseAiAutoTradeStrategy('Rise on V50 with streak 5 stake 2 martingale 3 take profit 20 stop loss 10');
+        const result = parseAiAutoTradeStrategy(
+            'Rise on V50 with streak 5 stake 2 martingale 3 take profit 20 stop loss 10'
+        );
 
         expect(result.settings).toMatchObject({
             tradeType: 'CALL',

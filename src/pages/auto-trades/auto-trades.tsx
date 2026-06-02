@@ -83,8 +83,6 @@ type AiAutoTradeParseResult = {
     source?: 'openai' | 'local';
 };
 
-const COOLDOWN_TICKS = 60;
-const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
 const UI_REFRESH_THROTTLE_MS = 80;
 const PERCENTAGE_ANALYSIS_HISTORY_SIZE = 1000;
@@ -522,19 +520,70 @@ export const parseAiAutoTradeStrategy = (rawText: string): AiAutoTradeParseResul
 export const getPredictionForLastOutcome = ({
     trade_type,
     last_result,
+    consecutive_losses = 0,
     prediction_before_loss,
     prediction_after_loss,
     fallback_barrier,
 }: {
     trade_type: TradeType;
     last_result: 'win' | 'loss' | null;
+    consecutive_losses?: number;
     prediction_before_loss: number;
     prediction_after_loss: number;
     fallback_barrier: number;
 }) => {
     if (!usesLossPrediction(trade_type)) return fallback_barrier;
 
-    return last_result === 'loss' ? prediction_after_loss : prediction_before_loss;
+    return consecutive_losses > 0 || last_result === 'loss' ? prediction_after_loss : prediction_before_loss;
+};
+
+export const getNextMartingaleState = ({
+    profit,
+    current_stake,
+    base_stake,
+    multiplier,
+    martingale_mode,
+    consecutive_losses,
+    consecutive_loss_trigger,
+}: {
+    profit: number;
+    current_stake: number;
+    base_stake: number;
+    multiplier: number;
+    martingale_mode: MartingaleModeType;
+    consecutive_losses: number;
+    consecutive_loss_trigger: number;
+}) => {
+    if (!(profit < 0)) {
+        return {
+            consecutiveLosses: 0,
+            lastResult: 'win' as const,
+            nextStake: base_stake,
+        };
+    }
+
+    const nextConsecutiveLosses = consecutive_losses + 1;
+    const normalizedMode = normalizeMartingaleMode(martingale_mode);
+    const normalizedTrigger = clampConsecutiveLossThreshold(consecutive_loss_trigger);
+
+    if (normalizedMode === 'no_martingale') {
+        return {
+            consecutiveLosses: nextConsecutiveLosses,
+            lastResult: 'loss' as const,
+            nextStake: base_stake,
+        };
+    }
+
+    const shouldApplyMartingale =
+        normalizedMode === 'after_one_loss' ||
+        (normalizedMode === 'after_two_losses' && nextConsecutiveLosses >= 2) ||
+        (normalizedMode === 'custom_consecutive_loss_trigger' && nextConsecutiveLosses >= normalizedTrigger);
+
+    return {
+        consecutiveLosses: nextConsecutiveLosses,
+        lastResult: 'loss' as const,
+        nextStake: shouldApplyMartingale ? parseFloat((current_stake * multiplier).toFixed(2)) : base_stake,
+    };
 };
 
 const isDirectionMatch = (trade_type: TradeType, direction: Direction) => {
@@ -1447,10 +1496,11 @@ const AutoTrades = observer(() => {
         [run_panel, summary_card, transactions]
     );
 
-    const getActiveDigitBarrier = useCallback((ct: TradeType, lastResult: 'win' | 'loss' | null) => {
+    const getActiveDigitBarrier = useCallback((ct: TradeType, lastResult: 'win' | 'loss' | null, consecutiveLosses = 0) => {
         return getPredictionForLastOutcome({
             trade_type: ct,
             last_result: lastResult,
+            consecutive_losses: consecutiveLosses,
             prediction_before_loss: predictionBeforeLossRef.current,
             prediction_after_loss: predictionAfterLossRef.current,
             fallback_barrier: barrierRef.current,
@@ -1565,7 +1615,7 @@ const AutoTrades = observer(() => {
     const executeTrade = useCallback(
         async (symbol: string, stakeAmount: number, lastResult: 'win' | 'loss' | null): Promise<number> => {
             const ct = tradeTypeRef.current;
-            const bar = getActiveDigitBarrier(ct, lastResult);
+            const bar = getActiveDigitBarrier(ct, lastResult, consecutiveLossRef.current);
             const tradeStartTime = Math.floor(Date.now() / 1000);
             const verificationId = `${symbol}_${tradeStartTime}_${Math.random().toString(36).substring(2, 11)}`;
 
@@ -1614,41 +1664,24 @@ const AutoTrades = observer(() => {
             if (!state) return;
 
             const { martingale: mult, takeProfit: tp, stopLoss: sl, stake: baseStake } = configRef.current;
-            const currentMartingaleMode = normalizeMartingaleMode(martingaleModeRef.current);
-            const currentConsecutiveThreshold = clampConsecutiveLossThreshold(consecutiveLossCountRef.current);
 
             totalPnlRef.current = parseFloat((totalPnlRef.current + profit).toFixed(2));
             totalTradesRef.current++;
 
-            const isLoss = profit < 0;
+            const nextMartingaleState = getNextMartingaleState({
+                profit,
+                current_stake: nextStakeRef.current,
+                base_stake: baseStake,
+                multiplier: mult,
+                martingale_mode: martingaleModeRef.current,
+                consecutive_losses: consecutiveLossRef.current,
+                consecutive_loss_trigger: consecutiveLossCountRef.current,
+            });
 
-            if (isLoss) {
-                consecutiveLossRef.current++;
-
-                if (currentMartingaleMode === 'no_martingale') {
-                    nextStakeRef.current = baseStake;
-                } else if (currentMartingaleMode === 'after_one_loss') {
-                    nextStakeRef.current = parseFloat((nextStakeRef.current * mult).toFixed(2));
-                } else if (currentMartingaleMode === 'after_two_losses') {
-                    nextStakeRef.current =
-                        consecutiveLossRef.current >= 2 ? parseFloat((nextStakeRef.current * mult).toFixed(2)) : baseStake;
-                } else if (currentMartingaleMode === 'custom_consecutive_loss_trigger') {
-                    nextStakeRef.current =
-                        consecutiveLossRef.current >= currentConsecutiveThreshold
-                            ? parseFloat((nextStakeRef.current * mult).toFixed(2))
-                            : baseStake;
-                }
-
-                if (consecutiveLossRef.current >= CONSECUTIVE_LOSSES_FOR_COOLDOWN) {
-                    cooldownTicksRef.current = COOLDOWN_TICKS;
-                    consecutiveLossRef.current = 0;
-                }
-            } else {
-                nextStakeRef.current = baseStake;
-                consecutiveLossRef.current = 0;
-            }
-
-            state.lastResult = isLoss ? 'loss' : 'win';
+            nextStakeRef.current = nextMartingaleState.nextStake;
+            consecutiveLossRef.current = nextMartingaleState.consecutiveLosses;
+            cooldownTicksRef.current = 0;
+            state.lastResult = nextMartingaleState.lastResult;
             previousContractResultRef.current = state.lastResult;
             state.tradeCount++;
             state.trading = false;
@@ -1673,13 +1706,16 @@ const AutoTrades = observer(() => {
         (symbol: string, digit: number): boolean => {
             const ct = tradeTypeRef.current;
             const lastResult = previousContractResultRef.current;
+            const consecutiveLosses = consecutiveLossRef.current;
 
             if (strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current) {
                 const state = marketStatesRef.current[symbol];
-                return state ? isPercentageSignalReady(ct, state, getActiveDigitBarrier(ct, lastResult)) : false;
+                return state
+                    ? isPercentageSignalReady(ct, state, getActiveDigitBarrier(ct, lastResult, consecutiveLosses))
+                    : false;
             }
 
-            const bar = getActiveDigitBarrier(ct, lastResult);
+            const bar = getActiveDigitBarrier(ct, lastResult, consecutiveLosses);
             const inv = inverseModeRef.current;
 
             if (ct === 'DIGITOVER') return inv ? digit > bar : digit <= bar;
@@ -1820,13 +1856,17 @@ const AutoTrades = observer(() => {
             const lastPredictionResult = previousContractResultRef.current;
             const signalReady =
                 strategyModeRef.current === 'PERCENTAGE' && !modeTransitionLockRef.current
-                    ? isPercentageSignalReady(ct, state, getActiveDigitBarrier(ct, lastPredictionResult)) &&
+                    ? isPercentageSignalReady(
+                          ct,
+                          state,
+                          getActiveDigitBarrier(ct, lastPredictionResult, consecutiveLossRef.current)
+                      ) &&
                       (!requiresCandle || candleMatch)
                     : state.consecutive >= targetLen && (!requiresCandle || candleMatch);
 
             if (runningRef.current) {
                 const ct = tradeTypeRef.current;
-                const bar = getActiveDigitBarrier(ct, lastPredictionResult);
+                const bar = getActiveDigitBarrier(ct, lastPredictionResult, consecutiveLossRef.current);
                 const mkt = AUTO_MARKET_LOOKUP.get(symbol);
                 const inv = inverseModeRef.current;
                 let condStr = '';
@@ -2329,7 +2369,10 @@ const AutoTrades = observer(() => {
     const streakNum = Math.min(10, Math.max(2, Number(streak) || 4));
     const isDirection = IS_DIRECTION_TYPE[tradeType];
     const previousContractResult = previousContractResultRef.current;
-    const activeBarrier = getActiveDigitBarrier(tradeType, previousContractResult);
+    const lossPredictionActive =
+        usesLossPrediction(tradeType) &&
+        (consecutiveLossRef.current > 0 || previousContractResultRef.current === 'loss');
+    const activeBarrier = getActiveDigitBarrier(tradeType, previousContractResult, consecutiveLossRef.current);
 
     const subtitleTxt = (() => {
         const inv = inverseModeRef.current;
@@ -2354,6 +2397,21 @@ const AutoTrades = observer(() => {
         if (tradeType === 'DIGITDIFF') return `Streak: ${streakNum}+ digits ${inv ? '≠' : '='} ${barrier} → ${label}`;
     })();
 
+    const resolvedSubtitleTxt = (() => {
+        if (!usesLossPrediction(tradeType)) return subtitleTxt;
+
+        const inv = inverseModeRef.current;
+        const label = inv ? INVERSE_LABELS[tradeType] : TRADE_TYPE_LABELS[tradeType];
+        const lossPhaseText = lossPredictionActive ? 'after loss' : 'before loss';
+
+        if (tradeType === 'DIGITOVER')
+            return `Streak: ${streakNum}+ digits ${inv ? '>' : '≤'} ${activeBarrier} → ${label} ${lossPhaseText}`;
+        if (tradeType === 'DIGITUNDER')
+            return `Streak: ${streakNum}+ digits ${inv ? '<' : '≥'} ${activeBarrier} → ${label} ${lossPhaseText}`;
+
+        return subtitleTxt;
+    })();
+
     const resolvedAiFabPosition = aiFabPosition ?? getDefaultAiFabPosition();
     const aiFabStyle = {
         '--auto-trades-ai-fab-left': `${resolvedAiFabPosition.left}px`,
@@ -2368,7 +2426,7 @@ const AutoTrades = observer(() => {
                     <div className='auto-trades-page__header'>
                         <div>
                             <h1 className='auto-trades-page__title'>Auto Trades</h1>
-                            <p className='auto-trades-page__subtitle'>{subtitleTxt}</p>
+                            <p className='auto-trades-page__subtitle'>{resolvedSubtitleTxt}</p>
                         </div>
                         <div className='auto-trades-page__status-dot'>
                             <span
@@ -2971,11 +3029,19 @@ const AutoTrades = observer(() => {
                                                         const snapshot = getPercentageSnapshot(
                                                             tradeType,
                                                             m,
-                                                            getActiveDigitBarrier(tradeType, previousContractResult)
+                                                            getActiveDigitBarrier(
+                                                                tradeType,
+                                                                previousContractResult,
+                                                                consecutiveLossRef.current
+                                                            )
                                                         );
                                                         const threshold = getPercentageThreshold(
                                                             tradeType,
-                                                            getActiveDigitBarrier(tradeType, previousContractResult)
+                                                            getActiveDigitBarrier(
+                                                                tradeType,
+                                                                previousContractResult,
+                                                                consecutiveLossRef.current
+                                                            )
                                                         );
                                                         const hasEnoughSamples =
                                                             snapshot.sampleSize >= PERCENTAGE_MIN_SAMPLE_SIZE;
