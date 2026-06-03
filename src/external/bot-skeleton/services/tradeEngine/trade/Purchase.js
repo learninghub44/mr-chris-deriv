@@ -1,6 +1,7 @@
 import { LogTypes } from '../../../constants/messages';
 import { assertApiTokenScope } from '@/utils/api-token-permissions';
 import { api_base } from '../../api/api-base';
+import { observer as globalObserver } from '../../../utils/observer';
 import { contractStatus, info, log } from '../utils/broadcast';
 import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
 import { purchaseSuccessful } from './state/actions';
@@ -8,6 +9,29 @@ import { BEFORE_PURCHASE } from './state/constants';
 
 let delayIndex = 0;
 let purchase_reference;
+
+const getMoneyDecimals = currency => {
+    const normalizedCurrency = (currency || '').toUpperCase();
+    return normalizedCurrency === 'BTC' || normalizedCurrency === 'ETH' || normalizedCurrency.includes('USDT') ? 8 : 2;
+};
+
+const formatAmount = (amount, currency) => `${Number(amount || 0).toFixed(getMoneyDecimals(currency))} ${currency}`;
+
+const createInsufficientDemoBalanceError = ({ loginid, requiredAmount }) => {
+    const clientStore = globalObserver.getState('client.store');
+    if (!clientStore?.hasSufficientDemoBalance?.(requiredAmount, loginid)) {
+        const currency = clientStore?.getAccountCurrency?.(loginid) || clientStore?.currency || 'USD';
+        const availableBalance = Number(clientStore?.getDisplayBalanceAmount?.(loginid) ?? 0);
+        return new Error(
+            `Bot Builder could not purchase this contract. Insufficient demo balance: available ${formatAmount(
+                availableBalance,
+                currency
+            )}, required ${formatAmount(requiredAmount, currency)}.`
+        );
+    }
+
+    return null;
+};
 
 export default Engine =>
     class Purchase extends Engine {
@@ -49,6 +73,13 @@ export default Engine =>
 
             if (this.is_proposal_subscription_required) {
                 const { id, askPrice } = this.selectProposal(contract_type);
+                const insufficientBalanceError = createInsufficientDemoBalanceError({
+                    loginid: this.accountInfo?.loginid,
+                    requiredAmount: askPrice,
+                });
+                if (insufficientBalanceError) {
+                    return Promise.reject(insufficientBalanceError);
+                }
 
                 const action = () => api_base.api.send({ buy: id, price: askPrice });
 
@@ -86,6 +117,13 @@ export default Engine =>
                 ).then(onSuccess);
             }
             const trade_option = tradeOptionToBuy(contract_type, this.tradeOptions);
+            const insufficientBalanceError = createInsufficientDemoBalanceError({
+                loginid: this.accountInfo?.loginid,
+                requiredAmount: this.tradeOptions.amount,
+            });
+            if (insufficientBalanceError) {
+                return Promise.reject(insufficientBalanceError);
+            }
             const action = () => api_base.api.send(trade_option);
 
             this.isSold = false;

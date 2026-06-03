@@ -10,6 +10,13 @@ type TBuyContractArgs = {
     source: string;
 };
 
+class InsufficientDemoBalanceError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'InsufficientDemoBalanceError';
+    }
+}
+
 const throwApiError = (response: any, source: string) => {
     if (response?.error) {
         throw new Error(response.error.message || `${source} contract purchase failed.`);
@@ -57,6 +64,39 @@ const ensureAuthorizedForTrading = async () => {
     }
 };
 
+const getMoneyDecimals = (currency?: string) => {
+    const normalizedCurrency = (currency || '').toUpperCase();
+    return normalizedCurrency === 'BTC' || normalizedCurrency === 'ETH' || normalizedCurrency.includes('USDT')
+        ? 8
+        : 2;
+};
+
+const formatAmount = (amount: number, currency: string) => `${amount.toFixed(getMoneyDecimals(currency))} ${currency}`;
+
+const assertSufficientDemoBalance = (required_amount: number, source: string) => {
+    const client_store = globalObserver.getState('client.store') as
+        | {
+              loginid?: string;
+              currency?: string;
+              getAccountCurrency?: (loginid?: string) => string;
+              getDisplayBalanceAmount?: (loginid?: string) => number;
+              hasSufficientDemoBalance?: (amount: number, loginid?: string) => boolean;
+          }
+        | undefined;
+
+    const loginid = client_store?.loginid;
+    if (!client_store?.hasSufficientDemoBalance?.(required_amount, loginid)) {
+        const currency = client_store?.getAccountCurrency?.(loginid) || client_store?.currency || 'USD';
+        const available_balance = Number(client_store?.getDisplayBalanceAmount?.(loginid) ?? 0);
+        throw new InsufficientDemoBalanceError(
+            `${source} could not purchase this contract. Insufficient demo balance: available ${formatAmount(
+                available_balance,
+                currency
+            )}, required ${formatAmount(required_amount, currency)}.`
+        );
+    }
+};
+
 export const buyContractForUi = async ({ parameters, price, source }: TBuyContractArgs): Promise<Buy> => {
     await ensureAuthorizedForTrading();
     assertApiTokenScope('trade');
@@ -80,6 +120,7 @@ export const buyContractForUi = async ({ parameters, price, source }: TBuyContra
         }
 
         const ask_price = Number(proposal.ask_price ?? price);
+        assertSufficientDemoBalance(ask_price, source);
         globalObserver.emit('contract.status', {
             id: 'contract.purchase_sent',
             data: ask_price,
@@ -99,9 +140,13 @@ export const buyContractForUi = async ({ parameters, price, source }: TBuyContra
             return buy;
         }
     } catch (proposal_error) {
+        if (proposal_error instanceof InsufficientDemoBalanceError) {
+            throw proposal_error;
+        }
         console.warn(`[${source}] Proposal buy failed, retrying with direct buy.`, proposal_error);
     }
 
+    assertSufficientDemoBalance(price, source);
     globalObserver.emit('contract.status', {
         id: 'contract.purchase_sent',
         data: price,

@@ -319,6 +319,41 @@ export default class ClientStore {
         return this.demo_balance_overrides[loginid];
     };
 
+    getDisplayBalanceAmount = (loginid?: string) => {
+        const resolvedLoginId = loginid || this.loginid || getAccountId() || '';
+        if (!resolvedLoginId) return 0;
+
+        const accountBalance =
+            this.accounts[resolvedLoginId]?.balance ??
+            (resolvedLoginId === this.loginid ? this.balance : undefined) ??
+            this.account_list.find(account => account.loginid === resolvedLoginId)?.balance;
+
+        const numericBalance = Number(accountBalance ?? 0);
+        return Number.isFinite(numericBalance) ? numericBalance : 0;
+    };
+
+    getAccountCurrency = (loginid?: string) => {
+        const resolvedLoginId = loginid || this.loginid || getAccountId() || '';
+        if (!resolvedLoginId) return this.currency || 'USD';
+
+        return (
+            this.accounts[resolvedLoginId]?.currency ||
+            this.account_list.find(account => account.loginid === resolvedLoginId)?.currency ||
+            (resolvedLoginId === this.loginid ? this.currency : '') ||
+            'USD'
+        );
+    };
+
+    hasSufficientDemoBalance = (required_amount: number, loginid?: string) => {
+        const resolvedLoginId = loginid || this.loginid || getAccountId() || '';
+        if (!resolvedLoginId || !isDemoAccount(resolvedLoginId)) return true;
+
+        const normalizedRequiredAmount = Number(required_amount);
+        if (!Number.isFinite(normalizedRequiredAmount) || normalizedRequiredAmount <= 0) return true;
+
+        return this.getDisplayBalanceAmount(resolvedLoginId) + 1e-9 >= normalizedRequiredAmount;
+    };
+
     resetDemoBalance = (loginid: string, custom_balance: number, currency?: string) => {
         if (!loginid || !isDemoAccount(loginid) || !Number.isFinite(custom_balance) || custom_balance < 0) return false;
 
