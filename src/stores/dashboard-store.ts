@@ -4,6 +4,7 @@ import { botNotification } from '@/components/bot-notification/bot-notification'
 import { notification_message, NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { TStores } from '@deriv/stores/types';
+import { recordDiagnosticEvent, setDiagnosticGauge } from '@/utils/diagnostics';
 import * as strategy_description from '../constants/quick-strategies';
 import { TDescriptionItem } from '../pages/bot-builder/quick-strategy/types';
 import {
@@ -82,6 +83,7 @@ export default class DashboardStore implements IDashboardStore {
     tutorials_combined_content: (TFaqContent | TGuideContent | TUserGuideContent | TQuickStrategyContent)[] = [];
     combined_search: string[] = [];
     bot_builder_symbol: string | null = null;
+    private pending_navigation_requested_at = 0;
 
     constructor(root_store: RootStore, core: TStores) {
         makeObservable(this, {
@@ -390,6 +392,18 @@ export default class DashboardStore implements IDashboardStore {
         if (this.shouldGuardTabChange(active_tab)) {
             this.pending_active_tab = active_tab;
             this.is_leave_trading_dialog_open = true;
+            this.pending_navigation_requested_at = Date.now();
+            recordDiagnosticEvent('dashboard.trading_navigation_blocked', {
+                fromTab: this.active_tab,
+                toTab: active_tab,
+                activeModule: this.active_trading_module,
+            });
+            setDiagnosticGauge('dashboard.pending_navigation', {
+                fromTab: this.active_tab,
+                toTab: active_tab,
+                activeModule: this.active_trading_module,
+                requestedAt: new Date(this.pending_navigation_requested_at).toISOString(),
+            });
             return;
         }
 
@@ -409,6 +423,8 @@ export default class DashboardStore implements IDashboardStore {
 
     setActiveTradingModule = (module: TTradingModule | null): void => {
         this.active_trading_module = module;
+        setDiagnosticGauge('dashboard.active_trading_module', module);
+        recordDiagnosticEvent('dashboard.active_trading_module_changed', { module });
         if (!module) {
             this.navigation_stop_in_progress = false;
         }
@@ -416,8 +432,15 @@ export default class DashboardStore implements IDashboardStore {
 
     cancelPendingTradingNavigation = (): void => {
         if (this.navigation_stop_in_progress) return;
+        recordDiagnosticEvent('dashboard.trading_navigation_cancelled', {
+            activeModule: this.active_trading_module,
+            pendingTab: this.pending_active_tab,
+            waitedMs: this.pending_navigation_requested_at ? Date.now() - this.pending_navigation_requested_at : 0,
+        });
         this.pending_active_tab = null;
         this.is_leave_trading_dialog_open = false;
+        this.pending_navigation_requested_at = 0;
+        setDiagnosticGauge('dashboard.pending_navigation', null);
     };
 
     confirmPendingTradingNavigation = async (): Promise<void> => {
@@ -426,8 +449,21 @@ export default class DashboardStore implements IDashboardStore {
         const target_tab = this.pending_active_tab;
         const active_module = this.active_trading_module;
         const stop_handler = active_module ? this.trading_stop_handlers[active_module] : undefined;
+        const started_at = Date.now();
 
         this.navigation_stop_in_progress = true;
+        recordDiagnosticEvent('dashboard.trading_navigation_confirmed', {
+            activeModule: active_module,
+            targetTab: target_tab,
+            waitBeforeConfirmMs: this.pending_navigation_requested_at
+                ? started_at - this.pending_navigation_requested_at
+                : 0,
+        });
+        setDiagnosticGauge('dashboard.navigation_stop_in_progress', {
+            activeModule: active_module,
+            targetTab: target_tab,
+            startedAt: new Date(started_at).toISOString(),
+        });
 
         try {
             await stop_handler?.();
@@ -436,9 +472,25 @@ export default class DashboardStore implements IDashboardStore {
             this.is_leave_trading_dialog_open = false;
             this.is_forcing_tab_switch = true;
             this.applyActiveTab(target_tab);
+            recordDiagnosticEvent('dashboard.trading_navigation_completed', {
+                targetTab: target_tab,
+                activeModule: active_module,
+                stopDurationMs: Date.now() - started_at,
+            });
+        } catch (error) {
+            recordDiagnosticEvent('dashboard.trading_navigation_failed', {
+                activeModule: active_module,
+                targetTab: target_tab,
+                stopDurationMs: Date.now() - started_at,
+                error: error instanceof Error ? error.message : String(error),
+            });
+            throw error;
         } finally {
             this.is_forcing_tab_switch = false;
             this.navigation_stop_in_progress = false;
+            this.pending_navigation_requested_at = 0;
+            setDiagnosticGauge('dashboard.pending_navigation', null);
+            setDiagnosticGauge('dashboard.navigation_stop_in_progress', null);
         }
     };
 

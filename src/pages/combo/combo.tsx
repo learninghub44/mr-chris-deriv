@@ -7,7 +7,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { api_base, observer as globalObserver } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
-import { recordDiagnosticEvent } from '@/utils/diagnostics';
+import { recordDiagnosticEvent, setDiagnosticGauge } from '@/utils/diagnostics';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
 import { getLastDigitFromQuote, isExpectedStreamInterruption } from '@/utils/market-data';
 import { safeSubscribe } from '@/utils/websocket-handler';
@@ -355,6 +355,19 @@ const Combo = observer(() => {
         setDataStreamLoading(false);
     }, []);
 
+    const updateSubscriptionDiagnostics = useCallback(() => {
+        setDiagnosticGauge('combo.subscriptions', {
+            activeStreams: Object.keys(subscriptionsRef.current).length,
+            configuredRows: rowsRef.current.length,
+            isConnected: Object.keys(subscriptionsRef.current).length > 0,
+            running: runningRef.current,
+        });
+    }, []);
+
+    useEffect(() => {
+        updateSubscriptionDiagnostics();
+    }, [rows.length, updateSubscriptionDiagnostics]);
+
     const schedulePoll = useCallback((callback: () => void) => {
         const timer = window.setTimeout(() => {
             pollTimersRef.current.delete(timer);
@@ -527,6 +540,7 @@ const Combo = observer(() => {
         (rowId: string, symbol: string, tick: any) => {
             const live = rowLiveRef.current[rowId];
             if (!live) return;
+            const should_flush_immediately = isRecoveringDataRef.current || live.lastQuote === null;
 
             // Look up this row's own trade config
             const row = rowsRef.current.find(r => r.id === rowId);
@@ -609,9 +623,13 @@ const Combo = observer(() => {
                 fireAllRows();
             }
 
-            refresh();
+            if (should_flush_immediately) {
+                flushRefresh();
+            } else {
+                refresh();
+            }
         },
-        [fireAllRows, refresh]
+        [fireAllRows, flushRefresh, refresh]
     );
 
     // Subscribe individual row
@@ -647,6 +665,7 @@ const Combo = observer(() => {
                     }
                 );
                 subscriptionsRef.current[row.id] = sub;
+                updateSubscriptionDiagnostics();
             } catch (e) {
                 if (!isExpectedStreamInterruption(e)) {
                     console.error('[Combo] Subscribe failed:', e);
@@ -666,7 +685,8 @@ const Combo = observer(() => {
         subscriptionsRef.current = {};
         if (!unmountedRef.current) setIsConnected(false);
         clearDataRecoveryLoading();
-    }, [clearDataRecoveryLoading]);
+        updateSubscriptionDiagnostics();
+    }, [clearDataRecoveryLoading, updateSubscriptionDiagnostics]);
 
     const subscribeAll = useCallback(() => {
         if (!rowsRef.current.length) {
@@ -681,7 +701,8 @@ const Combo = observer(() => {
         });
         lastTickAtRef.current = Date.now();
         setIsConnected(true);
-    }, [clearDataRecoveryLoading, setDataRecoveryLoading, subscribe]);
+        updateSubscriptionDiagnostics();
+    }, [clearDataRecoveryLoading, setDataRecoveryLoading, subscribe, updateSubscriptionDiagnostics]);
 
     const restartSubscriptions = useCallback(() => {
         const now = Date.now();
@@ -758,12 +779,17 @@ const Combo = observer(() => {
         clearDataRecoveryLoading();
         setError(null);
         dashboard.setActiveTradingModule(null);
+        recordDiagnosticEvent('combo.stop_trading', {
+            configuredRows: rowsRef.current.length,
+            activeStreams: Object.keys(subscriptionsRef.current).length,
+        });
+        updateSubscriptionDiagnostics();
         try {
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
         } catch {}
         refresh();
-    }, [clearDataRecoveryLoading, clearDeferredWork, dashboard, refresh, run_panel]);
+    }, [clearDataRecoveryLoading, clearDeferredWork, dashboard, refresh, run_panel, updateSubscriptionDiagnostics]);
 
     const handleStop = useCallback(() => {
         stopTrading();
@@ -804,7 +830,8 @@ const Combo = observer(() => {
         } catch {}
         delete subscriptionsRef.current[id];
         delete rowLiveRef.current[id];
-    }, []);
+        updateSubscriptionDiagnostics();
+    }, [updateSubscriptionDiagnostics]);
 
     const updateRow = useCallback(
         (id: string, field: keyof ComboRow, value: string) => {
@@ -824,6 +851,7 @@ const Combo = observer(() => {
                     subscriptionsRef.current[id]?.unsubscribe?.();
                 } catch {}
                 delete subscriptionsRef.current[id];
+                updateSubscriptionDiagnostics();
                 rowLiveRef.current[id] = makeRowLive(Number(rowsRef.current.find(r => r.id === id)?.stake) || 1);
                 if (isConnected) {
                     window.setTimeout(() => {
@@ -842,7 +870,7 @@ const Combo = observer(() => {
                 }
             }
         },
-        [isConnected, subscribe]
+        [isConnected, subscribe, updateSubscriptionDiagnostics]
     );
 
     // Tab / lifecycle effects

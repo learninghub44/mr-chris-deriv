@@ -22,6 +22,7 @@ import {
     enableUrlParameterApplication,
     setupTradeTypeChangeListener,
 } from '@/utils/blockly-url-param-handler';
+import { recordDiagnosticEvent } from '@/utils/diagnostics';
 import {
     checkAndShowTradeTypeModal,
     getModalState,
@@ -363,6 +364,10 @@ const AppWrapper = observer(() => {
     useEffect(() => {
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
             if (!active_trading_module) return;
+            recordDiagnosticEvent('window.beforeunload_blocked', {
+                activeModule: active_trading_module,
+                activeTab: active_tab,
+            });
             event.preventDefault();
             event.returnValue = '';
         };

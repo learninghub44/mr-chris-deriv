@@ -99,7 +99,9 @@ describe('<Combo />', () => {
             tickSubscribers['1HZ100V']({ tick: { quote: 100.22 } });
         });
 
-        expect(screen.getByText('100.22')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('100.22')).toBeInTheDocument();
+        });
 
         await user.click(screen.getByRole('button', { name: /Run Combo/i }));
         await user.click(screen.getByRole('button', { name: /Stop/i }));

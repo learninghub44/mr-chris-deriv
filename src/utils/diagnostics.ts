@@ -13,6 +13,7 @@ type TDiagnosticEvent = {
 
 type TDiagnosticSnapshot = {
     counters: Record<string, TDiagnosticEvent>;
+    gauges: Record<string, { value: unknown; updatedAt: string }>;
     recent: Array<{ name: string; details?: unknown; at: string }>;
 };
 
@@ -24,6 +25,7 @@ declare global {
 
 let cleanupDiagnostics: (() => void) | null = null;
 const diagnosticCounters = new Map<string, TDiagnosticEvent>();
+const diagnosticGauges = new Map<string, { value: unknown; updatedAt: string }>();
 const recentDiagnosticEvents: TDiagnosticSnapshot['recent'] = [];
 
 const syncDiagnosticSnapshot = () => {
@@ -31,6 +33,7 @@ const syncDiagnosticSnapshot = () => {
 
     window.__dbotDiagnostics = {
         counters: Object.fromEntries(diagnosticCounters.entries()),
+        gauges: Object.fromEntries(diagnosticGauges.entries()),
         recent: recentDiagnosticEvents.slice(-50),
     };
 };
@@ -47,6 +50,19 @@ export const recordDiagnosticEvent = (name: string, details?: unknown) => {
     if (recentDiagnosticEvents.length > 100) {
         recentDiagnosticEvents.splice(0, recentDiagnosticEvents.length - 100);
     }
+    syncDiagnosticSnapshot();
+};
+
+export const setDiagnosticGauge = (name: string, value: unknown) => {
+    diagnosticGauges.set(name, {
+        value,
+        updatedAt: new Date().toISOString(),
+    });
+    syncDiagnosticSnapshot();
+};
+
+export const clearDiagnosticGauge = (name: string) => {
+    diagnosticGauges.delete(name);
     syncDiagnosticSnapshot();
 };
 

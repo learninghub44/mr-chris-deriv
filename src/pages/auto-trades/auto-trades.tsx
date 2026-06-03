@@ -9,7 +9,7 @@ import { api_base, observer as globalObserver } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
 import { API_BASE } from '@/utils/api-base';
-import { recordDiagnosticEvent } from '@/utils/diagnostics';
+import { recordDiagnosticEvent, setDiagnosticGauge } from '@/utils/diagnostics';
 import { getLastDigitFromQuote, getMarketPipSize, isExpectedStreamInterruption } from '@/utils/market-data';
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
@@ -1418,6 +1418,20 @@ const AutoTrades = observer(() => {
         setDataStreamLoading(false);
     }, []);
 
+    const updateSubscriptionDiagnostics = useCallback(() => {
+        setDiagnosticGauge('auto_trades.subscriptions', {
+            tickStreams: Object.keys(subscriptionsRef.current).length,
+            candleStreams: Object.keys(candleSubscriptionsRef.current).length,
+            selectedMarkets: selectedMarketsRef.current.length,
+            isConnected: Object.keys(subscriptionsRef.current).length > 0,
+            running: runningRef.current,
+        });
+    }, []);
+
+    useEffect(() => {
+        updateSubscriptionDiagnostics();
+    }, [selectedMarketSymbols.length, updateSubscriptionDiagnostics]);
+
     const flushDisplays = useCallback(() => {
         if (unmountedRef.current || !show_auto_ref.current) return;
         lastUiRefreshAtRef.current = Date.now();
@@ -2084,6 +2098,7 @@ const AutoTrades = observer(() => {
                     // Ignore unsubscribe failures.
                 }
                 delete subscriptionsRef.current[symbol];
+                updateSubscriptionDiagnostics();
             }
         });
 
@@ -2095,6 +2110,7 @@ const AutoTrades = observer(() => {
                     // Ignore unsubscribe failures.
                 }
                 delete candleSubscriptionsRef.current[symbol];
+                updateSubscriptionDiagnostics();
             }
         });
 
@@ -2143,6 +2159,7 @@ const AutoTrades = observer(() => {
                         }
                     );
                     subscriptionsRef.current[market.symbol] = sub;
+                    updateSubscriptionDiagnostics();
                 } catch (err) {
                     if (!isExpectedStreamInterruption(err)) {
                         console.error(`[AutoTrades] Subscribe failed for ${market.symbol}:`, err);
@@ -2191,6 +2208,7 @@ const AutoTrades = observer(() => {
                         }
                     );
                     candleSubscriptionsRef.current[market.symbol] = sub;
+                    updateSubscriptionDiagnostics();
                 } catch (err) {
                     if (!isExpectedStreamInterruption(err)) {
                         console.error(`[AutoTrades] 5m candle subscribe failed for ${market.symbol}:`, err);
@@ -2199,7 +2217,8 @@ const AutoTrades = observer(() => {
             }
         }
         setIsConnected(Object.keys(subscriptionsRef.current).length > 0);
-    }, [backfillPercentageTicks, clearDataRecoveryLoading, setDataRecoveryLoading]);
+        updateSubscriptionDiagnostics();
+    }, [backfillPercentageTicks, clearDataRecoveryLoading, setDataRecoveryLoading, updateSubscriptionDiagnostics]);
 
     const stopSubscriptions = useCallback(() => {
         subscriptionVersionRef.current++;
@@ -2221,7 +2240,8 @@ const AutoTrades = observer(() => {
         candleSubscriptionsRef.current = {};
         setIsConnected(false);
         clearDataRecoveryLoading();
-    }, [clearDataRecoveryLoading]);
+        updateSubscriptionDiagnostics();
+    }, [clearDataRecoveryLoading, updateSubscriptionDiagnostics]);
 
     const restartSubscriptions = useCallback(() => {
         const now = Date.now();
@@ -2318,9 +2338,22 @@ const AutoTrades = observer(() => {
         setCurrentStakeDisplay(configRef.current.stake);
         nextStakeRef.current = configRef.current.stake;
         dashboard.setActiveTradingModule(null);
+        recordDiagnosticEvent('auto_trades.stop_trading', {
+            selectedMarkets: selectedMarketsRef.current.length,
+            tickStreams: Object.keys(subscriptionsRef.current).length,
+            candleStreams: Object.keys(candleSubscriptionsRef.current).length,
+        });
+        updateSubscriptionDiagnostics();
         completeRunPanelStop();
         refreshDisplays();
-    }, [clearDataRecoveryLoading, clearDeferredWork, completeRunPanelStop, dashboard, refreshDisplays]);
+    }, [
+        clearDataRecoveryLoading,
+        clearDeferredWork,
+        completeRunPanelStop,
+        dashboard,
+        refreshDisplays,
+        updateSubscriptionDiagnostics,
+    ]);
 
     const handleStop = useCallback(() => {
         stopTrading();
