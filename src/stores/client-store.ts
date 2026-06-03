@@ -263,7 +263,6 @@ export default class ClientStore {
             this.accounts[account.loginid] = account;
         });
         this.account_list = adjustedAccountList;
-        setAccountList(adjustedAccountList);
     };
 
     setBalance = (balance: string) => {

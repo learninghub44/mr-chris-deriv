@@ -20,10 +20,26 @@ const parseOhlc = ohlc => ({
 
 const parseCandles = candles => candles.map(t => parseOhlc(t));
 
-const updateTicks = (ticks, newTick) => (getLast(ticks).epoch >= newTick.epoch ? ticks : [...ticks.slice(1), newTick]);
+const updateTicks = (ticks = [], newTick) => {
+    const lastTick = getLast(ticks);
+
+    if (!lastTick) {
+        return [newTick];
+    }
+
+    if (lastTick.epoch >= newTick.epoch) {
+        return ticks;
+    }
+
+    return [...ticks, newTick].slice(-1000);
+};
 
 const updateCandles = (candles, ohlc) => {
     const lastCandle = getLast(candles);
+    if (!lastCandle) {
+        return [ohlc];
+    }
+
     if (
         (lastCandle.open === ohlc.open &&
             lastCandle.high === ohlc.high &&
