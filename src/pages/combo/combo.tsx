@@ -7,6 +7,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { api_base, observer as globalObserver } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
+import { recordDiagnosticEvent } from '@/utils/diagnostics';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
 import { getLastDigitFromQuote, isExpectedStreamInterruption } from '@/utils/market-data';
 import { safeSubscribe } from '@/utils/websocket-handler';
@@ -16,6 +17,7 @@ import './combo.scss';
 const COOLDOWN_TICKS = 60;
 const CONSECUTIVE_LOSSES_FOR_COOLDOWN = 2;
 const DATA_SILENCE_RESTART_MS = 15000;
+const DATA_RESTART_COOLDOWN_MS = 10000;
 const UI_REFRESH_THROTTLE_MS = 80;
 
 // ── Trade type helpers ─────────────────────────────────────────────────────────
@@ -264,6 +266,7 @@ const Combo = observer(() => {
     const comboFiringRef = useRef(false);
     const lastTickAtRef = useRef(0);
     const restartInFlightRef = useRef(false);
+    const lastRestartAttemptAtRef = useRef(0);
     const subscriptionVersionRef = useRef(0);
     const showComboRef = useRef(false);
     const lastUiRefreshAtRef = useRef(0);
@@ -681,8 +684,15 @@ const Combo = observer(() => {
     }, [clearDataRecoveryLoading, setDataRecoveryLoading, subscribe]);
 
     const restartSubscriptions = useCallback(() => {
+        const now = Date.now();
         if (restartInFlightRef.current) return;
+        if (now - lastRestartAttemptAtRef.current < DATA_RESTART_COOLDOWN_MS) return;
         restartInFlightRef.current = true;
+        lastRestartAttemptAtRef.current = now;
+        recordDiagnosticEvent('combo.stream_restart', {
+            rows: rowsRef.current.length,
+            silentForMs: now - lastTickAtRef.current,
+        });
         unsubscribeAll();
         setDataRecoveryLoading('Market data paused. Reconnecting streams...');
         restartTimerRef.current = window.setTimeout(() => {
@@ -738,25 +748,26 @@ const Combo = observer(() => {
         comboFiringRef.current = false;
         cooldownTicksRef.current = 0;
         consecutiveLossRef.current = 0;
+        clearDeferredWork();
         Object.values(rowLiveRef.current).forEach(live => {
             live.consecutive = 0;
             live.ready = false;
         });
         setIsRunning(false);
-        isRecoveringDataRef.current = false;
-        setIsRecoveringData(false);
         setCooldownDisplay(0);
+        clearDataRecoveryLoading();
+        setError(null);
         dashboard.setActiveTradingModule(null);
-        refresh();
-    }, [dashboard, refresh]);
-
-    const handleStop = useCallback(() => {
-        stopTrading();
         try {
             run_panel.setIsRunning(false);
             run_panel.setHasOpenContract(false);
         } catch {}
-    }, [run_panel, stopTrading]);
+        refresh();
+    }, [clearDataRecoveryLoading, clearDeferredWork, dashboard, refresh, run_panel]);
+
+    const handleStop = useCallback(() => {
+        stopTrading();
+    }, [stopTrading]);
 
     useEffect(() => {
         if (!show_combo) return undefined;

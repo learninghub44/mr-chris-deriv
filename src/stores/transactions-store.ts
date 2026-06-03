@@ -21,6 +21,7 @@ export default class TransactionsStore {
     root_store: RootStore;
     core: TStores;
     disposeReactionsFn: () => void;
+    persist_timer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(root_store: RootStore, core: TStores) {
         this.root_store = root_store;
@@ -188,7 +189,24 @@ export default class TransactionsStore {
         this.recovered_completed_transactions = this.recovered_completed_transactions?.slice(0, 0);
         this.recovered_transactions = this.recovered_transactions?.slice(0, 0);
         this.is_transaction_details_modal_open = false;
+        if (this.persist_timer) {
+            clearTimeout(this.persist_timer);
+            this.persist_timer = null;
+        }
     }
+
+    schedulePersistTransactions = (loginid: string, elements: TTransaction[]) => {
+        if (this.persist_timer) {
+            clearTimeout(this.persist_timer);
+        }
+
+        this.persist_timer = setTimeout(() => {
+            this.persist_timer = null;
+            const stored_transactions = getStoredItemsByKey(this.TRANSACTION_CACHE, {});
+            stored_transactions[loginid] = elements?.slice(0, 5000) ?? [];
+            setStoredItemsByKey(this.TRANSACTION_CACHE, stored_transactions);
+        }, 200);
+    };
 
     registerReactions() {
         const { client } = this.core;
@@ -197,9 +215,8 @@ export default class TransactionsStore {
         const disposeTransactionElementsListener = reaction(
             () => this.elements[client?.loginid as string],
             elements => {
-                const stored_transactions = getStoredItemsByKey(this.TRANSACTION_CACHE, {});
-                stored_transactions[client.loginid as string] = elements?.slice(0, 5000) ?? [];
-                setStoredItemsByKey(this.TRANSACTION_CACHE, stored_transactions);
+                if (!client.loginid) return;
+                this.schedulePersistTransactions(client.loginid as string, elements ?? []);
             }
         );
 
@@ -212,6 +229,10 @@ export default class TransactionsStore {
         );
 
         return () => {
+            if (this.persist_timer) {
+                clearTimeout(this.persist_timer);
+                this.persist_timer = null;
+            }
             disposeTransactionElementsListener();
             disposeRecoverContracts();
         };

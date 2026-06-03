@@ -9,6 +9,7 @@ import { api_base, observer as globalObserver } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { conditionNotifierStore } from '@/stores/condition-notifier-store';
 import { API_BASE } from '@/utils/api-base';
+import { recordDiagnosticEvent } from '@/utils/diagnostics';
 import { getLastDigitFromQuote, getMarketPipSize, isExpectedStreamInterruption } from '@/utils/market-data';
 import { buyContractForUi, emitContractSoldStatus, getContractSnapshot } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
@@ -84,6 +85,7 @@ type AiAutoTradeParseResult = {
 };
 
 const DATA_SILENCE_RESTART_MS = 15000;
+const DATA_RESTART_COOLDOWN_MS = 10000;
 const UI_REFRESH_THROTTLE_MS = 80;
 const PERCENTAGE_ANALYSIS_HISTORY_SIZE = 1000;
 const PERCENTAGE_BACKFILL_COUNT = PERCENTAGE_ANALYSIS_HISTORY_SIZE;
@@ -1140,6 +1142,7 @@ const AutoTrades = observer(() => {
     const previousContractResultRef = useRef<'win' | 'loss' | null>(null);
     const lastTickAtRef = useRef(0);
     const restartInFlightRef = useRef(false);
+    const lastRestartAttemptAtRef = useRef(0);
     const subscriptionVersionRef = useRef(0);
     const handleTickRef = useRef<(symbol: string, tick: any) => void>(() => {});
     const handleCandleRef = useRef<(symbol: string, candle: any) => void>(() => {});
@@ -2221,8 +2224,15 @@ const AutoTrades = observer(() => {
     }, [clearDataRecoveryLoading]);
 
     const restartSubscriptions = useCallback(() => {
+        const now = Date.now();
         if (restartInFlightRef.current) return;
+        if (now - lastRestartAttemptAtRef.current < DATA_RESTART_COOLDOWN_MS) return;
         restartInFlightRef.current = true;
+        lastRestartAttemptAtRef.current = now;
+        recordDiagnosticEvent('auto_trades.stream_restart', {
+            selectedMarkets: selectedMarketsRef.current.length,
+            silentForMs: now - lastTickAtRef.current,
+        });
         stopSubscriptions();
         setDataRecoveryLoading('Market data paused. Reconnecting streams...');
         restartTimerRef.current = window.setTimeout(() => {

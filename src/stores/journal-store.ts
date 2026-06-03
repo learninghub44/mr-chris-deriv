@@ -74,6 +74,7 @@ export default class JournalStore {
     root_store: RootStore;
     core: RootStore['core'];
     disposeReactionsFn: () => void;
+    persist_timer: ReturnType<typeof setTimeout> | null = null;
     constructor(root_store: RootStore, core: RootStore['core']) {
         makeObservable(this, {
             is_filter_dialog_visible: observable,
@@ -328,7 +329,24 @@ export default class JournalStore {
 
     clear() {
         this.unfiltered_messages = this.unfiltered_messages.slice(0, 0);
+        if (this.persist_timer) {
+            clearTimeout(this.persist_timer);
+            this.persist_timer = null;
+        }
     }
+
+    schedulePersistJournal = (loginid: string, unfiltered_messages: TMessageItem[]) => {
+        if (this.persist_timer) {
+            clearTimeout(this.persist_timer);
+        }
+
+        this.persist_timer = setTimeout(() => {
+            this.persist_timer = null;
+            const stored_journals = getStoredItemsByKey(this.JOURNAL_CACHE, {});
+            stored_journals[loginid] = unfiltered_messages?.slice(0, 5000);
+            setStoredItemsByKey(this.JOURNAL_CACHE, stored_journals);
+        }, 200);
+    };
 
     registerReactions() {
         const client = this.core.client as RootStore['client'];
@@ -337,9 +355,8 @@ export default class JournalStore {
         const disposeWriteJournalMessageListener = reaction(
             () => this.unfiltered_messages,
             unfiltered_messages => {
-                const stored_journals = getStoredItemsByKey(this.JOURNAL_CACHE, {});
-                stored_journals[client.loginid as string] = unfiltered_messages?.slice(0, 5000);
-                setStoredItemsByKey(this.JOURNAL_CACHE, stored_journals);
+                if (!client.loginid) return;
+                this.schedulePersistJournal(client.loginid as string, unfiltered_messages ?? []);
             }
         );
 
@@ -364,6 +381,10 @@ export default class JournalStore {
         );
 
         return () => {
+            if (this.persist_timer) {
+                clearTimeout(this.persist_timer);
+                this.persist_timer = null;
+            }
             disposeWriteJournalMessageListener();
             disposeJournalMessageListener();
         };
