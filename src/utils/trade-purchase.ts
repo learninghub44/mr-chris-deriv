@@ -181,8 +181,30 @@ const PROFIT_TABLE_RECOVERY_CHECK_MS = 5000;
 const isContractSettled = (contract: Record<string, any> = {}) =>
     Boolean(contract.is_sold) || CLOSED_CONTRACT_STATUSES.has(String(contract.status || '').toLowerCase());
 
+const getContractDisplayTick = (
+    contract: Record<string, any>,
+    fallback: Record<string, any>,
+    displayKey: string,
+    tickKey: string,
+    spotKey: string
+) =>
+    contract[displayKey] ??
+    contract[tickKey] ??
+    contract[spotKey] ??
+    fallback[displayKey] ??
+    fallback[tickKey] ??
+    fallback[spotKey];
+
 export const getContractSnapshot = (contract: Record<string, any>, fallback: Record<string, any> = {}) => {
     const is_sold = isContractSettled(contract) || Boolean(fallback.is_sold);
+    const entry_spot = getContractDisplayTick(
+        contract,
+        fallback,
+        'entry_tick_display_value',
+        'entry_tick',
+        'entry_spot'
+    );
+    const exit_spot = getContractDisplayTick(contract, fallback, 'exit_tick_display_value', 'exit_tick', 'exit_spot');
 
     return {
         ...fallback,
@@ -195,11 +217,11 @@ export const getContractSnapshot = (contract: Record<string, any>, fallback: Rec
         shortcode: contract.shortcode ?? fallback.shortcode,
         contract_type: contract.contract_type ?? fallback.contract_type,
         currency: contract.currency ?? fallback.currency,
-        entry_spot: contract.entry_spot ?? contract.entry_tick_display_value ?? contract.entry_tick ?? fallback.entry_spot,
-        entry_tick: contract.entry_tick ?? contract.entry_spot ?? fallback.entry_tick,
+        entry_spot,
+        entry_tick: contract.entry_tick ?? contract.entry_spot ?? fallback.entry_tick ?? entry_spot,
         entry_tick_time: contract.entry_tick_time ?? contract.entry_spot_time ?? fallback.entry_tick_time,
-        exit_spot: contract.exit_spot ?? contract.exit_tick_display_value ?? contract.exit_tick ?? fallback.exit_spot,
-        exit_tick: contract.exit_tick ?? contract.exit_spot ?? fallback.exit_tick,
+        exit_spot,
+        exit_tick: contract.exit_tick ?? contract.exit_spot ?? fallback.exit_tick ?? exit_spot,
         exit_tick_time: contract.exit_tick_time ?? contract.exit_spot_time ?? fallback.exit_tick_time,
         barrier: contract.barrier ?? fallback.barrier,
         sell_price: contract.sell_price ?? fallback.sell_price,

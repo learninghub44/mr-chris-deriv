@@ -114,8 +114,8 @@ export default class TransactionsStore {
         const is_completed = isEnded(data as ProposalOpenContract);
         const { run_id } = this.root_store.run_panel;
         const current_account = this.core?.client?.loginid as string;
-        const entry_spot = data.entry_spot ?? (data as any).entry_tick_display_value ?? data.entry_tick;
-        const exit_spot = data.exit_spot ?? (data as any).exit_tick_display_value ?? data.exit_tick;
+        const entry_spot = (data as any).entry_tick_display_value ?? data.entry_tick ?? data.entry_spot;
+        const exit_spot = (data as any).exit_tick_display_value ?? data.exit_tick ?? data.exit_spot;
         const entry_tick_time = data.entry_tick_time ?? (data as any).entry_spot_time;
         const exit_tick_time = data.exit_tick_time ?? (data as any).exit_spot_time;
 

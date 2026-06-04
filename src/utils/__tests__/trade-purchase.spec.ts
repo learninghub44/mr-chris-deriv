@@ -22,7 +22,7 @@ jest.mock('@/utils/api-token-permissions', () => ({
     assertApiTokenScope: jest.fn(),
 }));
 
-import { buyContractForUi } from '../trade-purchase';
+import { buyContractForUi, getContractSnapshot } from '../trade-purchase';
 import { streamContractUntilSettled } from '../trade-purchase';
 
 const flushPromises = async () => {
@@ -122,6 +122,32 @@ describe('buyContractForUi', () => {
 
         expect(mockSend).toHaveBeenCalledTimes(2);
         expect(mockSend).toHaveBeenLastCalledWith({ buy: 'proposal-2', price: 15 });
+    });
+
+    it('prefers exact display tick values for one-tick entry and exit spots', () => {
+        expect(
+            getContractSnapshot(
+                {
+                    contract_id: 55,
+                    entry_spot: 2805.55,
+                    entry_tick: 2805.55,
+                    entry_tick_display_value: '2805.550',
+                    exit_spot: 2805.55,
+                    exit_tick: 2805.551,
+                    exit_tick_display_value: '2805.551',
+                    is_sold: true,
+                    profit: -0.7,
+                },
+                { currency: 'USD' }
+            )
+        ).toEqual(
+            expect.objectContaining({
+                entry_spot: '2805.550',
+                exit_spot: '2805.551',
+                entry_tick: 2805.55,
+                exit_tick: 2805.551,
+            })
+        );
     });
 
     it('streams live open-contract updates until the exact sold tick arrives', async () => {
