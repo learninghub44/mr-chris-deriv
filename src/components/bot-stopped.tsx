@@ -10,14 +10,16 @@ import Dialog from './shared_ui/dialog';
 import { standalone_routes } from './shared';
 
 const BotStopped = observer(() => {
-    const { dashboard } = useStore();
-    const { is_web_socket_intialised } = dashboard;
+    const { dashboard, run_panel } = useStore();
+    const { active_trading_module, is_web_socket_intialised } = dashboard;
+    const should_suppress_for_recoverable_trading =
+        Boolean(run_panel?.is_running) && (active_trading_module === 'auto_trades' || active_trading_module === 'combo');
     const onClickClose = () => {
         reloadPage();
     };
     return (
         <Dialog
-            is_visible={!is_web_socket_intialised}
+            is_visible={!is_web_socket_intialised && !should_suppress_for_recoverable_trading}
             is_mobile_full_width
             className={'dc-dialog bot-stopped-dialog'}
             cancel_button_text={localize('Go to Reports')}

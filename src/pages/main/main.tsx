@@ -216,16 +216,41 @@ const AppWrapper = observer(() => {
     });
 
     React.useEffect(() => {
+        const is_recoverable_trading_module = active_trading_module === 'auto_trades' || active_trading_module === 'combo';
+
+        if (connectionStatus === CONNECTION_STATUS.OPENED) {
+            setWebSocketState(true);
+            if (is_recoverable_trading_module) {
+                run_panel.setShowBotStopMessage?.(false);
+                recordDiagnosticEvent('dashboard.trading_connection_recovered', {
+                    activeModule: active_trading_module,
+                    activeTab: active_tab,
+                });
+            }
+            return;
+        }
+
+        if (is_recoverable_trading_module) {
+            run_panel.setShowBotStopMessage?.(false);
+            setWebSocketState(true);
+            recordDiagnosticEvent('dashboard.trading_connection_recovering', {
+                activeModule: active_trading_module,
+                activeTab: active_tab,
+                connectionStatus,
+            });
+            return;
+        }
+
         if (connectionStatus !== CONNECTION_STATUS.OPENED) {
             const is_bot_running = document.getElementById('db-animation__stop-button') !== null;
-            if (is_bot_running) {
-                clear();
-                stopBot();
-                api_base.setIsRunning(false);
-                setWebSocketState(false);
-            }
+            if (!is_bot_running) return;
+
+            clear();
+            stopBot();
+            api_base.setIsRunning(false);
+            setWebSocketState(false);
         }
-    }, [clear, connectionStatus, setWebSocketState, stopBot]);
+    }, [active_tab, active_trading_module, clear, connectionStatus, run_panel, setWebSocketState, stopBot]);
 
     // Update tab shadows height to match bot builder height
     const updateTabShadowsHeight = () => {
