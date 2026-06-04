@@ -174,30 +174,39 @@ export const buyContractForUi = async ({ parameters, price, source }: TBuyContra
     return buy;
 };
 
-export const getContractSnapshot = (contract: Record<string, any>, fallback: Record<string, any> = {}) => ({
-    ...fallback,
-    buy_price: contract.buy_price ?? fallback.buy_price,
-    contract_id: contract.contract_id ?? fallback.contract_id,
-    transaction_ids: contract.transaction_ids ?? fallback.transaction_ids,
-    date_start: contract.date_start ?? fallback.date_start,
-    display_name: contract.display_name || contract.underlying || fallback.display_name,
-    underlying_symbol: contract.underlying || contract.underlying_symbol || fallback.underlying_symbol,
-    shortcode: contract.shortcode ?? fallback.shortcode,
-    contract_type: contract.contract_type ?? fallback.contract_type,
-    currency: contract.currency ?? fallback.currency,
-    entry_spot: contract.entry_spot ?? contract.entry_tick_display_value ?? contract.entry_tick ?? fallback.entry_spot,
-    entry_tick: contract.entry_tick ?? contract.entry_spot ?? fallback.entry_tick,
-    entry_tick_time: contract.entry_tick_time ?? contract.entry_spot_time ?? fallback.entry_tick_time,
-    exit_spot: contract.exit_spot ?? contract.exit_tick_display_value ?? contract.exit_tick ?? fallback.exit_spot,
-    exit_tick: contract.exit_tick ?? contract.exit_spot ?? fallback.exit_tick,
-    exit_tick_time: contract.exit_tick_time ?? contract.exit_spot_time ?? fallback.exit_tick_time,
-    barrier: contract.barrier ?? fallback.barrier,
-    sell_price: contract.sell_price ?? fallback.sell_price,
-    bid_price: contract.bid_price ?? fallback.bid_price,
-    profit: contract.is_sold ? contract.profit : (fallback.profit ?? 0),
-    is_sold: Boolean(contract.is_sold ?? fallback.is_sold),
-    status: contract.status ?? fallback.status,
-});
+const CLOSED_CONTRACT_STATUSES = new Set(['sold', 'won', 'lost']);
+
+const isContractSettled = (contract: Record<string, any> = {}) =>
+    Boolean(contract.is_sold) || CLOSED_CONTRACT_STATUSES.has(String(contract.status || '').toLowerCase());
+
+export const getContractSnapshot = (contract: Record<string, any>, fallback: Record<string, any> = {}) => {
+    const is_sold = isContractSettled(contract) || Boolean(fallback.is_sold);
+
+    return {
+        ...fallback,
+        buy_price: contract.buy_price ?? fallback.buy_price,
+        contract_id: contract.contract_id ?? fallback.contract_id,
+        transaction_ids: contract.transaction_ids ?? fallback.transaction_ids,
+        date_start: contract.date_start ?? fallback.date_start,
+        display_name: contract.display_name || contract.underlying || fallback.display_name,
+        underlying_symbol: contract.underlying || contract.underlying_symbol || fallback.underlying_symbol,
+        shortcode: contract.shortcode ?? fallback.shortcode,
+        contract_type: contract.contract_type ?? fallback.contract_type,
+        currency: contract.currency ?? fallback.currency,
+        entry_spot: contract.entry_spot ?? contract.entry_tick_display_value ?? contract.entry_tick ?? fallback.entry_spot,
+        entry_tick: contract.entry_tick ?? contract.entry_spot ?? fallback.entry_tick,
+        entry_tick_time: contract.entry_tick_time ?? contract.entry_spot_time ?? fallback.entry_tick_time,
+        exit_spot: contract.exit_spot ?? contract.exit_tick_display_value ?? contract.exit_tick ?? fallback.exit_spot,
+        exit_tick: contract.exit_tick ?? contract.exit_spot ?? fallback.exit_tick,
+        exit_tick_time: contract.exit_tick_time ?? contract.exit_spot_time ?? fallback.exit_tick_time,
+        barrier: contract.barrier ?? fallback.barrier,
+        sell_price: contract.sell_price ?? fallback.sell_price,
+        bid_price: contract.bid_price ?? fallback.bid_price,
+        profit: is_sold ? (contract.profit ?? fallback.profit ?? 0) : (fallback.profit ?? 0),
+        is_sold,
+        status: contract.status ?? fallback.status,
+    };
+};
 
 export const emitContractSoldStatus = (contract: Record<string, any>) => {
     if (!contract?.is_sold) return;
@@ -213,6 +222,7 @@ type TStreamContractUntilSettledArgs = {
     contractId: number;
     fallback?: Record<string, any>;
     onUpdate?: (snapshot: Record<string, any>, rawContract: Record<string, any>) => void;
+    settlementCheckMs?: number;
     signal?: AbortSignal;
     source: string;
     timeoutMs?: number;
@@ -233,19 +243,26 @@ export const streamContractUntilSettled = ({
     contractId,
     fallback = {},
     onUpdate,
+    settlementCheckMs = 500,
     signal,
     source,
-    timeoutMs = 45000,
+    timeoutMs = 90000,
 }: TStreamContractUntilSettledArgs): Promise<Record<string, any>> =>
     new Promise(resolve => {
         let finished = false;
+        let snapshotRequestInFlight = false;
         let subscription: { unsubscribe?: () => void } | null = null;
+        let settlementCheckId: ReturnType<typeof setInterval> | null = null;
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const cleanup = () => {
             if (timeoutId) {
                 clearTimeout(timeoutId);
                 timeoutId = null;
+            }
+            if (settlementCheckId) {
+                clearInterval(settlementCheckId);
+                settlementCheckId = null;
             }
             if (signal) {
                 signal.removeEventListener('abort', handleAbort);
@@ -269,8 +286,21 @@ export const streamContractUntilSettled = ({
             finish(getSettledFallbackSnapshot(contractId, fallback));
         };
 
-        const finalizeWithSnapshot = async () => {
-            if (finished) return;
+        const handleContractUpdate = (contract: Record<string, any>) => {
+            if (finished || !contract) return;
+
+            const snapshot = getContractSnapshot(contract, fallback);
+            onUpdate?.(snapshot, contract);
+
+            if (snapshot.is_sold) {
+                emitContractSoldStatus(snapshot);
+                finish(snapshot);
+            }
+        };
+
+        const requestSettlementSnapshot = async (reason: string) => {
+            if (finished || snapshotRequestInFlight) return;
+            snapshotRequestInFlight = true;
             try {
                 const response = await (api_base.api as any)?.send?.({
                     proposal_open_contract: 1,
@@ -278,19 +308,13 @@ export const streamContractUntilSettled = ({
                 });
                 const contract = response?.proposal_open_contract;
                 if (contract) {
-                    const snapshot = getContractSnapshot(contract, fallback);
-                    onUpdate?.(snapshot, contract);
-                    if (snapshot.is_sold) {
-                        emitContractSoldStatus(snapshot);
-                    }
-                    finish(snapshot);
-                    return;
+                    handleContractUpdate(contract);
                 }
             } catch (snapshotError) {
-                console.warn(`[${source}] Final contract snapshot failed.`, snapshotError);
+                console.warn(`[${source}] Contract settlement snapshot failed for ${contractId} (${reason}).`, snapshotError);
+            } finally {
+                snapshotRequestInFlight = false;
             }
-
-            finish(getSettledFallbackSnapshot(contractId, fallback));
         };
 
         if (signal?.aborted) {
@@ -303,14 +327,19 @@ export const streamContractUntilSettled = ({
         }
 
         timeoutId = setTimeout(() => {
-            console.warn(`[${source}] Contract stream timed out for ${contractId}, requesting final snapshot.`);
-            void finalizeWithSnapshot();
+            console.warn(`[${source}] Contract settlement timed out for ${contractId}; closing local watcher.`);
+            finish(getSettledFallbackSnapshot(contractId, fallback));
         }, timeoutMs);
+
+        settlementCheckId = setInterval(() => {
+            void requestSettlementSnapshot('watchdog');
+        }, settlementCheckMs);
 
         try {
             const observable = (api_base.api as any)?.subscribe?.({
                 proposal_open_contract: 1,
                 contract_id: contractId,
+                subscribe: 1,
             });
 
             subscription = safeSubscribe(
@@ -319,29 +348,23 @@ export const streamContractUntilSettled = ({
                     if (finished) return;
                     if (data?.error) {
                         console.warn(`[${source}] Contract stream error for ${contractId}.`, data.error);
-                        void finalizeWithSnapshot();
+                        void requestSettlementSnapshot('stream-error');
                         return;
                     }
 
                     const contract = data?.proposal_open_contract;
-                    if (!contract) return;
-
-                    const snapshot = getContractSnapshot(contract, fallback);
-                    onUpdate?.(snapshot, contract);
-
-                    if (snapshot.is_sold) {
-                        emitContractSoldStatus(snapshot);
-                        finish(snapshot);
-                    }
+                    handleContractUpdate(contract);
                 },
                 streamError => {
                     if (finished) return;
                     console.warn(`[${source}] Contract stream subscription failed for ${contractId}.`, streamError);
-                    void finalizeWithSnapshot();
+                    void requestSettlementSnapshot('stream-failure');
                 }
             );
         } catch (subscribeError) {
             console.warn(`[${source}] Could not subscribe to contract stream for ${contractId}.`, subscribeError);
-            void finalizeWithSnapshot();
+            void requestSettlementSnapshot('subscribe-failure');
         }
+
+        void requestSettlementSnapshot('initial');
     });

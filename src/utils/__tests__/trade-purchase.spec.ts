@@ -29,6 +29,7 @@ describe('buyContractForUi', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockSubscribe.mockReset();
+        mockUnsubscribe.mockReset();
         mockGetState.mockImplementation(key => {
             if (key !== 'client.store') return undefined;
 
@@ -183,5 +184,91 @@ describe('buyContractForUi', () => {
             })
         );
         expect(mockUnsubscribe).toHaveBeenCalled();
+    });
+
+    it('keeps checking snapshots when the stream only reports an open contract', async () => {
+        const onUpdate = jest.fn();
+        let subscriber: ((data: any) => void) | undefined;
+
+        mockSubscribe.mockImplementation(() => ({
+            subscribe: (callback: (data: any) => void) => {
+                subscriber = callback;
+                return { unsubscribe: mockUnsubscribe };
+            },
+        }));
+        mockSend
+            .mockResolvedValueOnce({
+                proposal_open_contract: {
+                    contract_id: 77,
+                    status: 'open',
+                    entry_tick: 94.0888,
+                    transaction_ids: { buy: 700 },
+                },
+            })
+            .mockResolvedValueOnce({
+                proposal_open_contract: {
+                    contract_id: 77,
+                    status: 'lost',
+                    is_sold: true,
+                    profit: -0.7,
+                    entry_tick: 94.0888,
+                    exit_tick: 94.1524,
+                    transaction_ids: { buy: 700, sell: 701 },
+                },
+            });
+
+        const contractPromise = streamContractUntilSettled({
+            contractId: 77,
+            fallback: {
+                transaction_ids: { buy: 700 },
+                currency: 'USD',
+            },
+            onUpdate,
+            settlementCheckMs: 1,
+            source: 'Auto Trades',
+            timeoutMs: 1000,
+        });
+
+        subscriber?.({
+            proposal_open_contract: {
+                contract_id: 77,
+                status: 'open',
+                entry_tick: 94.0888,
+                transaction_ids: { buy: 700 },
+            },
+        });
+
+        await expect(contractPromise).resolves.toEqual(
+            expect.objectContaining({
+                contract_id: 77,
+                is_sold: true,
+                profit: -0.7,
+                exit_tick: 94.1524,
+            })
+        );
+
+        expect(mockSend).toHaveBeenCalledWith({
+            proposal_open_contract: 1,
+            contract_id: 77,
+        });
+        expect(onUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                contract_id: 77,
+                is_sold: false,
+            }),
+            expect.objectContaining({
+                status: 'open',
+            })
+        );
+        expect(onUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                contract_id: 77,
+                is_sold: true,
+                profit: -0.7,
+            }),
+            expect.objectContaining({
+                status: 'lost',
+            })
+        );
     });
 });
