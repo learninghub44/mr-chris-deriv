@@ -9,6 +9,11 @@ import {
     normalizeAiAutoTradePlan,
     parseAiAutoTradeStrategy,
 } from '../auto-trades';
+import {
+    AUTO_TRADE_PRESET_ALL_MARKETS,
+    AUTO_TRADE_STRATEGY_FAMILIES,
+    AUTO_TRADE_STRATEGY_PRESETS,
+} from '../strategy-presets';
 
 jest.mock('@/hooks/useStore', () => ({
     useStore: jest.fn(() => ({
@@ -399,5 +404,50 @@ describe('parseAiAutoTradeStrategy', () => {
         });
         expect(result.settings.predictionAfterLoss).toBeUndefined();
         expect(result.unsupportedCapabilities).toEqual(['BOOM500 market is not supported by Auto Trades.']);
+    });
+});
+
+describe('auto trade strategy presets', () => {
+    it('provides 100 strategy families and 1000 loadable settings', () => {
+        expect(AUTO_TRADE_STRATEGY_FAMILIES).toHaveLength(100);
+        expect(AUTO_TRADE_STRATEGY_PRESETS).toHaveLength(1000);
+
+        expect(new Set(AUTO_TRADE_STRATEGY_FAMILIES.map(family => family.id)).size).toBe(100);
+        expect(new Set(AUTO_TRADE_STRATEGY_PRESETS.map(preset => preset.id)).size).toBe(1000);
+        expect(AUTO_TRADE_STRATEGY_FAMILIES.every(family => family.presetIds.length === 10)).toBe(true);
+    });
+
+    it('keeps every preset valid for all Auto Trades markets', () => {
+        AUTO_TRADE_STRATEGY_PRESETS.forEach(preset => {
+            expect(preset.settings.selectedMarketSymbols).toEqual(AUTO_TRADE_PRESET_ALL_MARKETS);
+
+            const normalized = normalizeAiAutoTradePlan({
+                settings: preset.settings,
+                summary: preset.summary,
+                warnings: [],
+                confidence: preset.confidence,
+                source: 'preset',
+            });
+
+            expect(normalized.settings.tradeType).toBe(preset.settings.tradeType);
+            expect(normalized.settings.selectedMarketSymbols).toEqual(AUTO_TRADE_PRESET_ALL_MARKETS);
+            expect(normalized.settings.analysisTicks).toBe(preset.settings.analysisTicks);
+            expect(normalized.settings.streak).toBe(preset.settings.streak);
+            expect(normalized.settings.martingaleMode).toBe(preset.settings.martingaleMode);
+            expect(normalized.source).toBe('preset');
+        });
+    });
+
+    it('includes zero-digit barrier settings for differs and matches', () => {
+        expect(
+            AUTO_TRADE_STRATEGY_PRESETS.some(
+                preset => preset.settings.tradeType === 'DIGITDIFF' && preset.settings.barrier === '0'
+            )
+        ).toBe(true);
+        expect(
+            AUTO_TRADE_STRATEGY_PRESETS.some(
+                preset => preset.settings.tradeType === 'DIGITMATCH' && preset.settings.barrier === '0'
+            )
+        ).toBe(true);
     });
 });

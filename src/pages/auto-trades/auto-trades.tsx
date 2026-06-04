@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Input from '@/components/shared_ui/input';
@@ -13,6 +13,12 @@ import { recordDiagnosticEvent, setDiagnosticGauge } from '@/utils/diagnostics';
 import { getLastDigitFromQuote, getMarketPipSize, isExpectedStreamInterruption } from '@/utils/market-data';
 import { buyContractForUi, streamContractUntilSettled } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
+import {
+    AUTO_TRADE_STRATEGY_FAMILIES,
+    AUTO_TRADE_STRATEGY_PRESET_COUNT,
+    AUTO_TRADE_STRATEGY_PRESET_LOOKUP,
+} from './strategy-presets';
+import type { AutoTradeStrategyPreset } from './strategy-presets';
 import './auto-trades.scss';
 
 type MartingaleModeType =
@@ -81,7 +87,7 @@ type AiAutoTradeParseResult = {
     unsupportedCapabilities?: string[];
     customStrategy?: AiCustomStrategy;
     confidence?: number;
-    source?: 'openai' | 'local';
+    source?: 'openai' | 'local' | 'preset';
 };
 
 const DATA_SILENCE_RESTART_MS = 15000;
@@ -401,6 +407,13 @@ export const normalizeAiAutoTradePlan = (plan: Partial<AiAutoTradeParseResult>):
     const stopLoss = getAiPositiveNumberString(settings.stopLoss);
     if (stopLoss !== undefined) normalizedSettings.stopLoss = stopLoss;
 
+    if (settings.martingaleMode != null) {
+        normalizedSettings.martingaleMode = normalizeMartingaleMode(settings.martingaleMode);
+    }
+
+    const consecutiveLossCount = getAiBoundedIntString(settings.consecutiveLossCount, 1, 10);
+    if (consecutiveLossCount !== undefined) normalizedSettings.consecutiveLossCount = consecutiveLossCount;
+
     return {
         settings: normalizedSettings,
         summary: Array.isArray(plan.summary) ? plan.summary.filter(item => typeof item === 'string') : [],
@@ -424,7 +437,8 @@ export const normalizeAiAutoTradePlan = (plan: Partial<AiAutoTradeParseResult>):
                 : [],
         },
         confidence: Number.isFinite(Number(plan.confidence)) ? Number(plan.confidence) : undefined,
-        source: plan.source,
+        source:
+            plan.source === 'openai' || plan.source === 'local' || plan.source === 'preset' ? plan.source : undefined,
     };
 };
 
@@ -1075,6 +1089,17 @@ const AutoTrades = observer(() => {
     const [aiStrategyText, setAiStrategyText] = useState('');
     const [aiStrategyResult, setAiStrategyResult] = useState<AiAutoTradeParseResult | null>(null);
     const [aiStrategyLoading, setAiStrategyLoading] = useState(false);
+    const [selectedAiPresetId, setSelectedAiPresetId] = useState('');
+    const aiPresetFamilies = useMemo(
+        () =>
+            AUTO_TRADE_STRATEGY_FAMILIES.map(family => ({
+                ...family,
+                presets: family.presetIds
+                    .map(id => AUTO_TRADE_STRATEGY_PRESET_LOOKUP.get(id))
+                    .filter((preset): preset is AutoTradeStrategyPreset => Boolean(preset)),
+            })),
+        []
+    );
     const [aiFabPosition, setAiFabPosition] = useState<AiFabPosition | null>(() => {
         try {
             const saved = localStorage.getItem('auto_trades_aiFabPosition');
@@ -1543,7 +1568,43 @@ const AutoTrades = observer(() => {
         if (settings.stopLoss != null) setStopLoss(settings.stopLoss);
         if (settings.streak != null) setStreak(settings.streak);
         if (settings.strategyMode != null) setStrategyMode(settings.strategyMode);
+        if (settings.martingaleMode != null) setMartingaleMode(normalizeMartingaleMode(settings.martingaleMode));
+        if (settings.consecutiveLossCount != null) {
+            const normalizedLossCount = clampConsecutiveLossThreshold(settings.consecutiveLossCount);
+            setConsecutiveLossCount(normalizedLossCount);
+            setConsecutiveLossCountInput(String(normalizedLossCount));
+        }
     }, []);
+
+    const handleAiPresetChange = useCallback(
+        (event: ChangeEvent<HTMLSelectElement>) => {
+            const presetId = event.target.value;
+            setSelectedAiPresetId(presetId);
+
+            const preset = AUTO_TRADE_STRATEGY_PRESET_LOOKUP.get(presetId);
+            if (!preset) return;
+
+            const presetResult = normalizeAiAutoTradePlan({
+                settings: preset.settings,
+                summary: preset.summary,
+                warnings: [],
+                customStrategy: {
+                    intent: preset.description,
+                    entryRules: [preset.description],
+                    riskRules: [
+                        `Stake ${preset.settings.stake}, martingale ${preset.settings.martingale}, stop loss ${preset.settings.stopLoss}`,
+                    ],
+                },
+                confidence: preset.confidence,
+                source: 'preset',
+            });
+
+            setAiStrategyText(preset.description);
+            setAiStrategyResult(presetResult);
+            applyAiSettings(presetResult);
+        },
+        [applyAiSettings]
+    );
 
     const applyAiStrategy = useCallback(async () => {
         const localResult = parseAiAutoTradeStrategy(aiStrategyText);
@@ -3368,6 +3429,27 @@ const AutoTrades = observer(() => {
                                 x
                             </button>
                         </div>
+                        <div className='auto-trades-ai-modal__preset'>
+                            <label htmlFor='auto-trades-ai-preset'>Strategy preset</label>
+                            <select
+                                id='auto-trades-ai-preset'
+                                className='auto-trades-ai-modal__preset-select'
+                                value={selectedAiPresetId}
+                                onChange={handleAiPresetChange}
+                                disabled={aiStrategyLoading}
+                            >
+                                <option value=''>Select one of {AUTO_TRADE_STRATEGY_PRESET_COUNT} settings</option>
+                                {aiPresetFamilies.map(family => (
+                                    <optgroup key={family.id} label={family.name}>
+                                        {family.presets.map(preset => (
+                                            <option key={preset.id} value={preset.id}>
+                                                {preset.name}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                ))}
+                            </select>
+                        </div>
                         <textarea
                             className='auto-trades-ai-modal__textarea'
                             disabled={aiStrategyLoading}
@@ -3375,13 +3457,18 @@ const AutoTrades = observer(() => {
                             onChange={e => {
                                 setAiStrategyText(e.target.value);
                                 setAiStrategyResult(null);
+                                setSelectedAiPresetId('');
                             }}
                             placeholder='Trade Over 1. In case of a loss trade Over 3. Use 1 tick. Only trade V25 index.'
                         />
                         {aiStrategyResult && (
                             <div className='auto-trades-ai-modal__result'>
                                 <div className='auto-trades-ai-modal__source'>
-                                    {aiStrategyResult.source === 'openai' ? 'OpenAI reasoning' : 'Local fallback'}
+                                    {aiStrategyResult.source === 'openai'
+                                        ? 'OpenAI reasoning'
+                                        : aiStrategyResult.source === 'preset'
+                                          ? 'Preset library'
+                                          : 'Local fallback'}
                                     {typeof aiStrategyResult.confidence === 'number'
                                         ? ` - ${Math.round(aiStrategyResult.confidence * 100)}% confidence`
                                         : ''}
