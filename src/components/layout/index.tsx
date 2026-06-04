@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { Outlet } from 'react-router-dom';
+import InstallAppButton from '@/components/install-app-button';
 import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { useDevice } from '@deriv-com/ui';
@@ -152,6 +153,7 @@ const Layout = observer(() => {
             <Body>
                 <Outlet />
             </Body>
+            {!isCallbackPage && <InstallAppButton />}
             {!isCallbackPage && isDesktop && <Footer />}
         </div>
     );

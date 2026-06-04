@@ -1,9 +1,18 @@
 .install-app-modal {
+    align-items: center;
+    background: rgba(2, 6, 23, 0.42);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    position: fixed;
+    z-index: 2400;
+
     .dc-dialog__dialog {
         background: #0f172a;
         border: 1px solid rgba(200, 164, 93, 0.46);
         border-radius: 8px;
         box-shadow: 0 24px 72px rgba(0, 0, 0, 0.5);
+        margin: 0 auto;
         max-width: min(42rem, calc(100vw - 3.2rem));
     }
 
@@ -37,7 +46,8 @@
     }
 
     &__message,
-    &__hint {
+    &__hint,
+    &__notice {
         font-size: 1.35rem;
         line-height: 1.45;
         margin: 0;
@@ -50,5 +60,24 @@
 
     &__hint {
         color: #cbd5e1;
+    }
+
+    &__notice {
+        background: rgba(59, 130, 246, 0.14);
+        border: 1px solid rgba(96, 165, 250, 0.28);
+        border-radius: 6px;
+        color: #dbeafe;
+        padding: 0.8rem 1rem;
+    }
+}
+
+@media (max-width: 767px) {
+    .install-app-modal {
+        align-items: flex-start;
+        padding-top: 18vh;
+
+        .dc-dialog__dialog {
+            width: calc(100vw - 2.4rem);
+        }
     }
 }

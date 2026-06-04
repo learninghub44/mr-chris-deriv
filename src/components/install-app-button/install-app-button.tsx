@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Dialog from '@/components/shared_ui/dialog';
+import {
+    clearDeferredInstallPrompt,
+    getDeferredInstallPrompt,
+    isPwaInstalled,
+    markPwaInstalled,
+    subscribeToInstallPrompt,
+    TBeforeInstallPromptEvent,
+} from '@/pwa/install-prompt';
 import './install-app-button.scss';
 
-type TBeforeInstallPromptEvent = Event & {
-    prompt: () => Promise<void>;
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-};
-
-const INSTALLED_STORAGE_KEY = 'risk_managers_pwa_installed';
 const IOS_INSTALL_MESSAGE = 'To install this app on iPhone/iPad, tap Share, then Add to Home Screen.';
-
-const isStandaloneDisplay = () =>
-    window.matchMedia('(display-mode: standalone)').matches ||
-    Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+const INSTALL_PROMPT_WAIT_MS = 1500;
 
 const isIOSDevice = () => {
     const userAgent = window.navigator.userAgent.toLowerCase();
@@ -22,10 +21,13 @@ const isIOSDevice = () => {
 };
 
 const InstallAppButton = () => {
-    const [installPrompt, setInstallPrompt] = useState<TBeforeInstallPromptEvent | null>(null);
-    const [isInstalled, setIsInstalled] = useState(false);
+    const [installPrompt, setInstallPrompt] = useState<TBeforeInstallPromptEvent | null>(() =>
+        getDeferredInstallPrompt()
+    );
+    const [isInstalled, setIsInstalled] = useState(() => isPwaInstalled());
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [showIOSHelp, setShowIOSHelp] = useState(false);
+    const [installNotice, setInstallNotice] = useState('');
 
     const isiOS = useMemo(() => {
         if (typeof window === 'undefined') return false;
@@ -33,57 +35,78 @@ const InstallAppButton = () => {
     }, []);
 
     useEffect(() => {
-        const hasInstalledFlag = window.localStorage.getItem(INSTALLED_STORAGE_KEY) === 'true';
-        const installed = isStandaloneDisplay() || hasInstalledFlag;
+        const syncInstallState = () => {
+            const installed = isPwaInstalled();
+            const prompt = getDeferredInstallPrompt();
 
-        setIsInstalled(installed);
+            setIsInstalled(installed);
+            setInstallPrompt(prompt);
 
-        if (isiOS && !installed) {
-            setIsModalVisible(true);
-        }
+            if (installed) {
+                setIsModalVisible(false);
+                setShowIOSHelp(false);
+                setInstallNotice('');
+                return;
+            }
 
-        const handleBeforeInstallPrompt = (event: Event) => {
-            event.preventDefault();
-            const promptEvent = event as TBeforeInstallPromptEvent;
-
-            setInstallPrompt(promptEvent);
-            setIsModalVisible(true);
+            if (prompt || isiOS) {
+                setIsModalVisible(true);
+            }
         };
 
-        const handleAppInstalled = () => {
-            window.localStorage.setItem(INSTALLED_STORAGE_KEY, 'true');
-            setInstallPrompt(null);
-            setIsInstalled(true);
-            setIsModalVisible(false);
-            setShowIOSHelp(false);
-        };
+        syncInstallState();
 
-        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        window.addEventListener('appinstalled', handleAppInstalled);
+        const unsubscribe = subscribeToInstallPrompt(syncInstallState);
+        const fallbackTimer = window.setTimeout(() => {
+            if (!isPwaInstalled() && !getDeferredInstallPrompt() && !isiOS) {
+                setInstallNotice(
+                    'The browser install prompt is still preparing. If your address bar shows Install, use it there, or keep this popup open and try Accept again.'
+                );
+                setIsModalVisible(true);
+            }
+        }, INSTALL_PROMPT_WAIT_MS);
 
         return () => {
-            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-            window.removeEventListener('appinstalled', handleAppInstalled);
+            window.clearTimeout(fallbackTimer);
+            unsubscribe();
         };
     }, [isiOS]);
 
     const handleInstallClick = useCallback(async () => {
         if (isiOS && !installPrompt) {
             setShowIOSHelp(true);
+            setInstallNotice(IOS_INSTALL_MESSAGE);
             return;
         }
 
-        if (!installPrompt) return;
+        if (!installPrompt) {
+            setInstallNotice(
+                'The browser has not made the install prompt available yet. If the Install button is visible in the address bar, use it there, or refresh once after the page finishes loading.'
+            );
+            return;
+        }
 
-        await installPrompt.prompt();
-        const choice = await installPrompt.userChoice;
+        try {
+            setInstallNotice('Your browser install confirmation is opening. Click Install there to finish.');
+            await installPrompt.prompt();
+            const choice = await installPrompt.userChoice;
 
-        setInstallPrompt(null);
-        setIsModalVisible(false);
+            clearDeferredInstallPrompt();
+            setInstallPrompt(null);
 
-        if (choice.outcome === 'accepted') {
-            window.localStorage.setItem(INSTALLED_STORAGE_KEY, 'true');
-            setIsInstalled(true);
+            if (choice.outcome === 'accepted') {
+                markPwaInstalled();
+                setIsInstalled(true);
+                setIsModalVisible(false);
+                return;
+            }
+
+            setInstallNotice(
+                'Installation was not completed. This popup will return after refresh until the app is installed.'
+            );
+        } catch (error) {
+            console.error('Risk managers install prompt failed:', error);
+            setInstallNotice('The install prompt could not open. Use the browser Install button in the address bar.');
         }
     }, [installPrompt, isiOS]);
 
@@ -92,7 +115,7 @@ const InstallAppButton = () => {
         setShowIOSHelp(false);
     }, []);
 
-    if (isInstalled || (!installPrompt && !isiOS)) return null;
+    if (isInstalled) return null;
 
     return (
         <Dialog
@@ -124,6 +147,7 @@ const InstallAppButton = () => {
                         Choose Accept to open your browser install prompt, or Deny to continue in the browser.
                     </p>
                 )}
+                {installNotice && <p className='install-app-modal__notice'>{installNotice}</p>}
             </div>
         </Dialog>
     );

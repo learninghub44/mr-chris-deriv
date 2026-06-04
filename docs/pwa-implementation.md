@@ -70,12 +70,12 @@ When a navigation request fails, users see:
 
 ## Install UI
 
-The `InstallAppButton` component listens for `beforeinstallprompt` and opens a centered install modal when the app is installable and not already installed. The modal has:
+The `InstallAppButton` component is mounted from the main layout body, not the header. It listens for `beforeinstallprompt` through the global PWA prompt capture in `src/pwa/install-prompt.ts` and opens a centered main-screen install modal when the app is not already installed. The modal has:
 
 - Accept: opens the browser install prompt.
 - Deny: closes the modal for the current page load only.
 
-Deny is intentionally not saved. If the user refreshes before installing, the modal can appear again. After installation, the component stores an installed flag and hides the modal.
+Deny is intentionally not saved. If the user refreshes before installing, the modal can appear again. After installation, the component stores an installed flag and hides the modal. If the browser has not released the install prompt yet, the modal stays on the body and explains that the user should wait, try Accept again, or use the browser address-bar Install button.
 
 For iPhone and iPad, programmatic installation is not available, so the component shows:
 
