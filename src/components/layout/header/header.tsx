@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
+import InstallAppButton from '@/components/install-app-button';
 import { generateOAuthURL } from '@/components/shared';
 import Button from '@/components/shared_ui/button';
 import Dialog from '@/components/shared_ui/dialog';
@@ -269,6 +270,7 @@ const AppHeader = observer(() => {
                 </Wrapper>
                 <Wrapper variant='right'>
                     <DarkModeToggle />
+                    <InstallAppButton />
                     {renderAccountSection('right')}
                 </Wrapper>
             </Header>

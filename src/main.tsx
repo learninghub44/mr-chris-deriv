@@ -7,6 +7,7 @@ import { performVersionCheck } from './utils/version-check';
 import './styles/index.scss';
 
 import { setupDiagnostics } from './utils/diagnostics';
+import { registerServiceWorker } from './pwa/register-service-worker';
 
 // Configure MobX to handle multiple instances in production builds
 configure({ isolateGlobalState: true });
@@ -16,6 +17,8 @@ performVersionCheck();
 
 // Set up diagnostics for crash monitoring
 setupDiagnostics();
+
+registerServiceWorker();
 
 // Removed AnalyticsInitializer() call - analytics dependency removed
 
