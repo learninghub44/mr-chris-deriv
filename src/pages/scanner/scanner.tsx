@@ -546,6 +546,9 @@ const Scanner = observer(() => {
                 stopTrading();
             } finally {
                 tradeInFlightRef.current = false;
+                if (tradeActiveRef.current && !shouldStopRef.current) {
+                    setTimeout(() => handleTradeTickRef.current(ticksRef.current), 0);
+                }
             }
         },
         [currency, runSingleTrade, stopTrading]
