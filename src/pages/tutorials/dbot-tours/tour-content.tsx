@@ -43,7 +43,7 @@ export const DBOT_ONBOARDING = [
         disableOverlay: false,
     },
     {
-        target: '#id-charts',
+        target: '#id-tradingview',
         content: (
             <TourSteps
                 label={<Localize i18n_default_text='Monitor the market' />}

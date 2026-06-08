@@ -56,7 +56,6 @@ import Scanner from '../scanner';
 import Analysistool from '../analysistool';
 import './main.scss';
 
-const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const Tutorial = lazy(() => import('../tutorials'));
 
 const AppWrapper = observer(() => {
@@ -69,9 +68,7 @@ const AppWrapper = observer(() => {
         active_trading_module,
         cancelPendingTradingNavigation,
         confirmPendingTradingNavigation,
-        is_chart_modal_visible,
         is_leave_trading_dialog_open,
-        is_trading_view_modal_visible,
         navigation_stop_in_progress,
         setActiveTab,
         setWebSocketState,
@@ -103,7 +100,6 @@ const AppWrapper = observer(() => {
         'auto_trades',
         'combo',
         'scanner',
-        'chart',
         'analysistool',
         'tradingview',
         'tutorial',
@@ -566,29 +562,6 @@ const AppWrapper = observer(() => {
                                     <Scanner />
                                 </div>
                             )}
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedChartLineCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='#c8a45d'
-                                        />
-                                        <Localize i18n_default_text='Charts' />
-                                    </>
-                                }
-                                id={
-                                    is_chart_modal_visible || is_trading_view_modal_visible
-                                        ? 'id-charts--disabled'
-                                        : 'id-charts'
-                                }
-                            >
-                                <Suspense
-                                    fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}
-                                >
-                                    <ChartWrapper show_digits_stats={false} />
-                                </Suspense>
-                            </div>
                             <div
                                 label={
                                     <>
