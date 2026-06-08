@@ -859,6 +859,7 @@ export const isPercentageSignalReady = (trade_type: TradeType, state: MarketStat
 interface MarketState {
     consecutive: number;
     trading: boolean;
+    isRecovering: boolean;
     lastDigits: number[];
     directionHistory: Direction[];
     prevQuote: number | null;
@@ -892,6 +893,7 @@ interface MarketDisplay extends MarketState {
 const createMarketState = (prev?: Partial<MarketState>): MarketState => ({
     consecutive: 0,
     trading: false,
+    isRecovering: false,
     lastDigits: prev?.lastDigits ?? [],
     directionHistory: prev?.directionHistory ?? [],
     prevQuote: prev?.prevQuote ?? null,
@@ -1123,6 +1125,7 @@ const AutoTrades = observer(() => {
             consecutive: 0,
             lastDigits: [],
             directionHistory: [],
+            isRecovering: false,
             prevQuote: null,
             candleDirection: 0,
             candleOpen: null,
@@ -1519,6 +1522,16 @@ const AutoTrades = observer(() => {
             flushDisplays();
         }, UI_REFRESH_THROTTLE_MS - elapsed);
     }, [flushDisplays]);
+
+    const markMarketRecovering = useCallback(
+        (symbol: string, is_recovering: boolean) => {
+            const state = marketStatesRef.current[symbol];
+            if (!state) return;
+            state.isRecovering = is_recovering;
+            refreshDisplays();
+        },
+        [refreshDisplays]
+    );
 
     useEffect(() => {
         refreshDisplays();
@@ -1934,6 +1947,7 @@ const AutoTrades = observer(() => {
             });
 
             state.lastQuote = quote;
+            state.isRecovering = false;
             lastTickAtRef.current = Date.now();
             if (isRecoveringDataRef.current) {
                 clearDataRecoveryLoading();
@@ -2181,9 +2195,7 @@ const AutoTrades = observer(() => {
                                 if (!isExpectedStreamInterruption(data.error)) {
                                     console.warn(`[AutoTrades] Tick stream error for ${market.symbol}:`, data.error);
                                 }
-                                if (!isRecoveringDataRef.current) {
-                                    setDataRecoveryLoading(`Reconnecting ${market.label} tick stream...`);
-                                }
+                                markMarketRecovering(market.symbol, true);
                                 return;
                             }
                             if (data?.tick?.quote !== undefined) handleTickRef.current(market.symbol, data.tick);
@@ -2194,9 +2206,7 @@ const AutoTrades = observer(() => {
                             if (!isExpectedStreamInterruption(streamError)) {
                                 console.warn(`[AutoTrades] Tick stream error for ${market.symbol}:`, streamError);
                             }
-                            if (!isRecoveringDataRef.current) {
-                                setDataRecoveryLoading(`Reconnecting ${market.label} tick stream...`);
-                            }
+                            markMarketRecovering(market.symbol, true);
                         }
                     );
                     subscriptionsRef.current[market.symbol] = sub;
@@ -2227,9 +2237,7 @@ const AutoTrades = observer(() => {
                                 if (!isExpectedStreamInterruption(data.error)) {
                                     console.warn(`[AutoTrades] Candle stream error for ${market.symbol}:`, data.error);
                                 }
-                                if (!isRecoveringDataRef.current) {
-                                    setDataRecoveryLoading(`Reconnecting ${market.label} candle stream...`);
-                                }
+                                markMarketRecovering(market.symbol, true);
                                 return;
                             }
                             const candle =
@@ -2243,9 +2251,7 @@ const AutoTrades = observer(() => {
                             if (!isExpectedStreamInterruption(streamError)) {
                                 console.warn(`[AutoTrades] Candle stream error for ${market.symbol}:`, streamError);
                             }
-                            if (!isRecoveringDataRef.current) {
-                                setDataRecoveryLoading(`Reconnecting ${market.label} candle stream...`);
-                            }
+                            markMarketRecovering(market.symbol, true);
                         }
                     );
                     candleSubscriptionsRef.current[market.symbol] = sub;
@@ -2259,7 +2265,13 @@ const AutoTrades = observer(() => {
         }
         setIsConnected(Object.keys(subscriptionsRef.current).length > 0);
         updateSubscriptionDiagnostics();
-    }, [backfillPercentageTicks, clearDataRecoveryLoading, setDataRecoveryLoading, updateSubscriptionDiagnostics]);
+    }, [
+        backfillPercentageTicks,
+        clearDataRecoveryLoading,
+        markMarketRecovering,
+        setDataRecoveryLoading,
+        updateSubscriptionDiagnostics,
+    ]);
 
     const stopSubscriptions = useCallback(() => {
         subscriptionVersionRef.current++;
@@ -2526,12 +2538,18 @@ const AutoTrades = observer(() => {
     const baseStakeNum = Number(stake) || 1;
     const martingaleActive = currentStakeDisplay > baseStakeNum;
     const inCooldown = cooldownDisplay > 0;
+    const selectedMarketDisplayStates = selectedMarkets.map(
+        market => marketDisplays.find(display => display.symbol === market.symbol) ?? marketStatesRef.current[market.symbol]
+    );
     const hasAnyLiveQuote =
         selectedMarkets.length > 0 &&
-        selectedMarkets.some(market => marketDisplays.find(display => display.symbol === market.symbol)?.lastQuote !== null);
+        selectedMarketDisplayStates.some(display => display?.lastQuote !== null);
+    const hasAllLiveQuotes =
+        selectedMarkets.length > 0 && selectedMarketDisplayStates.every(display => display?.lastQuote !== null);
     const isDataLoading =
         selectedMarketSymbols.length > 0 &&
-        (dataStreamLoading || (!isConnected && show_auto) || !hasAnyLiveQuote);
+        ((!hasAnyLiveQuote && (dataStreamLoading || !isConnected || show_auto)) ||
+            (!hasAllLiveQuotes && !hasAnyLiveQuote));
     const streakNum = getEffectiveSignalStreak({
         trade_type: tradeType,
         configured_streak: Number(streak) || 4,
@@ -3063,6 +3081,8 @@ const AutoTrades = observer(() => {
                             )}
                             <div className='auto-trades-markets__grid'>
                                 {marketDisplays.map(m => {
+                                    const isMarketLoading = m.lastQuote === null;
+                                    const isMarketRecovering = m.isRecovering && m.lastQuote !== null;
                                     const marketInCooldown = m.cooldownLeft > 0;
                                     const dots = Math.min(m.consecutive, streakNum);
                                     const candleReady =
@@ -3081,10 +3101,11 @@ const AutoTrades = observer(() => {
                                                 'auto-trades-market--win': m.lastResult === 'win' && !m.trading,
                                                 'auto-trades-market--loss': m.lastResult === 'loss' && !m.trading,
                                                 'auto-trades-market--cooldown': marketInCooldown && isRunning,
-                                                'auto-trades-market--loading': isDataLoading,
+                                                'auto-trades-market--loading': isMarketLoading,
+                                                'auto-trades-market--recovering': isMarketRecovering,
                                             })}
                                         >
-                                            {isDataLoading && (
+                                            {isMarketLoading && (
                                                 <div className='auto-trades-market__loading'>
                                                     <span className='auto-trades-data-loader__spinner' />
                                                     <span>Loading</span>

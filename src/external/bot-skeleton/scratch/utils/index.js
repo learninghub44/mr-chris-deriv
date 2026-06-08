@@ -136,6 +136,100 @@ export const save = (filename = '@deriv/bot', collection = false, xmlDom) => {
 
 const delayExecution = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const blockTypeAliases = {
+    after__purchase: 'after_purchase',
+    before__purchase: 'before_purchase',
+    contract__check__result: 'contract_check_result',
+    during__purchase: 'during_purchase',
+    logic__compare: 'logic_compare',
+    math__arithmetic: 'math_arithmetic',
+    math__numbers: 'math_number',
+    text_statements: 'text_statement',
+    trade__again: 'trade_again',
+    trade__definition__restartbuysell: 'trade_definition_restartbuysell',
+    trade__definition__tradeoptions: 'trade_definition_tradeoptions',
+    variables__get: 'variables_get',
+    variables__set: 'variables_set',
+};
+
+const normalizeBotBlockType = type => {
+    if (!type) return type;
+
+    const cleaned_type = String(type).trim();
+    if (!cleaned_type) return cleaned_type;
+
+    if (/^btnotify$/i.test(cleaned_type) || /^notify(?:[\s_-]|[a-z0-9])/i.test(cleaned_type)) return 'notify';
+    if (/^purchase[\s_-]/i.test(cleaned_type)) return 'purchase';
+
+    const collapsed_type = cleaned_type.replace(/__/g, '_').replace(/\s+/g, '_');
+    return blockTypeAliases[cleaned_type] || blockTypeAliases[collapsed_type] || collapsed_type;
+};
+
+const normalizeBotXml = xml => {
+    if (!xml?.querySelectorAll) return xml;
+
+    const root = xml.nodeType === 9 ? xml.documentElement : xml;
+    if (root?.nodeName?.toLowerCase() === 'xml') {
+        if (!root.getAttribute('xmlns')) root.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+        if (!root.hasAttribute('collection')) root.setAttribute('collection', 'false');
+    }
+
+    Array.from(xml.querySelectorAll('block, shadow')).forEach(block_node => {
+        const normalized_type = normalizeBotBlockType(block_node.getAttribute('type'));
+        if (normalized_type) block_node.setAttribute('type', normalized_type);
+    });
+
+    const has_modern_dbot_blocks = Boolean(
+        xml.querySelector(
+            'block[type="trade_definition"], block[type="before_purchase"], block[type="purchase"], block[type="after_purchase"], block[type="trade_again"]'
+        )
+    );
+    const has_legacy_binary_blocks = Boolean(xml.querySelector('block[type="trade"], block[type="tradeOptions"]'));
+
+    if (
+        root?.nodeName?.toLowerCase() === 'xml' &&
+        has_modern_dbot_blocks &&
+        !has_legacy_binary_blocks &&
+        root.getAttribute('is_dbot') !== 'true'
+    ) {
+        root.setAttribute('is_dbot', 'true');
+    }
+
+    return xml;
+};
+
+const removeXmlNodeSafely = node => {
+    if (!node?.parentNode) return;
+
+    const parent = node.parentNode;
+    const parent_name = parent.nodeName?.toLowerCase();
+    const wrapper_names = ['next', 'statement', 'value'];
+
+    if (wrapper_names.includes(parent_name) && parent.parentNode) {
+        parent.parentNode.removeChild(parent);
+        return;
+    }
+
+    parent.removeChild(node);
+};
+
+const pruneUnsupportedBlocks = xml => {
+    if (!xml?.querySelectorAll || !window.Blockly?.Blocks) return 0;
+
+    let removed_count = 0;
+    const block_nodes = Array.from(xml.querySelectorAll('block, shadow')).reverse();
+
+    block_nodes.forEach(block_node => {
+        const block_type = block_node.getAttribute('type');
+        if (block_type && !Object.keys(window.Blockly.Blocks).includes(block_type)) {
+            removeXmlNodeSafely(block_node);
+            removed_count++;
+        }
+    });
+
+    return removed_count;
+};
+
 export const load = async ({
     block_string,
     drop_event,
@@ -180,11 +274,19 @@ export const load = async ({
     // Check if XML can be parsed into a strategy.
     try {
         xml = window.Blockly.utils.xml.textToDom(block_string);
+        xml = normalizeBotXml(xml);
     } catch (e) {
         return showInvalidStrategyError();
     }
     const blockConversion = new BlockConversion();
     xml = blockConversion.convertStrategy(xml, showIncompatibleStrategyDialog);
+    const pruned_blocks_count = pruneUnsupportedBlocks(xml);
+    if (pruned_blocks_count > 0) {
+        globalObserver.emit(
+            'ui.log.warn',
+            localize('Removed unsupported bot blocks so the compatible parts can load.')
+        );
+    }
     const blockly_xml = xml.querySelectorAll('block');
 
     // Check if there are any blocks in this strategy.
