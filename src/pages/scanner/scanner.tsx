@@ -636,7 +636,8 @@ const Scanner = observer(() => {
             }
 
             if (index < messages.length) {
-                setTerminalBody(previous => [...previous, messages[index]]);
+                const nextMessage = messages[index];
+                setTerminalBody(previous => [...previous, nextMessage]);
                 index++;
             } else {
                 clearInterval(interval);
@@ -731,15 +732,15 @@ const Scanner = observer(() => {
                     <div className='terminal-dashboard'>
                         {terminalDashboard.map((line, index) => (
                             <p className='green' key={`${line}-${index}`}>
-                                {line}
+                                {line ?? ''}
                             </p>
                         ))}
                     </div>
                     <div className='terminal-scroll'>
                         <div className='terminal-scroll-content'>
                             {terminalBody.map((line, index) => (
-                                <p className={line.startsWith('Error') ? 'red' : 'green'} key={`${line}-${index}`}>
-                                    {line}
+                                <p className={(line ?? '').startsWith('Error') ? 'red' : 'green'} key={`${line}-${index}`}>
+                                    {line ?? ''}
                                 </p>
                             ))}
                         </div>
