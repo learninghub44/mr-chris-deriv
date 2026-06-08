@@ -35,18 +35,18 @@ describe('DOMAIN_CONFIG', () => {
     });
 
     it.each([
-        ['mrzetuzetu.site', '33gJ6p5dXzASAIobgv9az', '80364', 'Mrzetuzetu'],
-        ['masterhunter.site', '33g5WCS5YOFHD3aWLZZjj', '96223', 'Master Hunter'],
-        ['tradinghubs.site', '33hi7ev9NiDjWY640JuSw', '122208', 'Trading Hubs'],
-        ['mafiahub.site', '331bCUS8izRudblAnSACt', '120589', 'Mafia Hub'],
-    ])('returns auth and bot folder settings for %s', (domain, clientId, appId, brandName) => {
+        ['mrzetuzetu.site', '33gJ6p5dXzASAIobgv9az', '80364', 'Mrzetuzetu', true],
+        ['masterhunter.site', '33g5WCS5YOFHD3aWLZZjj', '96223', 'Master Hunter', false],
+        ['tradinghubs.site', '33hi7ev9NiDjWY640JuSw', '122208', 'Trading Hubs', false],
+        ['mafiahub.site', '331bCUS8izRudblAnSACt', '120589', 'Mafia Hub', false],
+    ])('returns auth and bot folder settings for %s', (domain, clientId, appId, brandName, useLegacyOAuthLogin) => {
         expect(getDomainConfigForHost(domain)).toMatchObject({
             clientId,
             appId,
             redirectUri: `https://${domain}/`,
             botsFolder: domain,
             includeLegacyAppIdInOAuth: true,
-            useLegacyOAuthLogin: false,
+            useLegacyOAuthLogin,
             ui: {
                 brandName,
             },
@@ -61,7 +61,7 @@ describe('DOMAIN_CONFIG', () => {
             redirectUri: `https://${domain}/`,
             botsFolder: domain,
             includeLegacyAppIdInOAuth: true,
-            useLegacyOAuthLogin: false,
+            useLegacyOAuthLogin,
             ui: {
                 brandName,
             },
@@ -83,7 +83,6 @@ describe('DOMAIN_CONFIG', () => {
     });
 
     it.each([
-        ['mrzetuzetu.site', '80364', '33gJ6p5dXzASAIobgv9az'],
         ['masterhunter.site', '96223', '33g5WCS5YOFHD3aWLZZjj'],
         ['tradinghubs.site', '122208', '33hi7ev9NiDjWY640JuSw'],
         ['mafiahub.site', '120589', '331bCUS8izRudblAnSACt'],
@@ -119,6 +118,20 @@ describe('DOMAIN_CONFIG', () => {
         expect(url.searchParams.get('code_challenge_method')).toBe('S256');
 
         process.env.APP_ENV = originalAppEnv;
+    });
+
+    it('uses legacy app_id login for Mrzetuzetu while its OAuth2 client is unavailable', async () => {
+        const domainConfig = getDomainConfigForHost('mrzetuzetu.site');
+
+        expect(domainConfig).toBeDefined();
+
+        const oauthUrl = await generateOAuthURL(undefined, domainConfig!);
+        const url = new URL(oauthUrl);
+
+        expect(url.origin + url.pathname).toBe('https://oauth.deriv.com/oauth2/authorize');
+        expect(url.searchParams.get('app_id')).toBe('80364');
+        expect(url.searchParams.get('client_id')).toBeNull();
+        expect(url.searchParams.get('redirect_uri')).toBeNull();
     });
 
     it('keeps Risk Managers on OAuth2 with both client_id and legacy app_id routing', async () => {
