@@ -13,7 +13,7 @@ const BotStopped = observer(() => {
     const { dashboard, run_panel } = useStore();
     const { active_trading_module, is_web_socket_intialised } = dashboard;
     const should_suppress_for_recoverable_trading =
-        Boolean(run_panel?.is_running) && (active_trading_module === 'auto_trades' || active_trading_module === 'combo');
+        Boolean(run_panel?.is_running) && active_trading_module === 'auto_trades';
     const onClickClose = () => {
         reloadPage();
     };

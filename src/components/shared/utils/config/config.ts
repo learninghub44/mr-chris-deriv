@@ -27,7 +27,7 @@ type DomainFeatureFlags = {
     scanner: boolean;
     printPopups: boolean;
     autoTrades: boolean;
-    comboTrades: boolean;
+    manualTrading: boolean;
     chart: boolean;
     tutorials: boolean;
 };
@@ -99,7 +99,7 @@ const DEFAULT_DOMAIN_FEATURES: DomainFeatureFlags = {
     scanner: true,
     printPopups: true,
     autoTrades: true,
-    comboTrades: false,
+    manualTrading: false,
     chart: true,
     tutorials: true,
 };
@@ -188,7 +188,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
-            comboTrades: true,
+            manualTrading: true,
         },
         ui: {
             brandName: 'Risk Managers',
@@ -220,7 +220,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
-            comboTrades: true,
+            manualTrading: true,
         },
         ui: {
             brandName: 'Mrzetuzetu',
@@ -236,7 +236,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
-            comboTrades: true,
+            manualTrading: true,
         },
         ui: {
             brandName: 'Master Hunter',
@@ -252,7 +252,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
-            comboTrades: true,
+            manualTrading: true,
         },
         ui: {
             brandName: 'Trading Hubs',
@@ -268,7 +268,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
-            comboTrades: true,
+            manualTrading: true,
         },
         ui: {
             brandName: 'Mafia Hub',

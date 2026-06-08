@@ -49,8 +49,8 @@ import AutoTrades from '../auto-trades/auto-trades';
 import BestBots from '../best-bots';
 import BotIdeas from '../bot-ideas';
 import ChartModal from '../chart/chart-modal';
-import Combo from '../combo';
 import Dashboard from '../dashboard';
+import ManualTrading from '../manual-trading';
 import RunStrategy from '../dashboard/run-strategy';
 import Scanner from '../scanner';
 import Analysistool from '../analysistool';
@@ -90,7 +90,7 @@ const AppWrapper = observer(() => {
         [key: string]: string;
     };
     const { clear } = summary_card;
-    const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, SCANNER: SCANNER_TAB, AUTO_TRADES, COMBO } = DBOT_TABS;
+    const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, SCANNER: SCANNER_TAB, AUTO_TRADES, MANUAL_TRADING } = DBOT_TABS;
     const init_render = React.useRef(true);
     const hash = [
         'bot_ideas',
@@ -98,7 +98,7 @@ const AppWrapper = observer(() => {
         'dashboard',
         'bot_builder',
         'auto_trades',
-        'combo',
+        'manual_trading',
         'scanner',
         'analysistool',
         'tradingview',
@@ -107,12 +107,12 @@ const AppWrapper = observer(() => {
     const show_bot_ideas = isDomainFeatureEnabled('botIdeas');
     const show_scanner = isDomainFeatureEnabled('scanner');
     const show_auto_trades = isDomainFeatureEnabled('autoTrades');
-    const show_combo = isDomainFeatureEnabled('comboTrades');
+    const show_manual_trading = isDomainFeatureEnabled('manualTrading');
     const isMainTabVisible = (tab_index: number) => {
         if (tab_index === BOT_IDEAS) return show_bot_ideas;
         if (tab_index === SCANNER_TAB) return show_scanner;
         if (tab_index === AUTO_TRADES) return show_auto_trades;
-        if (tab_index === COMBO) return show_combo;
+        if (tab_index === MANUAL_TRADING) return show_manual_trading;
         return true;
     };
     const { isDesktop } = useDevice();
@@ -212,7 +212,7 @@ const AppWrapper = observer(() => {
     });
 
     React.useEffect(() => {
-        const is_recoverable_trading_module = active_trading_module === 'auto_trades' || active_trading_module === 'combo';
+        const is_recoverable_trading_module = active_trading_module === 'auto_trades';
 
         if (connectionStatus === CONNECTION_STATUS.OPENED) {
             setWebSocketState(true);
@@ -528,7 +528,7 @@ const AppWrapper = observer(() => {
                                     <AutoTrades />
                                 </div>
                             )}
-                            {show_combo && (
+                            {show_manual_trading && (
                                 <div
                                     label={
                                         <>
@@ -537,12 +537,12 @@ const AppWrapper = observer(() => {
                                                 width='24px'
                                                 fill='#c8a45d'
                                             />
-                                            <Localize i18n_default_text='Combo' />
+                                            <Localize i18n_default_text='Manual Trading' />
                                         </>
                                     }
-                                    id='id-combo'
+                                    id='id-manual-trading'
                                 >
-                                    <Combo />
+                                    <ManualTrading />
                                 </div>
                             )}
                             {show_scanner && (

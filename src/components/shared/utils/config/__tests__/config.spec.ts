@@ -15,7 +15,7 @@ describe('DOMAIN_CONFIG', () => {
                 scanner: false,
                 printPopups: false,
                 autoTrades: true,
-                comboTrades: false,
+                manualTrading: false,
             },
         });
     });
@@ -26,7 +26,7 @@ describe('DOMAIN_CONFIG', () => {
             scanner: true,
             printPopups: true,
             autoTrades: true,
-            comboTrades: true,
+            manualTrading: true,
         });
         expect(getDomainConfigForHost('riskmanagers.site')?.ui.brandName).toBe('Risk Managers');
         expect(getDomainConfigForHost('riskmanagers.site')).toMatchObject({
@@ -54,7 +54,7 @@ describe('DOMAIN_CONFIG', () => {
             },
             features: {
                 autoTrades: true,
-                comboTrades: true,
+                manualTrading: true,
             },
         });
         expect(getDomainConfigForHost(`www.${domain}`)).toMatchObject({
@@ -69,7 +69,7 @@ describe('DOMAIN_CONFIG', () => {
             },
             features: {
                 autoTrades: true,
-                comboTrades: true,
+                manualTrading: true,
             },
         });
     });

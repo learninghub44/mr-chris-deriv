@@ -32,12 +32,12 @@ describe('DashboardStore trading navigation guard', () => {
     it('cancels the pending navigation when the user chooses to stay', () => {
         const store = createStore();
 
-        store.setActiveTab(DBOT_TABS.COMBO);
-        store.setActiveTradingModule('combo');
+        store.setActiveTab(DBOT_TABS.AUTO_TRADES);
+        store.setActiveTradingModule('auto_trades');
         store.setActiveTab(DBOT_TABS.BEST_BOTS);
         store.cancelPendingTradingNavigation();
 
-        expect(store.active_tab).toBe(DBOT_TABS.COMBO);
+        expect(store.active_tab).toBe(DBOT_TABS.AUTO_TRADES);
         expect(store.pending_active_tab).toBeNull();
         expect(store.is_leave_trading_dialog_open).toBe(false);
     });
