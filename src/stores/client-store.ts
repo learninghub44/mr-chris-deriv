@@ -29,12 +29,6 @@ type TDemoBalanceOverride = {
 };
 
 const DEMO_BALANCE_OVERRIDES_KEY = 'demo_balance_overrides';
-const getBalanceDecimalPlaces = (currency?: string) => {
-    const normalizedCurrency = (currency || '').toUpperCase();
-    return normalizedCurrency === 'BTC' || normalizedCurrency === 'ETH' || normalizedCurrency.includes('USDT')
-        ? 8
-        : 2;
-};
 
 export default class ClientStore {
     loginid = '';
@@ -98,7 +92,8 @@ export default class ClientStore {
 
         observer.register('api.authorize', this.onAuthorizeEvent);
 
-        this.demo_balance_overrides = this.hydrateDemoBalanceOverrides();
+        this.demo_balance_overrides = {};
+        localStorage.removeItem(DEMO_BALANCE_OVERRIDES_KEY);
 
         // Clean up any existing instance before registering new one to prevent memory leaks
         const existingId = globalObserver.getState('client.store.id');
@@ -241,21 +236,11 @@ export default class ClientStore {
         const adjustedAccountList =
             account_list?.map(account => {
                 const incomingBalance = Number(account.balance ?? 0);
-                const existingServerBalance = this.server_balances[account.loginid];
-                const shouldReuseKnownServerBalance =
-                    !!this.demo_balance_overrides[account.loginid] &&
-                    typeof existingServerBalance === 'number' &&
-                    Number.isFinite(existingServerBalance) &&
-                    Math.abs(
-                        incomingBalance -
-                            this.getDisplayedBalanceAmount(account.loginid, existingServerBalance, account.currency)
-                    ) < 1 / 10 ** getBalanceDecimalPlaces(account.currency);
-                const serverBalance = shouldReuseKnownServerBalance ? existingServerBalance : incomingBalance;
-                this.server_balances[account.loginid] = serverBalance;
+                this.server_balances[account.loginid] = incomingBalance;
 
                 return {
                     ...account,
-                    balance: this.getDisplayedBalanceAmount(account.loginid, serverBalance, account.currency),
+                    balance: incomingBalance,
                 };
             }) ?? [];
 
@@ -314,9 +299,8 @@ export default class ClientStore {
         this.is_logging_out = is_logging_out;
     };
 
-    getDemoBalanceOverride = (loginid?: string) => {
-        if (!loginid) return undefined;
-        return this.demo_balance_overrides[loginid];
+    getDemoBalanceOverride = (_loginid?: string) => {
+        return undefined;
     };
 
     getDisplayBalanceAmount = (loginid?: string) => {
@@ -354,47 +338,16 @@ export default class ClientStore {
         return this.getDisplayBalanceAmount(resolvedLoginId) + 1e-9 >= normalizedRequiredAmount;
     };
 
-    resetDemoBalance = (loginid: string, custom_balance: number, currency?: string) => {
-        if (!loginid || !isDemoAccount(loginid) || !Number.isFinite(custom_balance) || custom_balance < 0) return false;
-
-        const currentServerBalance =
-            this.server_balances[loginid] ??
-            Number(this.accounts[loginid]?.balance ?? (loginid === this.loginid ? this.balance : 0) ?? 0);
-
-        const normalizedCurrency = currency || this.accounts[loginid]?.currency || this.currency || 'USD';
-        const override: TDemoBalanceOverride = {
-            baseline_server_balance: currentServerBalance,
-            currency: normalizedCurrency,
-            custom_balance,
-            last_known_server_balance: currentServerBalance,
-        };
-
-        this.demo_balance_overrides = {
-            ...this.demo_balance_overrides,
-            [loginid]: override,
-        };
-        this.persistDemoBalanceOverrides();
-        this.applyBalanceUpdate(loginid, normalizedCurrency, currentServerBalance);
-        return true;
+    resetDemoBalance = (_loginid: string, _custom_balance: number, _currency?: string) => {
+        localStorage.removeItem(DEMO_BALANCE_OVERRIDES_KEY);
+        this.demo_balance_overrides = {};
+        return false;
     };
 
     applyBalanceUpdate = (loginid: string, currency: string, server_balance: number) => {
         this.server_balances[loginid] = server_balance;
 
-        const existingOverride = this.demo_balance_overrides[loginid];
-        if (existingOverride) {
-            this.demo_balance_overrides = {
-                ...this.demo_balance_overrides,
-                [loginid]: {
-                    ...existingOverride,
-                    currency: currency || existingOverride.currency,
-                    last_known_server_balance: server_balance,
-                },
-            };
-            this.persistDemoBalanceOverrides();
-        }
-
-        const displayBalance = this.getDisplayedBalanceAmount(loginid, server_balance, currency);
+        const displayBalance = server_balance;
 
         if (loginid === this.loginid || loginid === getAccountId()) {
             this.balance = displayBalance.toString();
@@ -421,64 +374,6 @@ export default class ClientStore {
             );
             setAccountList(this.account_list);
         }
-    };
-
-    private hydrateDemoBalanceOverrides = (): Record<string, TDemoBalanceOverride> => {
-        try {
-            const rawOverrides = localStorage.getItem(DEMO_BALANCE_OVERRIDES_KEY);
-            if (!rawOverrides) return {};
-
-            const parsed = JSON.parse(rawOverrides) as Record<string, Partial<TDemoBalanceOverride>>;
-
-            return Object.entries(parsed).reduce<Record<string, TDemoBalanceOverride>>((acc, [loginid, override]) => {
-                const baseline_server_balance = Number(override.baseline_server_balance ?? 0);
-                const custom_balance = Number(override.custom_balance ?? 0);
-                const last_known_server_balance = Number(
-                    override.last_known_server_balance ?? baseline_server_balance
-                );
-
-                if (
-                    !loginid ||
-                    !isDemoAccount(loginid) ||
-                    !Number.isFinite(baseline_server_balance) ||
-                    !Number.isFinite(custom_balance) ||
-                    !Number.isFinite(last_known_server_balance)
-                ) {
-                    return acc;
-                }
-
-                acc[loginid] = {
-                    baseline_server_balance,
-                    currency: override.currency || 'USD',
-                    custom_balance,
-                    last_known_server_balance,
-                };
-
-                return acc;
-            }, {});
-        } catch (error) {
-            ErrorLogger.error('ClientStore', 'Failed to hydrate demo balance overrides', error);
-            return {};
-        }
-    };
-
-    private persistDemoBalanceOverrides = () => {
-        try {
-            localStorage.setItem(DEMO_BALANCE_OVERRIDES_KEY, JSON.stringify(this.demo_balance_overrides));
-        } catch (error) {
-            ErrorLogger.error('ClientStore', 'Failed to persist demo balance overrides', error);
-        }
-    };
-
-    private getDisplayedBalanceAmount = (loginid: string, server_balance: number, currency?: string) => {
-        if (!isDemoAccount(loginid)) return server_balance;
-
-        const override = this.demo_balance_overrides[loginid];
-        if (!override) return server_balance;
-
-        const computedBalance = override.custom_balance + (server_balance - override.baseline_server_balance);
-        const decimalPlaces = getBalanceDecimalPlaces(currency || override.currency);
-        return Number(Math.max(0, computedBalance).toFixed(decimalPlaces));
     };
 
     fetchUsdKesRate = async () => {

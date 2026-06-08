@@ -44,6 +44,7 @@ const MIN_TICK_COUNT = 10;
 const MAX_TICK_COUNT = 1000;
 const DEFAULT_STAKE = '1';
 const DEFAULT_DURATION = '1';
+const DEFAULT_RUN_COUNT = '1';
 const LIVE_TICK_STALE_MS = 4500;
 
 const MANUAL_MARKETS: TManualMarket[] = [
@@ -103,6 +104,12 @@ const clampDuration = (value: number) => {
     if (!Number.isFinite(value)) return 1;
 
     return Math.min(10, Math.max(1, Math.round(value)));
+};
+
+const clampRunCount = (value: number) => {
+    if (!Number.isFinite(value)) return 1;
+
+    return Math.min(100, Math.max(1, Math.round(value)));
 };
 
 const createEmptyStats = (): TDigitStat[] =>
@@ -255,6 +262,7 @@ const ManualTrading = observer(() => {
     const [selectedBarrier, setSelectedBarrier] = useState('2');
     const [durationInput, setDurationInput] = useState(DEFAULT_DURATION);
     const [stakeInput, setStakeInput] = useState(DEFAULT_STAKE);
+    const [runCountInput, setRunCountInput] = useState(DEFAULT_RUN_COUNT);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [tradeMessage, setTradeMessage] = useState('');
     const [tradeError, setTradeError] = useState('');
@@ -610,6 +618,14 @@ const ManualTrading = observer(() => {
         setDurationInput(String(clampDuration(Number(durationInput))));
     };
 
+    const handleRunCountChange = (value: string) => {
+        setRunCountInput(value.replace(/[^\d]/g, ''));
+    };
+
+    const handleRunCountBlur = () => {
+        setRunCountInput(String(clampRunCount(Number(runCountInput))));
+    };
+
     const handleStakeChange = (value: string) => {
         const cleaned = value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
         setStakeInput(cleaned);
@@ -627,44 +643,59 @@ const ManualTrading = observer(() => {
             return;
         }
 
+        const runCount = clampRunCount(Number(runCountInput));
+        setRunCountInput(String(runCount));
+
         setTradeError('');
-        setTradeMessage(`Buying ${action.label} contract...`);
+        setTradeMessage(`Buying ${action.label} contract 1 of ${runCount}...`);
         setIsPurchasing(true);
 
-        const tradeStartTime = Math.floor(Date.now() / 1000);
-        const verificationId = `manual_${selectedSymbol}_${tradeStartTime}_${Math.random().toString(36).slice(2, 11)}`;
         const parameters = buildTradeParameters(action.contractType);
-        const fallbackContract = {
-            buy_price: stake,
-            date_start: tradeStartTime,
-            display_name: selectedMarket.label,
-            underlying_symbol: selectedSymbol,
-            shortcode: `MANUAL_${action.contractType}_${selectedSymbol}`,
-            contract_type: action.contractType,
-            currency,
-            verification_id: verificationId,
-        };
 
         try {
-            const buy = await buyContractForUi({ parameters, price: stake, source: 'ManualTrading' });
-            const buySnapshot = {
-                ...fallbackContract,
-                buy_price: buy.buy_price,
-                contract_id: buy.contract_id,
-                transaction_ids: { buy: buy.transaction_id },
-            };
+            let totalProfit = 0;
 
-            pushContract(buySnapshot);
+            for (let runIndex = 1; runIndex <= runCount; runIndex++) {
+                setTradeMessage(`Buying ${action.label} contract ${runIndex} of ${runCount}...`);
+                const tradeStartTime = Math.floor(Date.now() / 1000);
+                const verificationId = `manual_${selectedSymbol}_${tradeStartTime}_${runIndex}_${Math.random()
+                    .toString(36)
+                    .slice(2, 11)}`;
+                const fallbackContract = {
+                    buy_price: stake,
+                    date_start: tradeStartTime,
+                    display_name: selectedMarket.label,
+                    underlying_symbol: selectedSymbol,
+                    shortcode: `MANUAL_${action.contractType}_${selectedSymbol}_${runIndex}`,
+                    contract_type: action.contractType,
+                    currency,
+                    verification_id: verificationId,
+                };
+                const buy = await buyContractForUi({ parameters, price: stake, source: 'ManualTrading' });
+                const buySnapshot = {
+                    ...fallbackContract,
+                    buy_price: buy.buy_price,
+                    contract_id: buy.contract_id,
+                    transaction_ids: { buy: buy.transaction_id },
+                };
 
-            const settledContract = await streamContractUntilSettled({
-                contractId: buy.contract_id,
-                fallback: buySnapshot,
-                onUpdate: snapshot => pushContract(snapshot),
-                source: 'ManualTrading',
-            });
-            const profit = Number(settledContract.profit ?? 0);
+                pushContract(buySnapshot);
+
+                const settledContract = await streamContractUntilSettled({
+                    contractId: buy.contract_id,
+                    fallback: buySnapshot,
+                    onUpdate: snapshot => pushContract(snapshot),
+                    source: 'ManualTrading',
+                });
+                const profit = Number(settledContract.profit ?? 0);
+                totalProfit = Number((totalProfit + profit).toFixed(8));
+                setTradeMessage(
+                    `${action.label} run ${runIndex} of ${runCount} closed ${profit >= 0 ? 'with profit' : 'with loss'}: ${profit.toFixed(2)} ${currency}`
+                );
+            }
+
             setTradeMessage(
-                `${action.label} contract closed ${profit >= 0 ? 'with profit' : 'with loss'}: ${profit.toFixed(2)} ${currency}`
+                `${action.label} ${runCount} run${runCount === 1 ? '' : 's'} complete. Total P/L: ${totalProfit.toFixed(2)} ${currency}`
             );
         } catch (purchaseError) {
             setTradeMessage('');
@@ -820,6 +851,20 @@ const ManualTrading = observer(() => {
                                 onChange={event => handleStakeChange(event.target.value)}
                             />
                             <span>{currency}</span>
+                        </div>
+                    </label>
+                    <label className='manual-trading-field'>
+                        <span>Runs</span>
+                        <div className='manual-trading-inline-input'>
+                            <input
+                                aria-label='Number of runs'
+                                className='manual-trading-field__control'
+                                inputMode='numeric'
+                                value={runCountInput}
+                                onBlur={handleRunCountBlur}
+                                onChange={event => handleRunCountChange(event.target.value)}
+                            />
+                            <span>runs</span>
                         </div>
                     </label>
                 </div>
