@@ -31,113 +31,64 @@ const formatMoney = (value: number | string | null | undefined) => {
     return `${sign}$${Math.abs(n).toFixed(2)}`;
 };
 
+const toBotId = (file: string) =>
+    file
+        .replace(/\.xml$/i, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+const createRiskManagersBot = (file: string): TBot => {
+    const name = file.replace(/\.xml$/i, '');
+
+    return {
+        id: toBotId(file),
+        name,
+        file,
+        description: `${name} loads into Bot Builder and executes through the standard purchase conditions.`,
+        emoji: 'RM',
+    };
+};
+
 const RISK_MANAGERS_BOTS: TBot[] = [
-    {
-        id: 'd1',
-        name: 'D1-BY MR.DUKE(+254702490526)',
-        file: 'D1-BY MR.DUKE(+254702490526).xml',
-        description: 'Classic Deriv bot with consistent, reliable performance across markets.',
-        emoji: '🔵',
-    },
-    {
-        id: 'd2',
-        name: 'D2 BY--MR.DUKE(+254702490526) (1)',
-        file: 'D2 BY--MR.DUKE(+254702490526) (1).xml',
-        description: 'Enhanced second-generation strategy with improved entry signals.',
-        emoji: '⚡',
-    },
-    {
-        id: 'd3',
-        name: 'The-D3 rise and fall',
-        file: 'The-D3 rise and fall.xml',
-        description: 'Trend-following strategy targeting rise and fall market patterns.',
-        emoji: '📊',
-    },
-    {
-        id: 'd4',
-        name: 'D4 Update by MR.DUKE(+254702490526)FINAL  (%%%)) (1) (1) (1)',
-        file: 'D4 Update by MR.DUKE(+254702490526)FINAL  (%%%)) (1) (1) (1).xml',
-        description: 'Final polished version of the D-series with multi-market support.',
-        emoji: '🏆',
-    },
-    {
-        id: 'd5',
-        name: 'D5 (Original version +254702490526)',
-        file: 'D5 (Original version +254702490526).xml',
-        description: 'The original flagship D5 strategy — time-tested and dependable.',
-        emoji: '⭐',
-    },
-    {
-        id: 'd6',
-        name: 'D6 Deriv by Duke (1)',
-        file: 'D6 Deriv by Duke (1).xml',
-        description: 'Deriv-optimised strategy with refined logic for smoother execution.',
-        emoji: '🎯',
-    },
-    {
-        id: 'black-devil',
-        name: 'BLACK DEVIL v2( By MR. DUKE)',
-        file: 'BLACK DEVIL v2( By MR. DUKE).xml',
-        description: 'Aggressive scalping strategy with precision entries and tight risk control.',
-        emoji: '😈',
-    },
-    {
-        id: 'grffy',
-        name: 'grffy',
-        file: 'grffy.xml',
-        description: 'Volatility-driven strategy with adaptive position sizing.',
-        emoji: '🔲',
-    },
-    {
-        id: 'kiazala',
-        name: 'Kiazala v1 by The Risk Manager (1)',
-        file: 'Kiazala v1 by The Risk Manager (1).xml',
-        description: 'Disciplined risk-managed bot designed to protect capital while growing.',
-        emoji: '🛡️',
-    },
-    {
-        id: 'kumi',
-        name: 'KUMI NA NNE BORA V2  (1) (1)',
-        file: 'KUMI NA NNE BORA V2  (1) (1).xml',
-        description: 'Multi-step accumulation strategy with layered entry logic.',
-        emoji: '📈',
-    },
-    {
-        id: 'mwenda',
-        name: 'Mwenda Pole By The Risk Manager (1)',
-        file: 'Mwenda Pole By The Risk Manager (1).xml',
-        description: 'Slow and steady conservative approach — ideal for low-risk accounts.',
-        emoji: '🐢',
-    },
-    {
-        id: 'simba',
-        name: 'Simba Ai v1',
-        file: 'Simba Ai v1.xml',
-        description: 'AI-enhanced strategy combining pattern recognition with smart exits.',
-        emoji: '🦁',
-    },
-    {
-        id: 'speedhack',
-        name: 'Speedhack by mrduke.site 00 (1)',
-        file: 'Speedhack by mrduke.site 00 (1).xml',
-        description: 'Ultra-fast tick-based execution for volatile market conditions.',
-        emoji: '🚀',
-    },
-    {
-        id: 'under789',
-        name: 'under 7,8,9= g2 bot 1==',
-        file: 'under 7,8,9= g2 bot 1==.xml',
-        description: 'Specialised over/under boundary strategy for digit markets.',
-        emoji: '🎲',
-    },
-    {
-        id: 'wealth',
-        name: 'Wealth Generator',
-        file: 'Wealth Generator.xml',
-        description: 'Compound growth strategy built for long-term account building.',
-        emoji: '💰',
-    },
-];
+    'ACCUMULATORS BT.xml',
+    'BLACK DEVIL v2( By MR. DUKE).xml',
+    'Candle Mine Version 3.1.xml',
+    'D1 2025 BOT.xml',
+    'D1 BY MR.DUKE(+254702490526).xml',
+    'D1-BY MR.DUKE(+254702490526).xml',
+    'D2 BY MR.DUKE(+254702490526).xml',
+    'D2 BY--MR.DUKE(+254702490526) (1).xml',
+    'D4 Update by MR.DUKE(+254702490526)FINAL  (%%%)) (1) (1) (1).xml',
+    'D4 Update by MR.DUKE(+254702490526)FINAL (%%%)).xml',
+    'D5 (Original version +254702490526).xml',
+    'D6 Deriv by Duke (1).xml',
+    'D6 Deriv by Duke.xml',
+    'D7 Over 2 bot.xml',
+    'Differhub.xml',
+    'Double Over With analysis.xml',
+    'Even Odd Killer bot.xml',
+    'Even Odd Reverse psychology.xml',
+    'Gibu V8 PRO (2024).xml',
+    'grffy upated martingale 2 loss premium bot.xml',
+    'grffy.xml',
+    'Kiazala v1 by The Risk Manager (1).xml',
+    'KUMI NA NNE BORA V2  (1) (1).xml',
+    'Mkorean SV5 2024.xml',
+    'Mkorean SV7 2025.xml',
+    'Mkorean sv7 bot.xml',
+    'Mwenda Pole By The Risk Manager (1).xml',
+    'New Dollar Printer Bot.VXY($).xml',
+    'OVER 1 RECOVERY OVER 4.xml',
+    'Rise fall thunder ⚡.xml',
+    'Simba Ai v1.xml',
+    'Speedhack by mrduke.site 00 (1).xml',
+    'The-D3 rise and fall.xml',
+    'under 7,8,9= g2 bot 1==.xml',
+    'WEALTH GENERATOR V2 (1).xml',
+    'WEALTH GENERATOR V2.xml',
+    'Wealth Generator.xml',
+].map(createRiskManagersBot);
 
 const TERMICA_BOTS: TBot[] = [
     {

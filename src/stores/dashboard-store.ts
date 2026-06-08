@@ -30,7 +30,7 @@ type TDialogOptions = {
     type?: string;
 };
 
-type TTradingModule = 'auto_trades';
+type TTradingModule = 'auto_trades' | 'scanner';
 type TStopTradingHandler = () => void | Promise<void>;
 
 export interface IDashboardStore {

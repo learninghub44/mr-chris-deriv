@@ -82,7 +82,7 @@ const AppWrapper = observer(() => {
         [key: string]: string;
     };
     const { clear } = summary_card;
-    const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING } = DBOT_TABS;
+const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING } = DBOT_TABS;
     const init_render = React.useRef(true);
     const hash = [
         'bot_ideas',
@@ -520,7 +520,7 @@ const AppWrapper = observer(() => {
                                     <AutoTrades />
                                 </div>
                             )}
-                            {show_manual_trading && (
+{show_manual_trading && (
                                 <div
                                     label={
                                         <>

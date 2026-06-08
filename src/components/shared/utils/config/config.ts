@@ -27,6 +27,7 @@ type DomainFeatureFlags = {
     printPopups: boolean;
     autoTrades: boolean;
     manualTrading: boolean;
+    scanner: boolean;
     chart: boolean;
 };
 
@@ -97,6 +98,7 @@ const DEFAULT_DOMAIN_FEATURES: DomainFeatureFlags = {
     printPopups: true,
     autoTrades: true,
     manualTrading: true,
+    scanner: true,
     chart: true,
 };
 

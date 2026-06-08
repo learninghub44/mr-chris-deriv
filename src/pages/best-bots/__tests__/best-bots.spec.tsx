@@ -24,11 +24,11 @@ describe('Best Bots domain catalogs', () => {
     it('keeps the original Risk Managers bot names for the Risk Managers folder', () => {
         const bots = getBestBotsForFolder('riskmanagers.site');
 
-        expect(bots).toHaveLength(15);
+        expect(bots).toHaveLength(37);
         expect(bots.every(bot => bot.name === bot.file.replace(/\.xml$/, ''))).toBe(true);
         expect(bots[0]).toMatchObject({
-            name: 'D1-BY MR.DUKE(+254702490526)',
-            file: 'D1-BY MR.DUKE(+254702490526).xml',
+            name: 'ACCUMULATORS BT',
+            file: 'ACCUMULATORS BT.xml',
         });
     });
 

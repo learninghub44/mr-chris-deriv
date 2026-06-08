@@ -7,6 +7,7 @@ export const getActiveTabUrl = () => {
         'bot_builder',
         'auto_trades',
         'manual_trading',
+        'scanner',
         'analysistool',
     ] as const;
     const getTabName = (index: number) => TAB_NAMES[index];
