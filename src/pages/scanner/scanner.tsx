@@ -26,6 +26,8 @@ const MAX_TICKS = 1000;
 const DEFAULT_STAKE = '1';
 const DEFAULT_STOP_LOSS = '5';
 const DEFAULT_TAKE_PROFIT = '5';
+const PROFIT_CHECK_RUNS = 5;
+const TIMER_SOUND_URL = 'https://www.fesliyanstudios.com/play-mp3/4386';
 
 const MARKETS = [
     { label: 'Volatility 10 Index', symbol: 'R_10' },
@@ -238,6 +240,7 @@ const Scanner = observer(() => {
     const shouldStopRef = useRef(false);
     const tradeActiveRef = useRef(false);
     const tradeInFlightRef = useRef(false);
+    const completedRunsRef = useRef(0);
     const sessionProfitRef = useRef(0);
     const stakeRef = useRef(0);
     const stopLossRef = useRef(0);
@@ -245,6 +248,7 @@ const Scanner = observer(() => {
     const strategyRef = useRef<TScannerStrategy>(strategy);
     const selectedSymbolRef = useRef(selectedSymbol);
     const handleTradeTickRef = useRef<(currentTicks: TTickPoint[]) => void>(() => undefined);
+    const timerSoundRef = useRef<HTMLAudioElement | null>(null);
     const currency = client.currency || 'USD';
     const showScanner = active_tab === DBOT_TABS.SCANNER;
     const selectedMarket = MARKETS.find(market => market.symbol === selectedSymbol) ?? MARKETS[0];
@@ -263,6 +267,42 @@ const Scanner = observer(() => {
     useEffect(() => {
         selectedSymbolRef.current = selectedSymbol;
     }, [selectedSymbol]);
+
+    useEffect(() => {
+        timerSoundRef.current = new Audio(TIMER_SOUND_URL);
+        timerSoundRef.current.preload = 'auto';
+        timerSoundRef.current.loop = true;
+
+        return () => {
+            timerSoundRef.current?.pause();
+            timerSoundRef.current = null;
+        };
+    }, []);
+
+    const stopTimerSound = useCallback(() => {
+        const sound = timerSoundRef.current;
+        if (!sound) return;
+        sound.pause();
+        sound.currentTime = 0;
+    }, []);
+
+    const playTimerSound = useCallback(() => {
+        const sound = timerSoundRef.current;
+        if (!sound) return;
+
+        sound.currentTime = 0;
+        sound.loop = true;
+        const playPromise = sound.play();
+
+        if (playPromise) {
+            playPromise.catch(() => {
+                const enableSound = () => {
+                    sound.play().catch(() => undefined);
+                };
+                document.addEventListener('click', enableSound, { once: true });
+            });
+        }
+    }, []);
 
     useEffect(() => {
         if (!showScanner) return undefined;
@@ -293,6 +333,7 @@ const Scanner = observer(() => {
         shouldStopRef.current = true;
         tradeActiveRef.current = false;
         setIsWorking(false);
+        stopTimerSound();
 
         try {
             run_panel.setIsRunning(false);
@@ -302,7 +343,7 @@ const Scanner = observer(() => {
         }
 
         dashboard.setActiveTradingModule(null);
-    }, [dashboard, run_panel]);
+    }, [dashboard, run_panel, stopTimerSound]);
 
     const applyLiveTick = useCallback((tick: TTickPoint) => {
         const nextTicks = [...ticksRef.current, tick].slice(-MAX_TICKS);
@@ -462,7 +503,10 @@ const Scanner = observer(() => {
                 return;
             }
 
-            if (sessionProfitRef.current >= takeProfitRef.current || sessionProfitRef.current <= -stopLossRef.current) {
+            if (
+                sessionProfitRef.current <= -stopLossRef.current ||
+                (completedRunsRef.current >= PROFIT_CHECK_RUNS && sessionProfitRef.current > 0)
+            ) {
                 stopTrading();
                 return;
             }
@@ -474,20 +518,25 @@ const Scanner = observer(() => {
             try {
                 const profit = await runSingleTrade(analysis.signal, stakeRef.current);
                 const totalProfit = Number((sessionProfitRef.current + profit).toFixed(8));
+                completedRunsRef.current += 1;
                 sessionProfitRef.current = totalProfit;
                 setSessionProfit(totalProfit);
                 setTerminalDashboard(previous => [
                     ...previous,
-                    `${analysis.signal.label} closed: ${profit.toFixed(2)} ${currency}`,
+                    `Run ${completedRunsRef.current} closed: ${analysis.signal.label} ${profit.toFixed(2)} ${currency}`,
                     `Session P/L: ${totalProfit.toFixed(2)} ${currency}`,
                 ]);
 
-                if (totalProfit >= takeProfitRef.current || totalProfit <= -stopLossRef.current) {
+                if (
+                    totalProfit <= -stopLossRef.current ||
+                    (completedRunsRef.current >= PROFIT_CHECK_RUNS && totalProfit > 0) ||
+                    (completedRunsRef.current >= PROFIT_CHECK_RUNS && totalProfit >= takeProfitRef.current)
+                ) {
                     setTerminalDashboard(previous => [
                         ...previous,
-                        totalProfit >= takeProfitRef.current
-                            ? `TP reached: ${totalProfit.toFixed(2)} ${currency}`
-                            : `SL reached: ${totalProfit.toFixed(2)} ${currency}`,
+                        totalProfit <= -stopLossRef.current
+                            ? `SL reached: ${totalProfit.toFixed(2)} ${currency}`
+                            : `${PROFIT_CHECK_RUNS} runs complete in profit: ${totalProfit.toFixed(2)} ${currency}`,
                     ]);
                     stopTrading();
                 }
@@ -514,6 +563,7 @@ const Scanner = observer(() => {
             stopLossRef.current = stopLoss;
             takeProfitRef.current = takeProfit;
             sessionProfitRef.current = 0;
+            completedRunsRef.current = 0;
             shouldStopRef.current = false;
             tradeActiveRef.current = true;
             tradeInFlightRef.current = false;
@@ -532,7 +582,7 @@ const Scanner = observer(() => {
             setTerminalDashboard(previous => [
                 ...previous,
                 `Bot activated with ${firstSignal.label}.`,
-                'Execution is now listening on every live tick.',
+                `Execution is now listening on every live tick. It will check profit after ${PROFIT_CHECK_RUNS} runs.`,
             ]);
             void executeTradeFromTick(ticksRef.current);
         },
@@ -541,6 +591,7 @@ const Scanner = observer(() => {
 
     const startFastMovingCodes = useCallback(
         (nextMode: TScannerMode, stake: number, stopLoss: number, takeProfit: number) => {
+            playTimerSound();
             setTerminalBody(previous => [...previous, 'Running deep analysis...']);
 
             const codeInterval = setInterval(() => {
@@ -553,6 +604,7 @@ const Scanner = observer(() => {
 
             setTimeout(() => {
                 clearInterval(codeInterval);
+                stopTimerSound();
                 if (shouldStopRef.current) {
                     setIsWorking(false);
                     return;
@@ -584,7 +636,7 @@ const Scanner = observer(() => {
                 }, 1000);
             }, 5000);
         },
-        [selectedSymbol, startScannerTrading, strategy]
+        [playTimerSound, selectedSymbol, startScannerTrading, stopTimerSound, strategy]
     );
 
     const handleAnalyze = () => {
@@ -613,6 +665,8 @@ const Scanner = observer(() => {
         shouldStopRef.current = false;
         setIsWorking(true);
         setSessionProfit(0);
+        sessionProfitRef.current = 0;
+        completedRunsRef.current = 0;
         setPopupOpen(true);
         setTerminalDashboard([`Analysis Dashboard - ${strategy} on ${selectedSymbol}`]);
         setTerminalBody(['Connecting to server...']);
@@ -647,6 +701,7 @@ const Scanner = observer(() => {
     };
 
     const handleClosePopup = () => {
+        stopTimerSound();
         stopTrading();
         setPopupOpen(false);
     };
