@@ -232,9 +232,26 @@
     .scanner-page {
         height: var(--tab-content-height-mobile);
         min-height: var(--tab-content-height-mobile);
+        padding: 1rem 0 18rem;
 
         .container {
             min-height: 450px;
+        }
+
+        .popup {
+            position: absolute;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 2rem);
+            height: auto;
+            min-height: calc(var(--tab-content-height-mobile) - 2rem);
+            max-height: none;
+            z-index: 2;
+        }
+
+        .close-btn {
+            z-index: 3;
         }
     }
 }
