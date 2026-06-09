@@ -215,7 +215,6 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         redirectUri: 'https://mrzetuzetu.site/',
         botsFolder: 'mrzetuzetu.site',
         includeLegacyAppIdInOAuth: true,
-        useLegacyOAuthLogin: true,
         features: {
             autoTrades: true,
             manualTrading: true,
