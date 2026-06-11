@@ -109,7 +109,7 @@ export default defineConfig({
                     {
                         test: /\.xml$/,
                         exclude: /node_modules/,
-                        use: 'raw-loader',
+                        type: 'asset/source',
                     },
                 ],
             },
