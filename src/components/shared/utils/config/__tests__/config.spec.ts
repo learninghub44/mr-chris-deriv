@@ -35,7 +35,7 @@ describe('DOMAIN_CONFIG', () => {
     });
 
     it.each([
-        ['mrzetuzetu.site', '33gJ6p5dXzASAIobgv9az', '80364', 'Mrzetuzetu', false],
+        ['mrzetuzetu.site', '33vlry53HSLhXICBcUURu', '80364', 'Mrzetuzetu', false],
         ['masterhunter.site', '33g5WCS5YOFHD3aWLZZjj', '96223', 'Master Hunter', false],
         ['tradinghubs.site', '33hi7ev9NiDjWY640JuSw', '122208', 'Trading Hubs', false],
         ['mafiahub.site', '331bCUS8izRudblAnSACt', '120589', 'Mafia Hub', false],
@@ -109,7 +109,7 @@ describe('DOMAIN_CONFIG', () => {
     });
 
     it.each([
-        ['mrzetuzetu.site', '80364', '33gJ6p5dXzASAIobgv9az'],
+        ['mrzetuzetu.site', '80364', '33vlry53HSLhXICBcUURu'],
         ['masterhunter.site', '96223', '33g5WCS5YOFHD3aWLZZjj'],
         ['tradinghubs.site', '122208', '33hi7ev9NiDjWY640JuSw'],
         ['mafiahub.site', '120589', '331bCUS8izRudblAnSACt'],

@@ -210,7 +210,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
     ...createHostedDomainEntries({
         primaryDomain: 'mrzetuzetu.site',
         aliases: ['www.mrzetuzetu.site'],
-        clientId: '33gJ6p5dXzASAIobgv9az',
+        clientId: '33vlry53HSLhXICBcUURu',
         appId: '80364',
         redirectUri: 'https://mrzetuzetu.site/',
         botsFolder: 'mrzetuzetu.site',
