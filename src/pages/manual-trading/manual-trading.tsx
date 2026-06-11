@@ -420,6 +420,51 @@ const ManualTrading = observer(() => {
         }
     }, []);
 
+    const syncMarketStrategySnapshot = useCallback(
+        (market: TManualMarket, nextDigits: number[], latestDigit: number | null, epoch?: number | null) => {
+            const percentages = calculateDigitPercentagesFromDigits(nextDigits);
+
+            setMarketStrategyStates(previous => {
+                const nextStateMap = { ...previous };
+
+                (Object.keys(DIGIT_STRATEGIES) as DigitStrategyId[]).forEach(strategyId => {
+                    const key = `${market.symbol}:${strategyId}`;
+                    const prior = previous[key] ?? createEmptyStrategyState(market.symbol, strategyId);
+                    const evaluation = evaluateDigitStrategy(strategyId, percentages, nextDigits);
+                    const snapshot: TMarketStrategyState = {
+                        alertLabel: evaluation.alertLabel,
+                        entryFingerprint:
+                            evaluation.entryReady && Number.isFinite(epoch)
+                                ? `${market.symbol}:${strategyId}:${epoch}:${nextDigits.slice(-4).join('')}`
+                                : '',
+                        entryReady: evaluation.entryReady,
+                        isQualified: evaluation.isQualified,
+                        latestDigit,
+                        latestEpoch: Number.isFinite(epoch) ? Number(epoch) : null,
+                        qualifyingWinningDigits: evaluation.qualifyingWinningDigits,
+                        recentDigits: nextDigits.slice(-4),
+                        strategyId,
+                        symbol: market.symbol,
+                        trailingTriggerCount: evaluation.trailingTriggerCount,
+                        updatedAt: Date.now(),
+                    };
+                    nextStateMap[key] = snapshot;
+
+                    if (!prior.isQualified && snapshot.isQualified) {
+                        playStrategyMonitorSound();
+                        setFocusedSignalKey(key);
+                        setMonitorStatusMessage(
+                            `${market.label} matched ${snapshot.alertLabel}. Load market to prepare entry.`
+                        );
+                    }
+                });
+
+                return nextStateMap;
+            });
+        },
+        []
+    );
+
     const unsubscribe = useCallback(() => {
         try {
             subscriptionRef.current?.unsubscribe?.();
@@ -643,6 +688,13 @@ const ManualTrading = observer(() => {
                             .slice(-Math.max(activeTickCount, MONITOR_HISTORY_TICKS));
 
                         monitorDigitsRef.current[market.symbol] = digits;
+                        const latestHistoricalDigit = digits.length > 0 ? digits[digits.length - 1] : null;
+                        syncMarketStrategySnapshot(
+                            market,
+                            digits,
+                            latestHistoricalDigit,
+                            Array.isArray(history?.history?.times) ? Number(history.history.times[history.history.times.length - 1]) : null
+                        );
 
                         const observable = (api_base.api as any).subscribe({ ticks: market.symbol });
                         monitorSubscriptionsRef.current[market.symbol] = safeSubscribe(observable, (data: any) => {
@@ -656,44 +708,7 @@ const ManualTrading = observer(() => {
                                 -Math.max(activeTickCount, MONITOR_HISTORY_TICKS)
                             );
                             monitorDigitsRef.current[market.symbol] = nextDigits;
-                            const percentages = calculateDigitPercentagesFromDigits(nextDigits);
-
-                            setMarketStrategyStates(previous => {
-                                const nextStateMap = { ...previous };
-
-                                (Object.keys(DIGIT_STRATEGIES) as DigitStrategyId[]).forEach(strategyId => {
-                                    const key = `${market.symbol}:${strategyId}`;
-                                    const prior = previous[key] ?? createEmptyStrategyState(market.symbol, strategyId);
-                                    const evaluation = evaluateDigitStrategy(strategyId, percentages, nextDigits);
-                                    const snapshot: TMarketStrategyState = {
-                                        alertLabel: evaluation.alertLabel,
-                                        entryFingerprint: evaluation.entryReady
-                                            ? `${market.symbol}:${strategyId}:${epoch}:${nextDigits.slice(-4).join('')}`
-                                            : '',
-                                        entryReady: evaluation.entryReady,
-                                        isQualified: evaluation.isQualified,
-                                        latestDigit,
-                                        latestEpoch: Number.isFinite(epoch) ? epoch : null,
-                                        qualifyingWinningDigits: evaluation.qualifyingWinningDigits,
-                                        recentDigits: nextDigits.slice(-4),
-                                        strategyId,
-                                        symbol: market.symbol,
-                                        trailingTriggerCount: evaluation.trailingTriggerCount,
-                                        updatedAt: Date.now(),
-                                    };
-                                    nextStateMap[key] = snapshot;
-
-                                    if (!prior.isQualified && snapshot.isQualified) {
-                                        playStrategyMonitorSound();
-                                        setFocusedSignalKey(key);
-                                        setMonitorStatusMessage(
-                                            `${market.label} matched ${snapshot.alertLabel}. Load market to prepare entry.`
-                                        );
-                                    }
-                                });
-
-                                return nextStateMap;
-                            });
+                            syncMarketStrategySnapshot(market, nextDigits, latestDigit, epoch);
                         });
                     } catch {
                         // Keep background monitoring resilient even if one stream fails.
