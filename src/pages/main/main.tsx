@@ -35,6 +35,7 @@ import {
     LabelPairedCircleStarCaptionRegularIcon,
     LabelPairedLightbulbCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
+    LabelPairedPlaceholderCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedSearchCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
@@ -45,11 +46,14 @@ import AutoTrades from '../auto-trades/auto-trades';
 import BestBots from '../best-bots';
 import BotIdeas from '../bot-ideas';
 import ChartModal from '../chart/chart-modal';
+import ChartWrapper from '../chart/chart-wrapper';
 import Dashboard from '../dashboard';
 import ManualTrading from '../manual-trading';
 import RunStrategy from '../dashboard/run-strategy';
 import Analysistool from '../analysistool';
+import Accumilatoirs from '../accumilatoirs';
 import Scanner from '../scanner';
+import TradingView from '../tradingview';
 import './main.scss';
 
 const AppWrapper = observer(() => {
@@ -84,7 +88,7 @@ const AppWrapper = observer(() => {
         [key: string]: string;
     };
     const { clear } = summary_card;
-const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER } = DBOT_TABS;
+    const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER, CHART, TRADING_VIEW } = DBOT_TABS;
     const init_render = React.useRef(true);
     const hash = [
         'bot_ideas',
@@ -94,17 +98,24 @@ const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER 
         'auto_trades',
         'manual_trading',
         'scanner',
+        'accumilatoirs',
         'analysistool',
+        'chart',
+        'tradingview',
     ];
     const show_bot_ideas = isDomainFeatureEnabled('botIdeas');
     const show_auto_trades = isDomainFeatureEnabled('autoTrades');
     const show_manual_trading = isDomainFeatureEnabled('manualTrading');
     const show_scanner = isDomainFeatureEnabled('scanner');
+    const show_chart = isDomainFeatureEnabled('chart');
+    const show_trading_view = isDomainFeatureEnabled('tradingView');
     const isMainTabVisible = (tab_index: number) => {
         if (tab_index === BOT_IDEAS) return show_bot_ideas;
         if (tab_index === AUTO_TRADES) return show_auto_trades;
         if (tab_index === MANUAL_TRADING) return show_manual_trading;
         if (tab_index === SCANNER) return show_scanner;
+        if (tab_index === CHART) return show_chart;
+        if (tab_index === TRADING_VIEW) return show_trading_view;
         return true;
     };
     const { isDesktop } = useDevice();
@@ -170,7 +181,7 @@ const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER 
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_last_tab = document.getElementById('id-analysistool');
+        const el_last_tab = document.getElementById(show_trading_view ? 'id-tradingview' : 'id-analysistool');
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -562,6 +573,21 @@ const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER 
                             <div
                                 label={
                                     <>
+                                        <LabelPairedPlaceholderCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='#c8a45d'
+                                        />
+                                        <Localize i18n_default_text='Accumilatoirs' />
+                                    </>
+                                }
+                                id='id-accumilatoirs'
+                            >
+                                <Accumilatoirs />
+                            </div>
+                            <div
+                                label={
+                                    <>
                                         <LabelPairedChartLineCaptionRegularIcon
                                             height='24px'
                                             width='24px'
@@ -574,6 +600,42 @@ const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER 
                             >
                                 <Analysistool />
                             </div>
+                            {show_chart && (
+                                <div
+                                    label={
+                                        <>
+                                            <LabelPairedChartLineCaptionRegularIcon
+                                                height='24px'
+                                                width='24px'
+                                                fill='#c8a45d'
+                                            />
+                                            <Localize i18n_default_text='Chart' />
+                                        </>
+                                    }
+                                    id='id-chart'
+                                >
+                                    <div className='main__chart-page'>
+                                        <ChartWrapper prefix='main-chart' show_digits_stats={false} />
+                                    </div>
+                                </div>
+                            )}
+                            {show_trading_view && (
+                                <div
+                                    label={
+                                        <>
+                                            <LabelPairedChartMixedCaptionRegularIcon
+                                                height='24px'
+                                                width='24px'
+                                                fill='#c8a45d'
+                                            />
+                                            <Localize i18n_default_text='TradingView' />
+                                        </>
+                                    }
+                                    id='id-tradingview'
+                                >
+                                    <TradingView />
+                                </div>
+                            )}
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
                     </div>
@@ -584,7 +646,7 @@ const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER 
                     <RunStrategy />
                     <RunPanel />
                 </div>
-                <ChartModal />
+                {show_chart && <ChartModal />}
             </DesktopWrapper>
             <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
             <Dialog

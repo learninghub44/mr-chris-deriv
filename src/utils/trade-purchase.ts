@@ -174,6 +174,35 @@ export const buyContractForUi = async ({ parameters, price, source }: TBuyContra
     return buy;
 };
 
+export const sellContractForUi = async ({
+    contractId,
+    price = 0,
+    source,
+}: {
+    contractId: number | string;
+    price?: number;
+    source: string;
+}) => {
+    await ensureAuthorizedForTrading();
+    assertApiTokenScope('trade');
+
+    const sell_response = await (api_base.api as any).send({ sell: contractId, price });
+    throwApiError(sell_response, source);
+
+    const sell = sell_response?.sell;
+    if (!sell) {
+        throw new Error(`${source} did not receive a cashout confirmation.`);
+    }
+
+    globalObserver.emit('contract.status', {
+        id: 'contract.sold',
+        data: sell.transaction_id,
+        sell,
+    });
+
+    return sell;
+};
+
 const CLOSED_CONTRACT_STATUSES = new Set(['sold', 'won', 'lost']);
 const DEFAULT_SETTLEMENT_RECOVERY_CHECK_MS = 1000;
 const PROFIT_TABLE_RECOVERY_CHECK_MS = 5000;

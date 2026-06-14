@@ -30,7 +30,7 @@ type TDialogOptions = {
     type?: string;
 };
 
-type TTradingModule = 'auto_trades' | 'scanner';
+type TTradingModule = 'auto_trades' | 'scanner' | 'accumilatoirs';
 type TStopTradingHandler = () => void | Promise<void>;
 
 export interface IDashboardStore {
@@ -373,7 +373,8 @@ export default class DashboardStore implements IDashboardStore {
         localStorage.setItem('active_tab', active_tab.toString());
     };
 
-    private isTradingTab = (active_tab: number) => active_tab === DBOT_TABS.AUTO_TRADES;
+    private isTradingTab = (active_tab: number) =>
+        active_tab === DBOT_TABS.AUTO_TRADES || active_tab === DBOT_TABS.ACCUMILATOIRS;
 
     private shouldGuardTabChange = (next_tab: number): boolean =>
         !this.is_forcing_tab_switch &&

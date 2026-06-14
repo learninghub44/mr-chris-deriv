@@ -282,10 +282,10 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         primaryDomain: 'kicktrade.site',
         aliases: ['www.kicktrade.site'],
         clientId: '33vlry53HSLhXICBcUURu',
-        appId: '',
+        appId: '80364',
         redirectUri: 'https://www.kicktrade.site/',
         botsFolder: 'kicktrade.site',
-        includeLegacyAppIdInOAuth: false,
+        includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
             manualTrading: true,

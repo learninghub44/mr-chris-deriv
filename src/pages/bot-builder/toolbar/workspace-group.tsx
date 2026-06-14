@@ -1,5 +1,6 @@
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
+import { isDomainFeatureEnabled } from '@/components/shared';
 import { useStore } from '@/hooks/useStore';
 import {
     LabelPairedArrowRotateLeftMdRegularIcon,
@@ -25,6 +26,7 @@ const WorkspaceGroup = observer(() => {
     const { toggleSaveModal } = save_modal;
     const { toggleLoadModal } = load_modal;
     const { isDesktop } = useDevice();
+    const show_chart = isDomainFeatureEnabled('chart');
 
     return (
         <div className='toolbar__wrapper'>
@@ -86,7 +88,7 @@ const WorkspaceGroup = observer(() => {
                         </span>
                     }
                 />
-                {isDesktop && (
+                {isDesktop && show_chart && (
                     <>
                         <div className='vertical-divider' />
                         <ToolbarIcon

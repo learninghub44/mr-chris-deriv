@@ -26,8 +26,6 @@ export const domain_app_ids = {
     'www.dbotprinters.site': 86059,
     'www.kenyanhennessy.site': 97088,
     'kenyanhennessy.site': 97088,
-    'masterhunter.site': 96223,
-    'www.masterhunter.site': 96223,
     'tytotradinghub.site': 99778,
     'www.tytotradinghub.site': 99778,
     'www.swiftpro.site': 71886,

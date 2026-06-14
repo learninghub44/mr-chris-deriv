@@ -82,11 +82,6 @@ export default defineConfig({
     dev: {
         hmr: true,
         lazyCompilation: false,
-        client: {
-            host: process.env.REPLIT_DEV_DOMAIN || 'localhost',
-            port: 443,
-            protocol: 'wss',
-        },
     },
     performance: {
         bundleAnalyze:

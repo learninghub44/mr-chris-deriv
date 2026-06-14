@@ -80,11 +80,11 @@ describe('DOMAIN_CONFIG', () => {
     it('returns OAuth2-only auth and bot folder settings for Kicktrade', () => {
         expect(getDomainConfigForHost('kicktrade.site')).toMatchObject({
             clientId: '33vlry53HSLhXICBcUURu',
-            appId: '',
+            appId: '80364',
             redirectUri: 'https://www.kicktrade.site/',
             botsFolder: 'kicktrade.site',
             canonicalHost: 'kicktrade.site',
-            includeLegacyAppIdInOAuth: false,
+            includeLegacyAppIdInOAuth: true,
             useLegacyOAuthLogin: false,
             ui: {
                 brandName: 'Kicktrade',
@@ -98,11 +98,11 @@ describe('DOMAIN_CONFIG', () => {
         });
         expect(getDomainConfigForHost('www.kicktrade.site')).toMatchObject({
             clientId: '33vlry53HSLhXICBcUURu',
-            appId: '',
+            appId: '80364',
             redirectUri: 'https://www.kicktrade.site/',
             botsFolder: 'kicktrade.site',
             canonicalHost: 'kicktrade.site',
-            includeLegacyAppIdInOAuth: false,
+            includeLegacyAppIdInOAuth: true,
             useLegacyOAuthLogin: false,
         });
     });
@@ -130,9 +130,9 @@ describe('DOMAIN_CONFIG', () => {
 
         expect(domainConfig).toMatchObject({
             clientId: '33vlry53HSLhXICBcUURu',
-            appId: '',
+            appId: '80364',
             redirectUri: 'https://www.kicktrade.site/',
-            includeLegacyAppIdInOAuth: false,
+            includeLegacyAppIdInOAuth: true,
         });
         expect(domainConfig.clientId).not.toBe('33v1ry53HSLhXICBCUURU');
 
@@ -141,7 +141,7 @@ describe('DOMAIN_CONFIG', () => {
 
         expect(url.origin + url.pathname).toBe('https://auth.deriv.com/oauth2/auth');
         expect(url.searchParams.get('client_id')).toBe('33vlry53HSLhXICBcUURu');
-        expect(url.searchParams.get('app_id')).toBeNull();
+        expect(url.searchParams.get('app_id')).toBe('80364');
         expect(url.searchParams.get('redirect_uri')).toBe('https://www.kicktrade.site/');
         expect(url.searchParams.get('redirect_uri')).not.toBe('https://riskmanagers.site/');
 
@@ -246,8 +246,8 @@ describe('DOMAIN_CONFIG', () => {
         ['masterhunter.site', '96223', '33y9R1zDsuaYKXK2RaEH9', 'https://masterhunter.site/'],
         ['tradinghubs.site', '122208', '33hi7ev9NiDjWY640JuSw', 'https://tradinghubs.site/'],
         ['mafiahub.site', '120589', '331bCUS8izRudblAnSACt', 'https://mafiahub.site/'],
-        ['kicktrade.site', '', '33vlry53HSLhXICBcUURu', 'https://www.kicktrade.site/'],
-        ['www.kicktrade.site', '', '33vlry53HSLhXICBcUURu', 'https://www.kicktrade.site/'],
+        ['kicktrade.site', '80364', '33vlry53HSLhXICBcUURu', 'https://www.kicktrade.site/'],
+        ['www.kicktrade.site', '80364', '33vlry53HSLhXICBcUURu', 'https://www.kicktrade.site/'],
     ])('uses the working OAuth2 PKCE login wiring for %s', async (host, appId, clientId, expectedRedirectUri) => {
         const originalAppEnv = process.env.APP_ENV;
         const cryptoMock = {
