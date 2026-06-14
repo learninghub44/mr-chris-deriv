@@ -609,8 +609,65 @@
         transform-origin: right bottom;
     }
 
+    .accumilatoirs-alert {
+        width: calc(100vw - 12px);
+        margin-bottom: 8px;
+    }
+
+    .accumilatoirs-ticket {
+        padding: 10px;
+        border-radius: 12px;
+    }
+
+    .accumilatoirs-ticket__header {
+        margin-bottom: 8px;
+    }
+
     .accumilatoirs-ticket__content,
     .accumilatoirs-ticket__row {
         grid-template-columns: 1fr;
+    }
+
+    .accumilatoirs-ticket__content {
+        gap: 10px;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-primary {
+        order: 1;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-stop {
+        order: 2;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-field:first-child {
+        order: 3;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-ticket__row {
+        order: 4;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-field:nth-of-type(2) {
+        order: 5;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-check {
+        order: 6;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-ticket__status {
+        order: 7;
+        white-space: normal;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-ticket__meta {
+        order: 8;
+    }
+
+    .accumilatoirs-primary,
+    .accumilatoirs-stop {
+        height: 52px;
+        font-size: 16px;
     }
 }

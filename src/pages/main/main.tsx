@@ -589,7 +589,7 @@ const AppWrapper = observer(() => {
                                                 width='24px'
                                                 fill='#c8a45d'
                                             />
-                                            <Localize i18n_default_text='Accumilatoirs' />
+                                            <Localize i18n_default_text='Accumulator' />
                                         </>
                                     }
                                     id='id-accumilatoirs'
