@@ -110,6 +110,7 @@ const AppWrapper = observer(() => {
     const show_accumilatoirs = isDomainFeatureEnabled('accumilatoirs');
     const show_chart = isDomainFeatureEnabled('chart');
     const show_trading_view = isDomainFeatureEnabled('tradingView');
+    const is_accumulator_tab = active_tab === DBOT_TABS.ACCUMILATOIRS;
     const isMainTabVisible = (tab_index: number) => {
         if (tab_index === BOT_IDEAS) return show_bot_ideas;
         if (tab_index === AUTO_TRADES) return show_auto_trades;
@@ -660,7 +661,7 @@ const AppWrapper = observer(() => {
                 </div>
                 {show_chart && <ChartModal />}
             </DesktopWrapper>
-            <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
+            <MobileWrapper>{!is_open && !is_accumulator_tab && <RunPanel />}</MobileWrapper>
             <Dialog
                 cancel_button_text={
                     navigation_stop_in_progress ? undefined : localize('Stay')
