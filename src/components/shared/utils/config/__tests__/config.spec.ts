@@ -25,9 +25,9 @@ describe('DOMAIN_CONFIG', () => {
         });
     });
 
-    it('keeps Bot Ideas enabled on Risk Managers', () => {
+    it('keeps Bot Ideas temporarily disabled on Risk Managers', () => {
         expect(getDomainConfigForHost('riskmanagers.site')?.features).toMatchObject({
-            botIdeas: true,
+            botIdeas: false,
             chart: false,
             printPopups: true,
             autoTrades: true,

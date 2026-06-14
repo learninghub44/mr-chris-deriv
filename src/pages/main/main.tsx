@@ -168,11 +168,12 @@ const AppWrapper = observer(() => {
     };
 
     let tab_value: number | string = active_tab;
+    const getDefaultLandingTab = () => (show_manual_trading ? MANUAL_TRADING : DBOT_TABS.BEST_BOTS);
     const GetHashedValue = (tab: number) => {
         tab_value = location.hash?.split('#')[1];
-        if (!tab_value) return isMainTabVisible(tab) ? tab : DBOT_TABS.BEST_BOTS;
+        if (!tab_value) return tab === MANUAL_TRADING && isMainTabVisible(tab) ? tab : getDefaultLandingTab();
         const hash_tab_index = Number(hash.indexOf(String(tab_value)));
-        return hash_tab_index >= 0 && isMainTabVisible(hash_tab_index) ? hash_tab_index : DBOT_TABS.BEST_BOTS;
+        return hash_tab_index >= 0 && isMainTabVisible(hash_tab_index) ? hash_tab_index : getDefaultLandingTab();
     };
     const active_hash_tab = GetHashedValue(active_tab);
 

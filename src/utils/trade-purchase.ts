@@ -3,7 +3,7 @@ import { assertApiTokenScope } from '@/utils/api-token-permissions';
 import { safeSubscribe } from '@/utils/websocket-handler';
 import type { Buy } from '@deriv/api-types';
 
-type TTradeParameters = Record<string, number | string>;
+type TTradeParameters = Record<string, any>;
 
 type TBuyContractArgs = {
     parameters: TTradeParameters;
@@ -43,7 +43,7 @@ const removeUndefinedFields = <T extends Record<string, any>>(fields: T): T =>
         return cleaned;
     }, {} as T);
 
-const normalizeParameters = (parameters: TTradeParameters) => {
+export const normalizeTradeParameters = (parameters: TTradeParameters) => {
     const { symbol, underlying_symbol, ...rest } = parameters;
     const normalized_symbol = symbol || underlying_symbol;
     const symbol_field = normalized_symbol
@@ -105,7 +105,7 @@ export const buyContractForUi = async ({ parameters, price, source }: TBuyContra
     globalObserver.emit('bot.running');
     globalObserver.emit('bot.setPurchaseInProgress');
 
-    const normalized_parameters = normalizeParameters(parameters);
+    const normalized_parameters = normalizeTradeParameters(parameters);
 
     try {
         const proposal_response = await (api_base.api as any).send({

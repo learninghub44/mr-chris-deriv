@@ -98,7 +98,7 @@ interface HostedDomainDefinition {
 
 const DEFAULT_BOTS_FOLDER = 'optimumtraders.site';
 const DEFAULT_DOMAIN_FEATURES: DomainFeatureFlags = {
-    botIdeas: true,
+    botIdeas: false,
     printPopups: true,
     autoTrades: true,
     manualTrading: true,

@@ -8,7 +8,7 @@ import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { SUPPORTED_VOLATILITY_MARKETS } from '@/utils/digit-strategy';
 import { isExpectedStreamInterruption } from '@/utils/market-data';
-import { buyContractForUi, sellContractForUi, streamContractUntilSettled } from '@/utils/trade-purchase';
+import { buyContractForUi, normalizeTradeParameters, sellContractForUi, streamContractUntilSettled } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
 
 type TAccumulatorMarket = {
@@ -141,6 +141,29 @@ const formatPercent = (value: unknown) => {
 
     return `${percent.toFixed(2)}%`;
 };
+
+const getFirstFiniteNumber = (...values: unknown[]) => {
+    for (const value of values) {
+        const numberValue = Number(value);
+        if (Number.isFinite(numberValue) && numberValue > 0) return numberValue;
+    }
+
+    return undefined;
+};
+
+const getProposalTickSizeBarrier = (proposal: any) =>
+    getFirstFiniteNumber(
+        proposal?.contract_details?.tick_size_barrier,
+        proposal?.contract_details?.barrier_spot_distance,
+        proposal?.contract_details?.barrier_offset,
+        proposal?.tick_size_barrier,
+        proposal?.barrier_spot_distance,
+        proposal?.barrier_offset,
+        Math.abs(Number(proposal?.contract_details?.high_barrier) - Number(proposal?.spot)),
+        Math.abs(Number(proposal?.spot) - Number(proposal?.contract_details?.low_barrier)),
+        Math.abs(Number(proposal?.high_barrier) - Number(proposal?.spot)),
+        Math.abs(Number(proposal?.spot) - Number(proposal?.low_barrier))
+    );
 
 const getReturnPercent = (cashoutValue: unknown, buyValue: unknown) => {
     const cashout = Number(cashoutValue);
@@ -599,7 +622,7 @@ const Accumilatoirs = observer(() => {
                 const response = await (api_base.api as any).send({
                     proposal: 1,
                     subscribe: 0,
-                    ...buildAccumulatorParameters(),
+                    ...normalizeTradeParameters(buildAccumulatorParameters()),
                 });
 
                 if (response?.error) {
@@ -615,7 +638,7 @@ const Accumilatoirs = observer(() => {
                     message: proposal?.longcode || 'Accumulator is ready to buy.',
                     minStake: Number(proposal?.contract_details?.minimum_stake) || undefined,
                     status: 'ready',
-                    tickSizeBarrier: Number(proposal?.contract_details?.tick_size_barrier) || undefined,
+                    tickSizeBarrier: getProposalTickSizeBarrier(proposal),
                 });
             } catch (proposalError) {
                 setProposalPreview({
