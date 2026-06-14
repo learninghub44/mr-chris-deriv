@@ -13,14 +13,22 @@
         right: 0;
 
         &--mobile {
-            position: absolute;
-            top: 0;
-            left: 0;
+            position: fixed;
+            inset: 0;
             width: 100vw;
-            z-index: var(--zindex-drawer);
+            z-index: 10000;
             height: calc(100% - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
             background: var(--general-main-1);
+            isolation: isolate;
+
+            > .dc-drawer {
+                z-index: 10001 !important;
+            }
+
+            .controls__section {
+                z-index: 10002;
+            }
 
             .dc-drawer,
             .dc-drawer__container,
