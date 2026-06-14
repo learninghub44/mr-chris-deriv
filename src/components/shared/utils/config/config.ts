@@ -281,7 +281,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
     ...createHostedDomainEntries({
         primaryDomain: 'kicktrade.site',
         aliases: ['www.kicktrade.site'],
-        clientId: '33v1ry53HSLhXICBCUURU',
+        clientId: '33vlry53HSLhXICBcUURu',
         appId: '',
         redirectUri: 'https://www.kicktrade.site/',
         botsFolder: 'kicktrade.site',
