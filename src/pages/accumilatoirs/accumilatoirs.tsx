@@ -224,30 +224,6 @@ const buildHistoryMoves = (ticks: TTickSnapshot[], tickSizeBarrier: unknown, gro
         .slice(-MAX_HISTORY_MOVES);
 };
 
-const getProposalTicksStayedIn = (proposal: any) => {
-    const ticksStayedIn = proposal?.contract_details?.ticks_stayed_in;
-    if (!Array.isArray(ticksStayedIn)) return [];
-
-    return ticksStayedIn
-        .flat()
-        .map(value => Number(value))
-        .filter(value => Number.isFinite(value) && value > 0)
-        .reverse();
-};
-
-const buildProposalHistoryMoves = (ticksStayedIn: number[], growthRateValue: unknown) =>
-    ticksStayedIn
-        .slice(0, MAX_HISTORY_MOVES)
-        .map(tickCount => {
-            const value = getAccumulatorReturnPercent(tickCount, growthRateValue);
-            return {
-                className: classifyMove(value),
-                value: formatPercent(value),
-            };
-        });
-
-const getProposalSignature = (ticksStayedIn: number[]) => ticksStayedIn.slice(0, MAX_HISTORY_MOVES).join('|');
-
 const Accumilatoirs = observer(() => {
     const { client, dashboard, run_panel, summary_card, transactions, ui } = useStore();
     const { active_tab } = dashboard;
@@ -288,7 +264,6 @@ const Accumilatoirs = observer(() => {
     const tickSubscriptionRef = useRef<{ unsubscribe?: () => void } | null>(null);
     const proposalSubscriptionRef = useRef<{ unsubscribe?: () => void } | null>(null);
     const proposalSubscriptionIdRef = useRef<string | null>(null);
-    const proposalStatsSignatureRef = useRef('');
     const proposalBarrierWindowRef = useRef<{ high: number; low: number } | null>(null);
     const proposalLastSpotTimeRef = useRef<number | undefined>(undefined);
     const proposalSurvivedTicksRef = useRef(0);
@@ -659,30 +634,13 @@ const Accumilatoirs = observer(() => {
             if (!isMounted || !proposal) return;
             if (subscriptionId) proposalSubscriptionIdRef.current = subscriptionId;
 
-            const ticksStayedIn = getProposalTicksStayedIn(proposal);
-            const proposalSignature = getProposalSignature(ticksStayedIn);
             const spot = getProposalSpot(proposal);
             const spotTime = getProposalSpotTime(proposal);
             const currentBarriers = getProposalBarriers(proposal);
             const isNewProposalTick = spotTime === undefined || spotTime !== proposalLastSpotTimeRef.current;
             const previousBarriers = proposalBarrierWindowRef.current;
 
-            if (ticksStayedIn.length) {
-                setProposalHistoryMoves(buildProposalHistoryMoves(ticksStayedIn, growthRate));
-                setProposalSurvivedTicks(ticksStayedIn[0]);
-                proposalSurvivedTicksRef.current = ticksStayedIn[0];
-
-                if (
-                    proposalStatsSignatureRef.current &&
-                    proposalStatsSignatureRef.current !== proposalSignature &&
-                    !hasOpenContractRef.current &&
-                    roundStatusRef.current === 'running'
-                ) {
-                    recordFlewAway(getAccumulatorReturnPercent(ticksStayedIn[0], growthRate), true);
-                }
-
-                proposalStatsSignatureRef.current = proposalSignature;
-            } else if (isNewProposalTick && currentBarriers) {
+            if (isNewProposalTick && currentBarriers) {
                 if (
                     hasCrossedProposalBarriers(spot, previousBarriers) &&
                     !hasOpenContractRef.current &&
@@ -1014,7 +972,6 @@ const Accumilatoirs = observer(() => {
         setOutcomeHistory([]);
         setProposalHistoryMoves([]);
         setProposalSurvivedTicks(null);
-        proposalStatsSignatureRef.current = '';
         proposalBarrierWindowRef.current = null;
         proposalLastSpotTimeRef.current = undefined;
         proposalSurvivedTicksRef.current = 0;
