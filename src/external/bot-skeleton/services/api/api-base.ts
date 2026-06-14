@@ -290,11 +290,8 @@ class APIBase {
                 setAccountList([]);
                 setAuthData(null);
 
-                // Clear necessary storage items
-                localStorage.removeItem('active_loginid');
-                localStorage.removeItem('account_type');
-                localStorage.removeItem('accountsList');
-                localStorage.removeItem('clientAccounts');
+                // Keep stored auth/account data intact. A temporary reconnect failure
+                // should not force the user to log in again; explicit logout handles clearing.
             }
 
             this.init(true);

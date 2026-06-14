@@ -80,20 +80,22 @@ export class DerivWSAccountsService {
     }
 
     /**
-     * Stores accounts list in sessionStorage
+     * Stores accounts list durably so users stay logged in across browser restarts.
      * @param accounts Array of DerivAccount objects
      */
     static storeAccounts(accounts: DerivAccount[]): void {
-        sessionStorage.setItem('deriv_accounts', JSON.stringify(accounts));
+        const payload = JSON.stringify(accounts);
+        localStorage.setItem('deriv_accounts', payload);
+        sessionStorage.setItem('deriv_accounts', payload);
     }
 
     /**
-     * Retrieves accounts list from sessionStorage
+     * Retrieves accounts list from durable storage with session fallback.
      * @returns Array of DerivAccount objects or null if not found
      */
     static getStoredAccounts(): DerivAccount[] | null {
         try {
-            const accountsStr = sessionStorage.getItem('deriv_accounts');
+            const accountsStr = localStorage.getItem('deriv_accounts') || sessionStorage.getItem('deriv_accounts');
             if (!accountsStr) {
                 return null;
             }
@@ -117,9 +119,10 @@ export class DerivWSAccountsService {
     }
 
     /**
-     * Clears stored accounts from sessionStorage
+     * Clears stored accounts from storage
      */
     static clearStoredAccounts(): void {
+        localStorage.removeItem('deriv_accounts');
         sessionStorage.removeItem('deriv_accounts');
     }
 

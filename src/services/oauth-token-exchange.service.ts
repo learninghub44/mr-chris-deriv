@@ -15,8 +15,10 @@ interface TokenExchangeResponse {
     error_description?: string;
 }
 
+const AUTH_INFO_KEY = 'auth_info';
+
 /**
- * Authentication information stored in sessionStorage
+ * Authentication information stored in localStorage so login survives browser restarts.
  */
 interface AuthInfo {
     access_token: string;
@@ -40,13 +42,19 @@ export class OAuthTokenExchangeService {
         return brandConfig.platform.auth2_url[environment];
     }
 
+    private static storeAuthInfo(authInfo: AuthInfo): void {
+        const payload = JSON.stringify(authInfo);
+        localStorage.setItem(AUTH_INFO_KEY, payload);
+        sessionStorage.setItem(AUTH_INFO_KEY, payload);
+    }
+
     /**
-     * Get stored authentication info from sessionStorage
+     * Get stored authentication info from localStorage with sessionStorage fallback.
      * @returns AuthInfo object or null if not found or expired
      */
-    static getAuthInfo(): AuthInfo | null {
+    static getAuthInfo({ allowExpiredWithRefresh = false } = {}): AuthInfo | null {
         try {
-            const authInfoStr = sessionStorage.getItem('auth_info');
+            const authInfoStr = localStorage.getItem(AUTH_INFO_KEY) || sessionStorage.getItem(AUTH_INFO_KEY);
             if (!authInfoStr) {
                 return null;
             }
@@ -55,6 +63,9 @@ export class OAuthTokenExchangeService {
 
             // Check if token is expired
             if (authInfo.expires_at && Date.now() >= authInfo.expires_at) {
+                if (allowExpiredWithRefresh && authInfo.refresh_token) {
+                    return authInfo;
+                }
                 this.clearAuthInfo();
                 return null;
             }
@@ -67,10 +78,11 @@ export class OAuthTokenExchangeService {
     }
 
     /**
-     * Clear authentication info from sessionStorage
+     * Clear authentication info from storage
      */
     static clearAuthInfo(): void {
-        sessionStorage.removeItem('auth_info');
+        localStorage.removeItem(AUTH_INFO_KEY);
+        sessionStorage.removeItem(AUTH_INFO_KEY);
     }
 
     /**
@@ -199,8 +211,7 @@ export class OAuthTokenExchangeService {
                     authInfo.refresh_token = data.refresh_token;
                 }
 
-                // Store as JSON string
-                sessionStorage.setItem('auth_info', JSON.stringify(authInfo));
+                this.storeAuthInfo(authInfo);
 
                 // Immediately fetch accounts and initialize WebSocket after token exchange
                 try {
@@ -317,14 +328,13 @@ export class OAuthTokenExchangeService {
                     authInfo.refresh_token = data.refresh_token;
                 } else {
                     // Keep the existing refresh token if new one not provided
-                    const existingAuth = this.getAuthInfo();
+                    const existingAuth = this.getAuthInfo({ allowExpiredWithRefresh: true });
                     if (existingAuth?.refresh_token) {
                         authInfo.refresh_token = existingAuth.refresh_token;
                     }
                 }
 
-                // Store updated auth info
-                sessionStorage.setItem('auth_info', JSON.stringify(authInfo));
+                this.storeAuthInfo(authInfo);
             }
 
             return data;

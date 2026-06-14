@@ -484,7 +484,16 @@ const getLegacyServerURL = () => {
 export const getSocketURL = async (): Promise<string> => {
     try {
         // Check PKCE OAuth first (new platform users)
-        const authInfo = OAuthTokenExchangeService.getAuthInfo();
+        let authInfo = OAuthTokenExchangeService.getAuthInfo();
+        if (!authInfo) {
+            const expiredAuthInfo = OAuthTokenExchangeService.getAuthInfo({ allowExpiredWithRefresh: true });
+            if (expiredAuthInfo?.refresh_token) {
+                const refreshedAuth = await OAuthTokenExchangeService.refreshAccessToken(expiredAuthInfo.refresh_token);
+                if (refreshedAuth.access_token) {
+                    authInfo = OAuthTokenExchangeService.getAuthInfo();
+                }
+            }
+        }
         if (authInfo?.access_token) {
             console.log('[getSocketURL] PKCE user detected - fetching authenticated WebSocket URL');
             // Use the DerivWSAccountsService to get authenticated WebSocket URL

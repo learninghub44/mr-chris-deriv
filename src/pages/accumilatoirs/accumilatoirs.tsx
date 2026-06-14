@@ -165,6 +165,29 @@ const getProposalTickSizeBarrier = (proposal: any) =>
         Math.abs(Number(proposal?.spot) - Number(proposal?.low_barrier))
     );
 
+const getProposalSpot = (proposal: any) => {
+    const spot = Number(proposal?.spot);
+    return Number.isFinite(spot) ? spot : undefined;
+};
+
+const getProposalSpotTime = (proposal: any) => {
+    const spotTime = Number(proposal?.spot_time ?? proposal?.contract_details?.last_tick_epoch);
+    return Number.isFinite(spotTime) ? spotTime : undefined;
+};
+
+const getProposalBarriers = (proposal: any) => {
+    const details = proposal?.contract_details ?? {};
+    const high = Number(details.high_barrier ?? proposal?.high_barrier);
+    const low = Number(details.low_barrier ?? proposal?.low_barrier);
+
+    if (!Number.isFinite(high) || !Number.isFinite(low)) return null;
+
+    return { high, low };
+};
+
+const hasCrossedProposalBarriers = (spot: number | undefined, barriers: { high: number; low: number } | null) =>
+    Number.isFinite(spot) && Boolean(barriers) && (Number(spot) >= Number(barriers?.high) || Number(spot) <= Number(barriers?.low));
+
 const getReturnPercent = (cashoutValue: unknown, buyValue: unknown) => {
     const cashout = Number(cashoutValue);
     const buy = Number(buyValue);
@@ -184,10 +207,12 @@ const buildHistoryMoves = (ticks: TTickSnapshot[], tickSizeBarrier: unknown, gro
         .reduce<THistoryMove[]>((moves, tick) => {
             if (hasAccumulatorBarrierBreakout(tick.quote, entryQuote, tickSizeBarrier)) {
                 const value = getAccumulatorReturnPercent(survivedTicks, growthRateValue);
-                moves.push({
-                    className: classifyMove(value),
-                    value: formatPercent(value),
-                });
+                if (value > 0) {
+                    moves.push({
+                        className: classifyMove(value),
+                        value: formatPercent(value),
+                    });
+                }
                 entryQuote = tick.quote;
                 survivedTicks = 0;
                 return moves;
@@ -206,7 +231,7 @@ const getProposalTicksStayedIn = (proposal: any) => {
     return ticksStayedIn
         .flat()
         .map(value => Number(value))
-        .filter(value => Number.isFinite(value) && value >= 0)
+        .filter(value => Number.isFinite(value) && value > 0)
         .reverse();
 };
 
@@ -264,6 +289,9 @@ const Accumilatoirs = observer(() => {
     const proposalSubscriptionRef = useRef<{ unsubscribe?: () => void } | null>(null);
     const proposalSubscriptionIdRef = useRef<string | null>(null);
     const proposalStatsSignatureRef = useRef('');
+    const proposalBarrierWindowRef = useRef<{ high: number; low: number } | null>(null);
+    const proposalLastSpotTimeRef = useRef<number | undefined>(undefined);
+    const proposalSurvivedTicksRef = useRef(0);
     const contractAbortRef = useRef<AbortController | null>(null);
     const openContractRef = useRef<Record<string, any> | null>(null);
     const cashoutInFlightRef = useRef(false);
@@ -380,9 +408,11 @@ const Accumilatoirs = observer(() => {
 
     const recordFlewAway = useCallback((move: number, useExactValue = false, triggerQueuedPurchase = true) => {
         const value = Number((useExactValue ? move : Math.max(move, INITIAL_RETURN_PERCENT)).toFixed(2));
-        setOutcomeHistory(previous =>
-            [...previous, { className: classifyMove(value), value: formatPercent(value) }].slice(-MAX_HISTORY_MOVES)
-        );
+        if (value > 0) {
+            setOutcomeHistory(previous =>
+                [...previous, { className: classifyMove(value), value: formatPercent(value) }].slice(-MAX_HISTORY_MOVES)
+            );
+        }
         setRoundStatus('flew');
 
         window.setTimeout(() => {
@@ -575,6 +605,7 @@ const Accumilatoirs = observer(() => {
                     if (
                         !hasOpenContractRef.current &&
                         roundStatusRef.current === 'running' &&
+                        !proposalBarrierWindowRef.current &&
                         Number.isFinite(barrier) &&
                         barrier > 0
                     ) {
@@ -630,10 +661,16 @@ const Accumilatoirs = observer(() => {
 
             const ticksStayedIn = getProposalTicksStayedIn(proposal);
             const proposalSignature = getProposalSignature(ticksStayedIn);
+            const spot = getProposalSpot(proposal);
+            const spotTime = getProposalSpotTime(proposal);
+            const currentBarriers = getProposalBarriers(proposal);
+            const isNewProposalTick = spotTime === undefined || spotTime !== proposalLastSpotTimeRef.current;
+            const previousBarriers = proposalBarrierWindowRef.current;
 
             if (ticksStayedIn.length) {
                 setProposalHistoryMoves(buildProposalHistoryMoves(ticksStayedIn, growthRate));
                 setProposalSurvivedTicks(ticksStayedIn[0]);
+                proposalSurvivedTicksRef.current = ticksStayedIn[0];
 
                 if (
                     proposalStatsSignatureRef.current &&
@@ -645,6 +682,33 @@ const Accumilatoirs = observer(() => {
                 }
 
                 proposalStatsSignatureRef.current = proposalSignature;
+            } else if (isNewProposalTick && currentBarriers) {
+                if (
+                    hasCrossedProposalBarriers(spot, previousBarriers) &&
+                    !hasOpenContractRef.current &&
+                    roundStatusRef.current === 'running'
+                ) {
+                    const returnPercent = getAccumulatorReturnPercent(proposalSurvivedTicksRef.current, growthRate);
+                    if (returnPercent > 0) {
+                        const historyMove = {
+                            className: classifyMove(returnPercent),
+                            value: formatPercent(returnPercent),
+                        };
+                        setProposalHistoryMoves(previous => [historyMove, ...previous].slice(0, MAX_HISTORY_MOVES));
+                    }
+                    recordFlewAway(returnPercent, true);
+                    proposalSurvivedTicksRef.current = 0;
+                    setProposalSurvivedTicks(0);
+                } else if (previousBarriers) {
+                    const nextSurvivedTicks = proposalSurvivedTicksRef.current + 1;
+                    proposalSurvivedTicksRef.current = nextSurvivedTicks;
+                    setProposalSurvivedTicks(nextSurvivedTicks);
+                }
+            }
+
+            if (isNewProposalTick) {
+                proposalBarrierWindowRef.current = currentBarriers;
+                proposalLastSpotTimeRef.current = spotTime;
             }
 
             setProposalPreview({
@@ -659,7 +723,16 @@ const Accumilatoirs = observer(() => {
             });
         };
 
-        const proposalVersion = window.setTimeout(async () => {
+        let retryTimer: number | undefined;
+
+        const subscribeToProposal = async () => {
+            if (!isMounted) return;
+
+            proposalBarrierWindowRef.current = null;
+            proposalLastSpotTimeRef.current = undefined;
+            proposalSurvivedTicksRef.current = 0;
+            setProposalSurvivedTicks(null);
+
             if (!Number.isFinite(stake) || stake <= 0) {
                 setProposalPreview({
                     askPrice: 0,
@@ -677,6 +750,9 @@ const Accumilatoirs = observer(() => {
                     message: 'Waiting for Deriv connection...',
                     status: 'loading',
                 });
+                retryTimer = window.setTimeout(() => {
+                    void subscribeToProposal();
+                }, 1000);
                 return;
             }
 
@@ -718,11 +794,18 @@ const Accumilatoirs = observer(() => {
                     status: 'error',
                 });
             }
+        };
+
+        const proposalVersion = window.setTimeout(() => {
+            void subscribeToProposal();
         }, PROPOSAL_REFRESH_MS);
 
         return () => {
             isMounted = false;
             window.clearTimeout(proposalVersion);
+            if (retryTimer) {
+                window.clearTimeout(retryTimer);
+            }
             try {
                 proposalSubscriptionRef.current?.unsubscribe?.();
             } catch {
@@ -932,6 +1015,9 @@ const Accumilatoirs = observer(() => {
         setProposalHistoryMoves([]);
         setProposalSurvivedTicks(null);
         proposalStatsSignatureRef.current = '';
+        proposalBarrierWindowRef.current = null;
+        proposalLastSpotTimeRef.current = undefined;
+        proposalSurvivedTicksRef.current = 0;
         setMarketSurvivedTicks(0);
         marketEntryQuoteRef.current = null;
         marketSurvivedTicksRef.current = 0;
@@ -965,7 +1051,10 @@ const Accumilatoirs = observer(() => {
                                         </span>
                                     ))
                                 ) : (
-                                    <span className='history-value history-low'>
+                                    <span className='history-value history-low history-value--loading'>
+                                        {proposalPreview.status === 'loading' ? (
+                                            <span className='accumilatoirs-loader' aria-hidden='true' />
+                                        ) : null}
                                         {proposalPreview.status === 'loading'
                                             ? 'Connecting to Deriv accumulator stream...'
                                             : 'Waiting for first accumulator breakout...'}

@@ -8,6 +8,8 @@ import { clearApiTokenSession } from './api-token-permissions';
  */
 export const clearAuthData = () => {
     clearApiTokenSession();
+    localStorage.removeItem('auth_info');
+    localStorage.removeItem('deriv_accounts');
     localStorage.removeItem('authToken');
     localStorage.removeItem('active_loginid');
     localStorage.removeItem('client.country');
@@ -15,4 +17,6 @@ export const clearAuthData = () => {
     localStorage.removeItem('accountsList');
     localStorage.removeItem('clientAccounts');
     localStorage.removeItem('callback_token');
+    sessionStorage.removeItem('auth_info');
+    sessionStorage.removeItem('deriv_accounts');
 };
