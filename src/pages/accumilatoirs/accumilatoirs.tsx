@@ -7,7 +7,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { SUPPORTED_VOLATILITY_MARKETS } from '@/utils/digit-strategy';
-import { getMarketPipSize, isExpectedStreamInterruption } from '@/utils/market-data';
+import { isExpectedStreamInterruption } from '@/utils/market-data';
 import { buyContractForUi, sellContractForUi, streamContractUntilSettled } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
 
@@ -39,13 +39,13 @@ type TProposalPreview = {
 type TAutoCashoutSettings = {
     enabled: boolean;
     takeProfit: string;
-    stopLoss: string;
     useServerTakeProfit: boolean;
 };
 
-const ACCUMULATOR_MARKETS: TAccumulatorMarket[] = SUPPORTED_VOLATILITY_MARKETS.filter(market =>
-    market.symbol.startsWith('R_')
-).map(({ label, symbol }) => ({ label, symbol }));
+const ACCUMULATOR_MARKETS: TAccumulatorMarket[] = SUPPORTED_VOLATILITY_MARKETS.map(({ label, symbol }) => ({
+    label,
+    symbol,
+}));
 
 const GROWTH_RATES = [
     { label: '1%', value: '0.01' },
@@ -57,7 +57,6 @@ const GROWTH_RATES = [
 
 const DEFAULT_STAKE = '1';
 const DEFAULT_TAKE_PROFIT = '1';
-const DEFAULT_STOP_LOSS = '1';
 const PROPOSAL_REFRESH_MS = 500;
 const INITIAL_MULTIPLIER = 1;
 const MAX_GRAPH_TICKS = 60;
@@ -154,7 +153,6 @@ const Accumilatoirs = observer(() => {
     const [autoCashout, setAutoCashout] = useState<TAutoCashoutSettings>({
         enabled: true,
         takeProfit: DEFAULT_TAKE_PROFIT,
-        stopLoss: DEFAULT_STOP_LOSS,
         useServerTakeProfit: true,
     });
     const [proposalPreview, setProposalPreview] = useState<TProposalPreview>({
@@ -169,6 +167,10 @@ const Accumilatoirs = observer(() => {
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [isCashingOut, setIsCashingOut] = useState(false);
     const [openContract, setOpenContract] = useState<Record<string, any> | null>(null);
+    const [queuedPurchase, setQueuedPurchase] = useState(false);
+    const [roundStatus, setRoundStatus] = useState<'flew' | 'running'>('running');
+    const [visualMultiplier, setVisualMultiplier] = useState(INITIAL_MULTIPLIER);
+    const [outcomeHistory, setOutcomeHistory] = useState<THistoryMove[]>([]);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
 
@@ -177,6 +179,9 @@ const Accumilatoirs = observer(() => {
     const openContractRef = useRef<Record<string, any> | null>(null);
     const cashoutInFlightRef = useRef(false);
     const autoCashoutRef = useRef(autoCashout);
+    const queuedPurchaseRef = useRef(false);
+    const executePurchaseRef = useRef<(() => void) | null>(null);
+    const visualMultiplierRef = useRef(INITIAL_MULTIPLIER);
 
     const selectedMarket = useMemo(
         () => ACCUMULATOR_MARKETS.find(market => market.symbol === selectedSymbol) ?? ACCUMULATOR_MARKETS[0],
@@ -192,8 +197,11 @@ const Accumilatoirs = observer(() => {
     const hasCrashed = hasClosedContract && (contractStatus === 'lost' || currentProfit < 0);
     const hasWon = hasClosedContract && !hasCrashed;
     const hasOpenContract = Boolean(openContract?.contract_id && !openContract?.is_sold);
-    const canBuy = !isPurchasing && !hasOpenContract && Number.isFinite(stake) && stake > 0;
-    const historyMoves = useMemo(() => buildHistoryMoves(tickHistory), [tickHistory]);
+    const canTrade = !isPurchasing && Number.isFinite(stake) && stake > 0;
+    const historyMoves = useMemo(
+        () => (outcomeHistory.length ? outcomeHistory.slice(-MAX_HISTORY_MOVES) : buildHistoryMoves(tickHistory)),
+        [outcomeHistory, tickHistory]
+    );
     const marketMultiplier = useMemo(() => {
         if (tickHistory.length < 2) return INITIAL_MULTIPLIER;
 
@@ -203,7 +211,7 @@ const Accumilatoirs = observer(() => {
         return getScaledMoveMultiplier(lastTick.quote, firstTick.quote);
     }, [tickHistory]);
     const contractMultiplier = buyPrice > 0 && bidPrice > 0 ? Number((bidPrice / buyPrice).toFixed(2)) : null;
-    const displayMultiplier = contractMultiplier ?? marketMultiplier;
+    const displayMultiplier = Math.max(contractMultiplier ?? marketMultiplier, visualMultiplier);
     const graphTicks = useMemo(() => tickHistory.slice(-36), [tickHistory]);
     const graphPosition = useMemo(() => {
         const width = 1000;
@@ -241,6 +249,39 @@ const Accumilatoirs = observer(() => {
     useEffect(() => {
         autoCashoutRef.current = autoCashout;
     }, [autoCashout]);
+
+    useEffect(() => {
+        queuedPurchaseRef.current = queuedPurchase;
+    }, [queuedPurchase]);
+
+    useEffect(() => {
+        visualMultiplierRef.current = visualMultiplier;
+    }, [visualMultiplier]);
+
+    useEffect(() => {
+        if (!showAccumilatoirs || roundStatus === 'flew') return undefined;
+
+        const intervalId = window.setInterval(() => {
+            setVisualMultiplier(previous => Number(Math.min(previous + 0.03 + Number(growthRate) * 6, 26).toFixed(2)));
+        }, 120);
+
+        return () => window.clearInterval(intervalId);
+    }, [growthRate, roundStatus, showAccumilatoirs]);
+
+    const recordFlewAway = useCallback((move: number) => {
+        const value = Number(Math.max(move, visualMultiplierRef.current, INITIAL_MULTIPLIER).toFixed(2));
+        setOutcomeHistory(previous => [...previous, { className: classifyMove(value), value: `${value.toFixed(2)}x` }].slice(-MAX_HISTORY_MOVES));
+        setRoundStatus('flew');
+        setVisualMultiplier(INITIAL_MULTIPLIER);
+
+        window.setTimeout(() => {
+            if (queuedPurchaseRef.current && executePurchaseRef.current) {
+                executePurchaseRef.current();
+                return;
+            }
+            setRoundStatus('running');
+        }, 450);
+    }, []);
 
     const pushContract = useCallback(
         (data: any) => {
@@ -311,15 +352,9 @@ const Accumilatoirs = observer(() => {
 
             const profit = Number(snapshot.profit ?? 0);
             const takeProfit = Number(settings.takeProfit);
-            const stopLoss = Number(settings.stopLoss);
 
             if (Number.isFinite(takeProfit) && takeProfit > 0 && profit >= takeProfit) {
                 void cashoutContract('Automated take profit');
-                return;
-            }
-
-            if (Number.isFinite(stopLoss) && stopLoss > 0 && profit <= -Math.abs(stopLoss)) {
-                void cashoutContract('Automated stop loss');
             }
         },
         [cashoutContract]
@@ -411,7 +446,14 @@ const Accumilatoirs = observer(() => {
                 if (!tick) return;
 
                 setLatestTick(tick);
-                setTickHistory(previousTicks => appendTick(previousTicks, tick));
+                setTickHistory(previousTicks => {
+                    const previousTick = previousTicks[previousTicks.length - 1];
+                    if (!hasOpenContract && roundStatus === 'running' && previousTick && tick.quote < previousTick.quote) {
+                        recordFlewAway(getScaledMoveMultiplier(tick.quote, previousTick.quote));
+                    }
+
+                    return appendTick(previousTicks, tick);
+                });
                 setIsLive(true);
             },
             streamError => {
@@ -432,7 +474,7 @@ const Accumilatoirs = observer(() => {
             tickSubscriptionRef.current = null;
             setIsLive(false);
         };
-    }, [selectedSymbol, showAccumilatoirs]);
+    }, [hasOpenContract, recordFlewAway, roundStatus, selectedSymbol, showAccumilatoirs]);
 
     useEffect(() => {
         if (!showAccumilatoirs) return undefined;
@@ -505,7 +547,7 @@ const Accumilatoirs = observer(() => {
         [cleanupContractStream]
     );
 
-    const handleBuy = useCallback(async () => {
+    const executePurchase = useCallback(async () => {
         if (!Number.isFinite(stake) || stake <= 0) {
             setError('Enter a valid stake before buying an accumulator.');
             return;
@@ -523,6 +565,9 @@ const Accumilatoirs = observer(() => {
         setError('');
         setMessage('Buying accumulator...');
         setIsPurchasing(true);
+        setQueuedPurchase(false);
+        setRoundStatus('running');
+        queuedPurchaseRef.current = false;
 
         try {
             run_panel.setIsRunning(true);
@@ -576,6 +621,11 @@ const Accumilatoirs = observer(() => {
                 pushContract(settledContract);
                 const profit = Number(settledContract.profit ?? 0);
                 if (settledContract.is_sold) {
+                    const closedMultiplier =
+                        Number(settledContract.buy_price) > 0 && Number(settledContract.bid_price ?? settledContract.sell_price) > 0
+                            ? Number(((settledContract.bid_price ?? settledContract.sell_price) / settledContract.buy_price).toFixed(2))
+                            : displayMultiplier;
+                    recordFlewAway(closedMultiplier);
                     setMessage(`Accumulator closed. P/L: ${formatMoney(profit, currency)}.`);
                     dashboard.setActiveTradingModule(null);
                     run_panel.setHasOpenContract?.(false);
@@ -604,12 +654,41 @@ const Accumilatoirs = observer(() => {
         selectedMarket?.label,
         selectedSymbol,
         stake,
+        displayMultiplier,
+        recordFlewAway,
     ]);
+
+    useEffect(() => {
+        executePurchaseRef.current = () => {
+            void executePurchase();
+        };
+    }, [executePurchase]);
+
+    const handleTradeAction = useCallback(async () => {
+        if (hasOpenContract) {
+            await cashoutContract();
+            return;
+        }
+
+        if (roundStatus !== 'flew') {
+            setQueuedPurchase(true);
+            queuedPurchaseRef.current = true;
+            setError('');
+            setMessage('Waiting for flew away. Next accumulator will buy after the break.');
+            return;
+        }
+
+        void executePurchase();
+    }, [cashoutContract, executePurchase, hasOpenContract, roundStatus]);
 
     const handleMarketChange = (symbol: string) => {
         setSelectedSymbol(symbol);
         setLatestTick(null);
         setTickHistory([]);
+        setOutcomeHistory([]);
+        setQueuedPurchase(false);
+        setRoundStatus('running');
+        setVisualMultiplier(INITIAL_MULTIPLIER);
         setMessage('');
         setError('');
     };
@@ -761,7 +840,7 @@ const Accumilatoirs = observer(() => {
 
                                 <div className='result-display'>
                                     <span>
-                                        {hasCrashed
+                                        {hasCrashed || roundStatus === 'flew'
                                             ? 'FLEW AWAY!'
                                             : hasWon
                                               ? 'CASHED OUT'
@@ -771,7 +850,7 @@ const Accumilatoirs = observer(() => {
                                     </span>
                                     <strong
                                         className={classNames({
-                                            'result-display__value--crashed': hasCrashed,
+                                            'result-display__value--crashed': hasCrashed || roundStatus === 'flew',
                                             'result-display__value--won': hasWon,
                                         })}
                                     >
@@ -794,7 +873,7 @@ const Accumilatoirs = observer(() => {
                     {error && <div className='accumilatoirs-alert accumilatoirs-alert--error'>{error}</div>}
                     {message && <div className='accumilatoirs-alert'>{message}</div>}
 
-                    <div className='accumilatoirs-grid'>
+                    <div className='accumilatoirs-trade-setup'>
                         <section className='accumilatoirs-ticket'>
                             <div className='accumilatoirs-ticket__header'>
                                 <h2>Trade setup</h2>
@@ -808,7 +887,7 @@ const Accumilatoirs = observer(() => {
                                     <span>Market</span>
                                     <select
                                         className='accumilatoirs-field__control'
-                                        disabled={hasOpenContract}
+                                        disabled={hasOpenContract || queuedPurchase}
                                         value={selectedSymbol}
                                         onChange={event => handleMarketChange(event.target.value)}
                                     >
@@ -826,7 +905,7 @@ const Accumilatoirs = observer(() => {
                                         <div className='accumilatoirs-inline-input'>
                                             <input
                                                 className='accumilatoirs-field__control'
-                                                disabled={hasOpenContract}
+                                                disabled={hasOpenContract || queuedPurchase}
                                                 inputMode='decimal'
                                                 value={stakeInput}
                                                 onChange={event => setStakeInput(cleanMoneyInput(event.target.value))}
@@ -839,7 +918,7 @@ const Accumilatoirs = observer(() => {
                                         <span>Growth rate</span>
                                         <select
                                             className='accumilatoirs-field__control'
-                                            disabled={hasOpenContract}
+                                            disabled={hasOpenContract || queuedPurchase}
                                             value={growthRate}
                                             onChange={event => setGrowthRate(event.target.value)}
                                         >
@@ -852,154 +931,61 @@ const Accumilatoirs = observer(() => {
                                     </label>
                                 </div>
 
-                                <div className='accumilatoirs-cashout-settings'>
-                                    <label className='accumilatoirs-check'>
+                                <label className='accumilatoirs-field'>
+                                    <span>Take profit</span>
+                                    <div className='accumilatoirs-inline-input'>
                                         <input
-                                            checked={autoCashout.enabled}
-                                            type='checkbox'
+                                            className='accumilatoirs-field__control'
+                                            disabled={hasOpenContract || queuedPurchase}
+                                            inputMode='decimal'
+                                            value={autoCashout.takeProfit}
                                             onChange={event =>
                                                 setAutoCashout(previous => ({
                                                     ...previous,
-                                                    enabled: event.target.checked,
+                                                    enabled: true,
+                                                    takeProfit: cleanMoneyInput(event.target.value),
+                                                    useServerTakeProfit: true,
                                                 }))
                                             }
                                         />
-                                        <span>Automated cashout</span>
-                                    </label>
-                                    <label className='accumilatoirs-check'>
-                                        <input
-                                            checked={autoCashout.useServerTakeProfit}
-                                            disabled={!autoCashout.enabled || hasOpenContract}
-                                            type='checkbox'
-                                            onChange={event =>
-                                                setAutoCashout(previous => ({
-                                                    ...previous,
-                                                    useServerTakeProfit: event.target.checked,
-                                                }))
-                                            }
-                                        />
-                                        <span>Use Deriv take profit order</span>
-                                    </label>
-                                </div>
+                                        <span>{currency}</span>
+                                    </div>
+                                </label>
 
-                                <div className='accumilatoirs-ticket__row'>
-                                    <label className='accumilatoirs-field'>
-                                        <span>Take profit</span>
-                                        <div className='accumilatoirs-inline-input'>
-                                            <input
-                                                className='accumilatoirs-field__control'
-                                                disabled={!autoCashout.enabled || hasOpenContract}
-                                                inputMode='decimal'
-                                                value={autoCashout.takeProfit}
-                                                onChange={event =>
-                                                    setAutoCashout(previous => ({
-                                                        ...previous,
-                                                        takeProfit: cleanMoneyInput(event.target.value),
-                                                    }))
-                                                }
-                                            />
-                                            <span>{currency}</span>
-                                        </div>
-                                    </label>
-                                    <label className='accumilatoirs-field'>
-                                        <span>Stop loss</span>
-                                        <div className='accumilatoirs-inline-input'>
-                                            <input
-                                                className='accumilatoirs-field__control'
-                                                disabled={!autoCashout.enabled}
-                                                inputMode='decimal'
-                                                value={autoCashout.stopLoss}
-                                                onChange={event =>
-                                                    setAutoCashout(previous => ({
-                                                        ...previous,
-                                                        stopLoss: cleanMoneyInput(event.target.value),
-                                                    }))
-                                                }
-                                            />
-                                            <span>{currency}</span>
-                                        </div>
-                                    </label>
-                                </div>
-
-                                <button className='accumilatoirs-primary' disabled={!canBuy} type='button' onClick={() => void handleBuy()}>
-                                    {isPurchasing ? 'Buying...' : `Buy accumulator at ${growthRatePercent.toFixed(0)}%`}
+                                <button
+                                    className={classNames('accumilatoirs-primary', {
+                                        'accumilatoirs-primary--cashout': hasOpenContract,
+                                        'accumilatoirs-primary--waiting': queuedPurchase,
+                                    })}
+                                    disabled={!canTrade || isCashingOut}
+                                    type='button'
+                                    onClick={() => void handleTradeAction()}
+                                >
+                                    {hasOpenContract
+                                        ? isCashingOut
+                                            ? 'Cashing out...'
+                                            : `Cash out ${formatMoney(bidPrice, currency)}`
+                                        : queuedPurchase
+                                          ? 'Waiting for flew away...'
+                                          : isPurchasing
+                                            ? 'Buying...'
+                                            : `Buy accumulator at ${growthRatePercent.toFixed(0)}%`}
                                 </button>
-                            </div>
-                        </section>
-
-                        <section className='accumilatoirs-position'>
-                            <div className='accumilatoirs-position__header'>
-                                <h2>Live position</h2>
-                                <span>{selectedMarket?.label}</span>
-                            </div>
-
-                            <div className='accumilatoirs-stats'>
-                                <div className='accumilatoirs-stat'>
-                                    <span>Latest spot</span>
-                                    <strong>
-                                        {latestTick
-                                            ? latestTick.quote.toFixed(getMarketPipSize(selectedSymbol))
-                                            : 'Waiting'}
-                                    </strong>
+                                <div className='accumilatoirs-ticket__status'>
+                                    {hasOpenContract
+                                        ? `Live profit ${formatMoney(currentProfit, currency)}`
+                                        : queuedPurchase
+                                          ? 'Purchase queued for the next flew away.'
+                                          : proposalPreview.status === 'loading'
+                                            ? 'Preparing Deriv quote...'
+                                            : proposalPreview.message}
                                 </div>
-                                <div className='accumilatoirs-stat'>
-                                    <span>Quote</span>
-                                    <strong>{proposalPreview.status === 'loading' ? 'Loading' : formatMoney(proposalPreview.askPrice, currency)}</strong>
-                                </div>
-                                <div className='accumilatoirs-stat'>
-                                    <span>Current profit</span>
-                                    <strong
-                                        className={classNames({
-                                            'accumilatoirs-stat__profit': currentProfit > 0,
-                                            'accumilatoirs-stat__loss': currentProfit < 0,
-                                        })}
-                                    >
-                                        {formatMoney(currentProfit, currency)}
-                                    </strong>
-                                </div>
-                                <div className='accumilatoirs-stat'>
-                                    <span>Cashout value</span>
-                                    <strong>{formatMoney(bidPrice, currency)}</strong>
-                                </div>
-                            </div>
-
-                            <div className='accumilatoirs-preview'>
-                                <strong>Proposal status</strong>
-                                <p>{proposalPreview.message}</p>
-                                <div className='accumilatoirs-preview__meta'>
+                                <div className='accumilatoirs-ticket__meta'>
+                                    <span>{selectedMarket?.label}</span>
                                     {proposalPreview.minStake ? <span>Min stake {formatMoney(proposalPreview.minStake, currency)}</span> : null}
                                     {proposalPreview.maxPayout ? <span>Max payout {formatMoney(proposalPreview.maxPayout, currency)}</span> : null}
-                                    {proposalPreview.maxTicks ? <span>Max ticks {proposalPreview.maxTicks}</span> : null}
                                 </div>
                             </div>
-
-                            {openContract ? (
-                                <div className='accumilatoirs-contract'>
-                                    <div>
-                                        <span>Contract ID</span>
-                                        <strong>{openContract.contract_id}</strong>
-                                    </div>
-                                    <div>
-                                        <span>Buy price</span>
-                                        <strong>{formatMoney(openContract.buy_price, currency)}</strong>
-                                    </div>
-                                    <div>
-                                        <span>Status</span>
-                                        <strong>{openContract.is_sold ? 'Closed' : 'Open'}</strong>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className='accumilatoirs-empty'>No open accumulator contract.</div>
-                            )}
-
-                            <button
-                                className='accumilatoirs-secondary'
-                                disabled={!hasOpenContract || isCashingOut}
-                                type='button'
-                                onClick={() => void cashoutContract()}
-                            >
-                                {isCashingOut ? 'Cashing out...' : 'Cash out now'}
-                            </button>
                         </section>
                     </div>
                 </div>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { generateOAuthURL, isDomainFeatureEnabled } from '@/components/shared';
+import { generateOAuthURL, getDomainRedirectUrl, isDomainFeatureEnabled } from '@/components/shared';
 import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
 import MobileWrapper from '@/components/shared_ui/mobile-wrapper';
@@ -107,6 +107,7 @@ const AppWrapper = observer(() => {
     const show_auto_trades = isDomainFeatureEnabled('autoTrades');
     const show_manual_trading = isDomainFeatureEnabled('manualTrading');
     const show_scanner = isDomainFeatureEnabled('scanner');
+    const show_accumilatoirs = isDomainFeatureEnabled('accumilatoirs');
     const show_chart = isDomainFeatureEnabled('chart');
     const show_trading_view = isDomainFeatureEnabled('tradingView');
     const isMainTabVisible = (tab_index: number) => {
@@ -114,6 +115,7 @@ const AppWrapper = observer(() => {
         if (tab_index === AUTO_TRADES) return show_auto_trades;
         if (tab_index === MANUAL_TRADING) return show_manual_trading;
         if (tab_index === SCANNER) return show_scanner;
+        if (tab_index === DBOT_TABS.ACCUMILATOIRS) return show_accumilatoirs;
         if (tab_index === CHART) return show_chart;
         if (tab_index === TRADING_VIEW) return show_trading_view;
         return true;
@@ -123,6 +125,13 @@ const AppWrapper = observer(() => {
     const navigate = useNavigate();
     const [left_tab_shadow, setLeftTabShadow] = useState<boolean>(false);
     const [right_tab_shadow, setRightTabShadow] = useState<boolean>(false);
+
+    React.useEffect(() => {
+        const redirect_url = getDomainRedirectUrl();
+        if (redirect_url) {
+            window.location.replace(redirect_url);
+        }
+    }, []);
 
     // Trade type modal state
     const [tradeTypeModalState, setTradeTypeModalState] = useState(getModalState());
@@ -570,21 +579,23 @@ const AppWrapper = observer(() => {
                                     <Scanner />
                                 </div>
                             ) : null}
-                            <div
-                                label={
-                                    <>
-                                        <LabelPairedPlaceholderCaptionRegularIcon
-                                            height='24px'
-                                            width='24px'
-                                            fill='#c8a45d'
-                                        />
-                                        <Localize i18n_default_text='Accumilatoirs' />
-                                    </>
-                                }
-                                id='id-accumilatoirs'
-                            >
-                                <Accumilatoirs />
-                            </div>
+                            {show_accumilatoirs && (
+                                <div
+                                    label={
+                                        <>
+                                            <LabelPairedPlaceholderCaptionRegularIcon
+                                                height='24px'
+                                                width='24px'
+                                                fill='#c8a45d'
+                                            />
+                                            <Localize i18n_default_text='Accumilatoirs' />
+                                        </>
+                                    }
+                                    id='id-accumilatoirs'
+                                >
+                                    <Accumilatoirs />
+                                </div>
+                            )}
                             <div
                                 label={
                                     <>

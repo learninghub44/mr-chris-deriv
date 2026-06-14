@@ -80,8 +80,15 @@ export const useSmartChartAdaptor = (): UseSmartChartAdaptorReturn => {
 
     // Initialize adapter - runs once when chart_api.api is available
     useEffect(() => {
-        if (!adapterInitialized && chart_api.api) {
+        let cancelled = false;
+
+        const initialiseAdapter = async () => {
             try {
+                if (!chart_api.api) {
+                    await chart_api.init();
+                }
+                if (cancelled || adapterInitialized || !chart_api.api) return;
+
                 const transport = createTransport();
                 const services = createServices();
                 const championAdapter = buildSmartchartsChampionAdapter(transport, services, {
@@ -89,18 +96,26 @@ export const useSmartChartAdaptor = (): UseSmartChartAdaptorReturn => {
                     subscriptionTimeout: 30000,
                 });
 
-                if (isMountedRef.current) {
+                if (isMountedRef.current && !cancelled) {
                     setAdapter(championAdapter);
                     setAdapterInitialized(true);
                     setError(null);
                 }
             } catch (err) {
-                if (isMountedRef.current) {
+                if (isMountedRef.current && !cancelled) {
                     setError(err instanceof Error ? err : new Error('Failed to initialize adapter'));
                     setIsLoading(false);
                 }
             }
+        };
+
+        if (!adapterInitialized) {
+            void initialiseAdapter();
         }
+
+        return () => {
+            cancelled = true;
+        };
     }, [adapterInitialized]);
 
     // Load chart data when adapter is initialized

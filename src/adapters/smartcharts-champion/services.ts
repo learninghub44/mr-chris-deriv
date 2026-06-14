@@ -3,7 +3,9 @@
  * Wraps the existing ApiHelpers to match the TServices interface
  */
 
+import { api_base } from '@/external/bot-skeleton';
 import ApiHelpers from '@/external/bot-skeleton/services/api/api-helpers';
+import chart_api from '@/external/bot-skeleton/services/api/chart-api';
 import type { TServices } from './types';
 
 // Logger utility for services layer
@@ -168,6 +170,10 @@ export function createServices(): TServices {
             } catch (error) {
                 logger.error('Error getting active symbols:', error);
 
+                if (Array.isArray(api_base?.active_symbols) && api_base.active_symbols.length) {
+                    return api_base.active_symbols;
+                }
+
                 // Fallback: try to get from the raw active_symbols array if available
                 try {
                     const apiHelpers = ApiHelpers.instance as any;
@@ -176,6 +182,16 @@ export function createServices(): TServices {
                     }
                 } catch (fallbackError) {
                     logger.error('Fallback active symbols retrieval failed:', fallbackError);
+                }
+
+                try {
+                    if (!chart_api.api) {
+                        await chart_api.init();
+                    }
+                    const response = await chart_api.api?.send?.({ active_symbols: 'brief' });
+                    if (Array.isArray(response?.active_symbols)) return response.active_symbols;
+                } catch (directError) {
+                    logger.error('Direct active symbols retrieval failed:', directError);
                 }
 
                 return [];

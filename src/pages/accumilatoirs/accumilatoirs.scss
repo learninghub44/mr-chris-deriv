@@ -317,18 +317,14 @@
     color: #ff8ca3;
 }
 
-.accumilatoirs-grid {
-    display: grid;
-    grid-template-columns: minmax(420px, 0.95fr) minmax(420px, 1fr);
-    align-items: stretch;
+.accumilatoirs-trade-setup {
     width: min(1480px, calc(100vw - 8px));
     margin: 0 auto;
-    gap: 6px;
 }
 
 .accumilatoirs-ticket {
     min-width: 0;
-    padding: 12px 18px 16px;
+    padding: 14px 18px 16px;
     border: 1px solid #24282c;
     border-radius: 18px;
     background: #1a1d1f;
@@ -362,9 +358,9 @@
 
 .accumilatoirs-ticket__content {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) minmax(270px, 1.25fr);
+    grid-template-columns: minmax(240px, 1.25fr) minmax(260px, 1fr) minmax(220px, 0.8fr) minmax(320px, 1.3fr);
     align-items: end;
-    gap: 12px;
+    gap: 14px;
 }
 
 .accumilatoirs-field {
@@ -419,40 +415,9 @@
     }
 }
 
-.accumilatoirs-cashout-settings {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-}
-
-.accumilatoirs-check {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    min-height: 38px;
-    padding: 0 10px;
-    border-radius: 10px;
-    background: #111417;
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: 900;
-
-    input {
-        width: 14px;
-        height: 14px;
-        accent-color: #20b800;
-    }
-}
-
 .accumilatoirs-primary {
-    grid-column: 1 / -1;
     width: 100%;
-    height: 80px;
+    height: 58px;
     border: 1px solid rgba(255, 255, 255, 0.55);
     border-radius: 12px;
     background: #1db000;
@@ -468,131 +433,34 @@
     }
 }
 
-.accumilatoirs-position {
-    min-width: 0;
-    padding: 12px 18px 16px;
-    border: 1px solid #24282c;
-    border-radius: 18px;
-    background: #1a1d1f;
-    color: #ffffff;
+.accumilatoirs-primary--cashout {
+    background: #155db5;
 }
 
-.accumilatoirs-position__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 10px;
-
-    h2 {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 900;
-    }
-
-    span {
-        color: #8fc0ff;
-        font-size: 11px;
-        font-weight: 900;
-    }
+.accumilatoirs-primary--waiting {
+    background: #b07800;
 }
 
-.accumilatoirs-stats,
-.accumilatoirs-contract {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-}
-
-.accumilatoirs-stat,
-.accumilatoirs-preview,
-.accumilatoirs-contract,
-.accumilatoirs-empty {
-    margin-bottom: 8px;
-    padding: 8px;
-    border: 1px solid #2c3138;
-    border-radius: 10px;
-    background: #111417;
-}
-
-.accumilatoirs-stat span,
-.accumilatoirs-contract span {
-    display: block;
-    margin-bottom: 4px;
-    color: #8fc0ff;
-    font-size: 10px;
-    font-weight: 900;
-}
-
-.accumilatoirs-stat strong,
-.accumilatoirs-contract strong {
-    display: block;
+.accumilatoirs-ticket__status {
+    grid-column: 1 / -1;
     overflow: hidden;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 900;
+    color: #9dc7ff;
+    font-size: 12px;
+    font-weight: 800;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.accumilatoirs-stat__profit {
-    color: #26d675 !important;
-}
-
-.accumilatoirs-stat__loss {
-    color: #ff4569 !important;
-}
-
-.accumilatoirs-preview {
-    strong {
-        display: block;
-        margin-bottom: 5px;
-        color: #ffffff;
-        font-size: 12px;
-        font-weight: 900;
-    }
-
-    p {
-        margin: 0;
-        color: #8fc0ff;
-        font-size: 11px;
-        font-weight: 800;
-        line-height: 1.4;
-    }
-}
-
-.accumilatoirs-preview__meta {
+.accumilatoirs-ticket__meta {
+    grid-column: 1 / -1;
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 6px;
+    gap: 10px;
 
     span {
         color: #8fc0ff;
         font-size: 10px;
         font-weight: 900;
-    }
-}
-
-.accumilatoirs-empty {
-    color: #8fc0ff;
-    font-size: 12px;
-    font-weight: 900;
-}
-
-.accumilatoirs-secondary {
-    width: 100%;
-    height: 44px;
-    border: 1px solid #2c3138;
-    border-radius: 10px;
-    background: #24282e;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 900;
-    cursor: pointer;
-
-    &:disabled {
-        cursor: not-allowed;
-        opacity: 0.55;
     }
 }
 
@@ -609,13 +477,12 @@
         transform: translate(-12%, -50%) rotate(-7deg);
     }
 
-    .accumilatoirs-grid {
-        grid-template-columns: 1fr;
+    .accumilatoirs-trade-setup {
         width: calc(100vw - 8px);
     }
 
     .accumilatoirs-ticket__content {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
     }
 }
 
@@ -671,8 +538,8 @@
         transform-origin: right bottom;
     }
 
-    .accumilatoirs-ticket__row,
-    .accumilatoirs-cashout-settings {
+    .accumilatoirs-ticket__content,
+    .accumilatoirs-ticket__row {
         grid-template-columns: 1fr;
     }
 }

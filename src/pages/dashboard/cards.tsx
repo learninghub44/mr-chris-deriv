@@ -28,19 +28,26 @@ type TCardArray = {
     callback: () => void;
 };
 
+const getAssetUrl = (path: string) => `${window.__webpack_public_path__}${path.replace(/^\//, '')}`;
+
 const DashboardActionIcon = ({ name, alt }: { name: string; alt: string }) => {
     const [has_load_error, setHasLoadError] = React.useState(false);
 
     if (has_load_error) {
         return (
-            <img className='tab__dashboard__table__icon' src='/assets/icons/IcDashboard.svg' alt='' aria-label={alt} />
+            <img
+                className='tab__dashboard__table__icon'
+                src={getAssetUrl('/assets/icons/IcDashboard.svg')}
+                alt=''
+                aria-label={alt}
+            />
         );
     }
 
     return (
         <img
             className='tab__dashboard__table__icon'
-            src={`/assets/icons/${name}.svg`}
+            src={getAssetUrl(`/assets/icons/${name}.svg`)}
             alt=''
             aria-label={alt}
             onError={() => setHasLoadError(true)}

@@ -29,6 +29,7 @@ type DomainFeatureFlags = {
     autoTrades: boolean;
     manualTrading: boolean;
     scanner: boolean;
+    accumilatoirs: boolean;
     chart: boolean;
     tradingView: boolean;
 };
@@ -102,6 +103,7 @@ const DEFAULT_DOMAIN_FEATURES: DomainFeatureFlags = {
     autoTrades: true,
     manualTrading: true,
     scanner: true,
+    accumilatoirs: false,
     chart: true,
     tradingView: true,
 };
@@ -191,6 +193,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
+            accumilatoirs: true,
             chart: false,
             manualTrading: true,
             tradingView: false,
@@ -214,22 +217,6 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         },
     }),
     // Dedicated branded domains wired with the same OAuth2 flow as the working domains.
-    ...createHostedDomainEntries({
-        primaryDomain: 'mrzetuzetu.site',
-        aliases: ['www.mrzetuzetu.site'],
-        clientId: '33vlry53HSLhXICBcUURu',
-        appId: '80364',
-        redirectUri: 'https://mrzetuzetu.site/',
-        botsFolder: 'mrzetuzetu.site',
-        includeLegacyAppIdInOAuth: true,
-        features: {
-            autoTrades: true,
-            manualTrading: true,
-        },
-        ui: {
-            brandName: 'Mrzetuzetu',
-        },
-    }),
     ...createHostedDomainEntries({
         primaryDomain: 'masterhunter.site',
         aliases: ['www.masterhunter.site'],
@@ -313,10 +300,20 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
 };
 
 const normalizeHostname = (hostname: string) => hostname.split(':')[0].toLowerCase();
+const DOMAIN_REDIRECTS: Record<string, string> = {
+    'mrzetuzetu.site': 'https://www.kicktrade.site',
+    'www.mrzetuzetu.site': 'https://www.kicktrade.site',
+};
 
 export const getDomainConfigForHost = (hostname: string): DomainConfig | undefined => DOMAIN_CONFIG[normalizeHostname(hostname)];
 export const getCanonicalHostForHost = (hostname: string): string | undefined =>
     DOMAIN_CONFIG[normalizeHostname(hostname)]?.canonicalHost;
+export const getDomainRedirectUrl = (location: Pick<Location, 'hash' | 'hostname' | 'pathname' | 'search'> = window.location) => {
+    const redirect_origin = DOMAIN_REDIRECTS[normalizeHostname(location.hostname)];
+    if (!redirect_origin) return '';
+
+    return `${redirect_origin}${location.pathname}${location.search}${location.hash}`;
+};
 
 /**
  * Returns the DomainConfig for the current hostname.

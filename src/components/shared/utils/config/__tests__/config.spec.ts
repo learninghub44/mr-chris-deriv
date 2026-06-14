@@ -1,5 +1,11 @@
 import { TextEncoder } from 'util';
-import { buildBestBotsFileUrl, generateOAuthURL, getDomainConfig, getDomainConfigForHost } from '../config';
+import {
+    buildBestBotsFileUrl,
+    generateOAuthURL,
+    getDomainConfig,
+    getDomainConfigForHost,
+    getDomainRedirectUrl,
+} from '../config';
 
 describe('DOMAIN_CONFIG', () => {
     it('returns the configured TermicaFX auth and bot folder settings', () => {
@@ -26,6 +32,7 @@ describe('DOMAIN_CONFIG', () => {
             printPopups: true,
             autoTrades: true,
             manualTrading: true,
+            accumilatoirs: true,
             tradingView: false,
         });
         expect(getDomainConfigForHost('riskmanagers.site')?.ui.brandName).toBe('Risk Managers');
@@ -148,32 +155,17 @@ describe('DOMAIN_CONFIG', () => {
         process.env.APP_ENV = originalAppEnv;
     });
 
-    it('returns OAuth2 auth and bot folder settings for Mrzetuzetu', () => {
-        expect(getDomainConfigForHost('mrzetuzetu.site')).toMatchObject({
-            clientId: '33vlry53HSLhXICBcUURu',
-            appId: '80364',
-            redirectUri: 'https://mrzetuzetu.site/',
-            botsFolder: 'mrzetuzetu.site',
-            canonicalHost: 'mrzetuzetu.site',
-            includeLegacyAppIdInOAuth: true,
-            useLegacyOAuthLogin: false,
-            ui: {
-                brandName: 'Mrzetuzetu',
-            },
-            features: {
-                autoTrades: true,
-                manualTrading: true,
-            },
-        });
-        expect(getDomainConfigForHost('www.mrzetuzetu.site')).toMatchObject({
-            clientId: '33vlry53HSLhXICBcUURu',
-            appId: '80364',
-            redirectUri: 'https://mrzetuzetu.site/',
-            botsFolder: 'mrzetuzetu.site',
-            canonicalHost: 'mrzetuzetu.site',
-            includeLegacyAppIdInOAuth: true,
-            useLegacyOAuthLogin: false,
-        });
+    it('redirects Mrzetuzetu traffic to Kicktrade instead of processing the domain directly', () => {
+        expect(getDomainConfigForHost('mrzetuzetu.site')).toBeUndefined();
+        expect(getDomainConfigForHost('www.mrzetuzetu.site')).toBeUndefined();
+        expect(
+            getDomainRedirectUrl({
+                hash: '#best_bots',
+                hostname: 'www.mrzetuzetu.site',
+                pathname: '/dashboard',
+                search: '?code=abc',
+            })
+        ).toBe('https://www.kicktrade.site/dashboard?code=abc#best_bots');
     });
 
     it('returns OAuth2-only auth and bot folder settings for Dollarsign', () => {
@@ -241,8 +233,6 @@ describe('DOMAIN_CONFIG', () => {
     });
 
     it.each([
-        ['mrzetuzetu.site', '80364', '33vlry53HSLhXICBcUURu', 'https://mrzetuzetu.site/'],
-        ['www.mrzetuzetu.site', '80364', '33vlry53HSLhXICBcUURu', 'https://mrzetuzetu.site/'],
         ['masterhunter.site', '96223', '33y9R1zDsuaYKXK2RaEH9', 'https://masterhunter.site/'],
         ['tradinghubs.site', '122208', '33hi7ev9NiDjWY640JuSw', 'https://tradinghubs.site/'],
         ['mafiahub.site', '120589', '331bCUS8izRudblAnSACt', 'https://mafiahub.site/'],
