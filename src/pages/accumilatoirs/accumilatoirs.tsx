@@ -977,16 +977,8 @@ const Accumilatoirs = observer(() => {
             return;
         }
 
-        if (roundStatus !== 'flew') {
-            setQueuedPurchase(true);
-            queuedPurchaseRef.current = true;
-            setError('');
-            setMessage('Waiting for breakout/flew away. Next accumulator will buy after the break.');
-            return;
-        }
-
         void executePurchase();
-    }, [cashoutContract, executePurchase, hasOpenContract, roundStatus]);
+    }, [cashoutContract, executePurchase, hasOpenContract]);
 
     const handleStopAllTrades = useCallback(async () => {
         setAutoTradeEnabled(false);
@@ -1310,9 +1302,10 @@ const Accumilatoirs = observer(() => {
                                             const enabled = event.target.checked;
                                             setAutoTradeEnabled(enabled);
                                             if (enabled && !hasOpenContract) {
-                                                setQueuedPurchase(true);
-                                                queuedPurchaseRef.current = true;
-                                                setMessage('Auto trade enabled. Waiting for breakout/flew away.');
+                                                setQueuedPurchase(false);
+                                                queuedPurchaseRef.current = false;
+                                                setMessage('Auto trade enabled. Starting first accumulator now.');
+                                                void executePurchase();
                                             } else if (!enabled) {
                                                 setQueuedPurchase(false);
                                                 queuedPurchaseRef.current = false;
