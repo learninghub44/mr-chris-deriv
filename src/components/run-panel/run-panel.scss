@@ -14,10 +14,10 @@
 
         &--mobile {
             position: fixed;
-            inset: 0;
+            inset: 4rem 0 0;
             width: 100vw;
             z-index: 10000;
-            height: calc(100% - env(safe-area-inset-bottom, 0));
+            height: calc(100% - 4rem - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
             background: var(--general-main-1);
             isolation: isolate;
