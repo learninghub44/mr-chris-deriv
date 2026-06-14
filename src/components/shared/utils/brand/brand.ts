@@ -19,7 +19,6 @@ const isDomainAllowed = (domain_name: string) => {
         'riskmanagers.site',
         'termicafx.site',
         'mrzetuzetu.site',
-        'mrzertuzetu.site',
         'masterhunter.site',
         'tradinghubs.site',
         'mafiahub.site',

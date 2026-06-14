@@ -35,7 +35,7 @@ describe('DOMAIN_CONFIG', () => {
     });
 
     it.each([
-        ['mrzetuzetu.site', '33vlry53HSLhXICBcUURu', '80364', 'Mrzetuzetu', false, 'optimumtraders.site'],
+        ['mrzetuzetu.site', '33vlry53HSLhXICBcUURu', '80364', 'Mrzetuzetu', false],
         ['tradinghubs.site', '33hi7ev9NiDjWY640JuSw', '122208', 'Trading Hubs', false],
         ['mafiahub.site', '331bCUS8izRudblAnSACt', '120589', 'Mafia Hub', false],
     ])(
@@ -76,15 +76,10 @@ describe('DOMAIN_CONFIG', () => {
         }
     );
 
-    it('maps mrzertuzetu aliases back to the canonical mrzetuzetu host', () => {
-        expect(getDomainConfigForHost('mrzertuzetu.site')).toMatchObject({
-            redirectUri: 'https://mrzetuzetu.site/',
-            botsFolder: 'optimumtraders.site',
-            canonicalHost: 'mrzetuzetu.site',
-        });
-        expect(getCanonicalHostForHost('mrzertuzetu.site')).toBe('mrzetuzetu.site');
+    it('does not map the misspelled mrzertuzetu host', () => {
+        expect(getDomainConfigForHost('mrzertuzetu.site')).toBeUndefined();
         expect(getCanonicalHostForHost('www.mrzetuzetu.site')).toBe('mrzetuzetu.site');
-        expect(getCanonicalHostForHost('www.mrzertuzetu.site')).toBe('mrzetuzetu.site');
+        expect(getCanonicalHostForHost('www.mrzertuzetu.site')).toBeUndefined();
     });
 
     it('returns OAuth2-only auth and bot folder settings for Dollarsign', () => {

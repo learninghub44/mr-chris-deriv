@@ -212,11 +212,11 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
     // Dedicated branded domains wired with the same OAuth2 flow as the working domains.
     ...createHostedDomainEntries({
         primaryDomain: 'mrzetuzetu.site',
-        aliases: ['www.mrzetuzetu.site', 'mrzertuzetu.site', 'www.mrzertuzetu.site'],
+        aliases: ['www.mrzetuzetu.site'],
         clientId: '33vlry53HSLhXICBcUURu',
         appId: '80364',
         redirectUri: 'https://mrzetuzetu.site/',
-        botsFolder: 'optimumtraders.site',
+        botsFolder: 'mrzetuzetu.site',
         includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
