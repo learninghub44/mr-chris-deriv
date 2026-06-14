@@ -18,6 +18,7 @@ const isDomainAllowed = (domain_name: string) => {
     const custom_domains = [
         'riskmanagers.site',
         'termicafx.site',
+        'www.mrzetuzetu.site',
         'masterhunter.site',
         'tradinghubs.site',
         'mafiahub.site',
