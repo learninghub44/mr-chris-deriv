@@ -29,10 +29,13 @@ type THistoryMove = {
 type TProposalPreview = {
     askPrice: number;
     currency: string;
+    highBarrier?: number;
+    lowBarrier?: number;
     maxPayout?: number;
     maxTicks?: number;
     message: string;
     minStake?: number;
+    spot?: number;
     status: 'idle' | 'loading' | 'ready' | 'error';
     tickSizeBarrier?: number;
 };
@@ -140,6 +143,13 @@ const formatPercent = (value: unknown) => {
     if (!Number.isFinite(percent)) return '0.00%';
 
     return `${percent.toFixed(2)}%`;
+};
+
+const formatQuote = (value: unknown) => {
+    const quote = Number(value);
+    if (!Number.isFinite(quote)) return '-';
+
+    return quote.toFixed(5).replace(/0+$/, '').replace(/\.$/, '');
 };
 
 const getFirstFiniteNumber = (...values: unknown[]) => {
@@ -317,6 +327,12 @@ const Accumilatoirs = observer(() => {
               ? Number(((currentProfit / buyPrice) * 100).toFixed(2))
               : null;
     const displayReturnPercent = contractReturnPercent ?? marketReturnPercent;
+    const hasProposalBarrierData =
+        proposalPreview.status === 'ready' &&
+        Number.isFinite(Number(proposalPreview.spot)) &&
+        Number.isFinite(Number(proposalPreview.highBarrier)) &&
+        Number.isFinite(Number(proposalPreview.lowBarrier));
+    const proposalBarrierStatus = hasProposalBarrierData ? 'Tracking live Deriv barrier data.' : '';
     const graphTicks = useMemo(() => tickHistory.slice(-36), [tickHistory]);
     const graphPosition = useMemo(() => {
         const width = 1000;
@@ -640,6 +656,16 @@ const Accumilatoirs = observer(() => {
             const isNewProposalTick = spotTime === undefined || spotTime !== proposalLastSpotTimeRef.current;
             const previousBarriers = proposalBarrierWindowRef.current;
 
+            if (Number.isFinite(Number(spot))) {
+                const proposalTick = {
+                    epoch: spotTime || Math.floor(Date.now() / 1000),
+                    quote: Number(spot),
+                };
+                setLatestTick(proposalTick);
+                setTickHistory(previousTicks => appendTick(previousTicks, proposalTick));
+                setIsLive(true);
+            }
+
             if (isNewProposalTick && currentBarriers) {
                 if (
                     hasCrossedProposalBarriers(spot, previousBarriers) &&
@@ -672,10 +698,13 @@ const Accumilatoirs = observer(() => {
             setProposalPreview({
                 askPrice: Number(proposal?.ask_price ?? stake),
                 currency,
+                highBarrier: currentBarriers?.high,
+                lowBarrier: currentBarriers?.low,
                 maxPayout: Number(proposal?.validation_params?.max_payout) || undefined,
                 maxTicks: Number(proposal?.validation_params?.max_ticks) || undefined,
                 message: proposal?.longcode || 'Accumulator is ready to buy.',
                 minStake: Number(proposal?.contract_details?.minimum_stake) || undefined,
+                spot,
                 status: 'ready',
                 tickSizeBarrier: getProposalTickSizeBarrier(proposal),
             });
@@ -722,28 +751,44 @@ const Accumilatoirs = observer(() => {
 
             try {
                 proposalSubscriptionRef.current?.unsubscribe?.();
-                proposalSubscriptionRef.current = safeSubscribe((api_base.api as any)?.onMessage?.(), (message: any) => {
-                    const data = message?.data ?? message;
-                    if (data?.msg_type !== 'proposal') return;
-
-                    const echoRequest = data?.echo_req ?? {};
-                    const requestSymbol = echoRequest.underlying_symbol ?? echoRequest.symbol;
-                    if (echoRequest.contract_type !== 'ACCU' || requestSymbol !== selectedSymbol) return;
-
-                    applyProposal(data?.proposal, data?.subscription?.id);
-                });
-
-                const response = await (api_base.api as any).send({
+                const proposalRequest = {
                     proposal: 1,
                     subscribe: 1,
                     ...normalizeTradeParameters(buildAccumulatorParameters()),
-                });
+                };
+                const proposalObservable = (api_base.api as any)?.subscribe?.(proposalRequest);
 
-                if (response?.error) {
-                    throw new Error(response.error.message || 'Accumulator proposal failed.');
-                }
+                proposalSubscriptionRef.current = safeSubscribe(
+                    proposalObservable,
+                    (data: any) => {
+                        const response = data?.data ?? data;
+                        if (response?.msg_type && response.msg_type !== 'proposal') return;
 
-                applyProposal(response?.proposal, response?.subscription?.id);
+                        const echoRequest = response?.echo_req ?? {};
+                        const requestSymbol = echoRequest.underlying_symbol ?? echoRequest.symbol;
+                        if (echoRequest.contract_type && echoRequest.contract_type !== 'ACCU') return;
+                        if (requestSymbol && requestSymbol !== selectedSymbol) return;
+                        if (response?.error) {
+                            setProposalPreview({
+                                askPrice: stake,
+                                currency,
+                                message: response.error.message || 'Accumulator proposal failed.',
+                                status: 'error',
+                            });
+                            return;
+                        }
+
+                        applyProposal(response?.proposal, response?.subscription?.id);
+                    },
+                    proposalError => {
+                        setProposalPreview({
+                            askPrice: stake,
+                            currency,
+                            message: proposalError instanceof Error ? proposalError.message : 'Accumulator proposal stream failed.',
+                            status: 'error',
+                        });
+                    }
+                );
             } catch (proposalError) {
                 setProposalPreview({
                     askPrice: stake,
@@ -1014,7 +1059,9 @@ const Accumilatoirs = observer(() => {
                                         ) : null}
                                         {proposalPreview.status === 'loading'
                                             ? 'Connecting to Deriv accumulator stream...'
-                                            : 'Waiting for first accumulator breakout...'}
+                                            : hasProposalBarrierData
+                                              ? 'Tracking live Deriv barriers...'
+                                              : 'Waiting for Deriv barrier data...'}
                                     </span>
                                 )}
                             </div>
@@ -1307,13 +1354,18 @@ const Accumilatoirs = observer(() => {
                                     {hasOpenContract
                                         ? `Live return ${formatPercent(displayReturnPercent)} (${formatMoney(currentProfit, currency)})`
                                         : queuedPurchase
-                                          ? 'Purchase queued for the next breakout/flew away.'
+                                          ? hasProposalBarrierData
+                                              ? `${proposalBarrierStatus}. Purchase queued for the next breakout/flew away.`
+                                              : 'Purchase queued. Waiting for Deriv barrier data.'
                                           : proposalPreview.status === 'loading'
                                             ? 'Preparing Deriv quote...'
-                                            : proposalPreview.message}
+                                            : proposalBarrierStatus || proposalPreview.message}
                                 </div>
                                 <div className='accumilatoirs-ticket__meta'>
                                     <span>{selectedMarket?.label}</span>
+                                    {hasProposalBarrierData ? <span>Spot {formatQuote(proposalPreview.spot)}</span> : null}
+                                    {hasProposalBarrierData ? <span>Low barrier {formatQuote(proposalPreview.lowBarrier)}</span> : null}
+                                    {hasProposalBarrierData ? <span>High barrier {formatQuote(proposalPreview.highBarrier)}</span> : null}
                                     {proposalPreview.minStake ? <span>Min stake {formatMoney(proposalPreview.minStake, currency)}</span> : null}
                                     {proposalPreview.maxPayout ? <span>Max payout {formatMoney(proposalPreview.maxPayout, currency)}</span> : null}
                                 </div>
