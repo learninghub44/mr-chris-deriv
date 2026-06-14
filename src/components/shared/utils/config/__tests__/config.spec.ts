@@ -113,14 +113,14 @@ describe('DOMAIN_CONFIG', () => {
         });
     });
 
-    it('returns OAuth2-only auth and bot folder settings for Master Hunter', () => {
+    it('returns OAuth2 auth and bot folder settings for Master Hunter', () => {
         expect(getDomainConfigForHost('masterhunter.site')).toMatchObject({
             clientId: '33y9R1zDsuaYKXK2RaEH9',
-            appId: '',
+            appId: '96223',
             redirectUri: 'https://masterhunter.site/',
             botsFolder: 'masterhunter.site',
             canonicalHost: 'masterhunter.site',
-            includeLegacyAppIdInOAuth: false,
+            includeLegacyAppIdInOAuth: true,
             useLegacyOAuthLogin: false,
             ui: {
                 brandName: 'Master Hunter',
@@ -132,11 +132,11 @@ describe('DOMAIN_CONFIG', () => {
         });
         expect(getDomainConfigForHost('www.masterhunter.site')).toMatchObject({
             clientId: '33y9R1zDsuaYKXK2RaEH9',
-            appId: '',
+            appId: '96223',
             redirectUri: 'https://masterhunter.site/',
             botsFolder: 'masterhunter.site',
             canonicalHost: 'masterhunter.site',
-            includeLegacyAppIdInOAuth: false,
+            includeLegacyAppIdInOAuth: true,
             useLegacyOAuthLogin: false,
         });
     });
@@ -153,6 +153,7 @@ describe('DOMAIN_CONFIG', () => {
 
     it.each([
         ['mrzetuzetu.site', '80364', '33vlry53HSLhXICBcUURu'],
+        ['masterhunter.site', '96223', '33y9R1zDsuaYKXK2RaEH9'],
         ['tradinghubs.site', '122208', '33hi7ev9NiDjWY640JuSw'],
         ['mafiahub.site', '120589', '331bCUS8izRudblAnSACt'],
     ])('uses the working OAuth2 PKCE login wiring for %s', async (host, appId, clientId) => {

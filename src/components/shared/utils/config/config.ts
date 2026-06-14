@@ -230,10 +230,10 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         primaryDomain: 'masterhunter.site',
         aliases: ['www.masterhunter.site'],
         clientId: '33y9R1zDsuaYKXK2RaEH9',
-        appId: '',
+        appId: '96223',
         redirectUri: 'https://masterhunter.site/',
         botsFolder: 'masterhunter.site',
-        includeLegacyAppIdInOAuth: false,
+        includeLegacyAppIdInOAuth: true,
         features: {
             autoTrades: true,
             manualTrading: true,
