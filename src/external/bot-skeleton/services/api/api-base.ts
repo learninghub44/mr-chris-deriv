@@ -1,4 +1,4 @@
-/* [AI] - Analytics removed - utility functions moved to @/utils/account-helpers */
+import { TExecutionMode, getExecutionConfig, IExecutionConfig } from '@/constants/execution-modes';
 import { getAccountId, getAccountType, isDemoAccount, removeUrlParameter } from '@/utils/account-helpers';
 /* [/AI] */
 import CommonStore from '@/stores/common-store';
@@ -76,6 +76,8 @@ class APIBase {
     active_symbols_promise: Promise<any[] | undefined> | null = null;
     common_store: CommonStore | undefined;
     reconnection_attempts: number = 0;
+    execution_config: IExecutionConfig = getExecutionConfig('slow');
+    execution_mode: TExecutionMode = 'slow';
 
     // Constants for timeouts - extracted magic numbers for better maintainability
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
@@ -83,6 +85,65 @@ class APIBase {
     private readonly MAX_RECONNECTION_ATTEMPTS = 5; // Maximum number of reconnection attempts before session reset
 
     is_initializing = false;
+
+    setExecutionMode(mode: TExecutionMode) {
+        this.execution_mode = mode;
+        this.execution_config = getExecutionConfig(mode);
+    }
+
+    async ensureConnectionReady() {
+        const timeout_ms = this.execution_config.connectionTimeout;
+
+        if (!this.api || this.api?.connection?.readyState !== WebSocket.OPEN) {
+            await this.init();
+        }
+
+        if (!this.api) {
+            throw new Error('Trading API is unavailable.');
+        }
+
+        if (this.api.connection.readyState !== WebSocket.OPEN) {
+            await new Promise<void>((resolve, reject) => {
+                let timeout_id: ReturnType<typeof setTimeout> | null = null;
+
+                const cleanup = () => {
+                    if (timeout_id) {
+                        clearTimeout(timeout_id);
+                        timeout_id = null;
+                    }
+                    this.api?.connection?.removeEventListener('open', handleOpen);
+                    this.api?.connection?.removeEventListener('close', handleClose);
+                };
+
+                const handleOpen = () => {
+                    cleanup();
+                    resolve();
+                };
+
+                const handleClose = () => {
+                    cleanup();
+                    reject(new Error('Trading API connection closed before it became ready.'));
+                };
+
+                timeout_id = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Trading API connection timed out.'));
+                }, timeout_ms);
+
+                this.api?.connection?.addEventListener('open', handleOpen);
+                this.api?.connection?.addEventListener('close', handleClose);
+            });
+        }
+
+        if (!this.is_authorized && getAccountId()) {
+            const auth_result = await this.authorizeAndSubscribe();
+            if ((auth_result as any)?.error) {
+                throw new Error((auth_result as any)?.localizedMessage || 'Trading authorization failed.');
+            }
+        }
+
+        return true;
+    }
 
     unsubscribeAllSubscriptions = () => {
         this.current_auth_subscriptions?.forEach(subscription_promise => {

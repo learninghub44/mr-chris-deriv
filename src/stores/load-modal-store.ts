@@ -240,6 +240,10 @@ export default class LoadModalStore {
         this.selected_strategy_id = selected_strategy_id;
     };
 
+    showErrorMessage = (message: string): void => {
+        this.root_store.run_panel.showErrorMessage(message);
+    };
+
     toggleExplanationExpand = (): void => {
         this.is_explanation_expand = !this.is_explanation_expand;
     };
@@ -431,23 +435,51 @@ export default class LoadModalStore {
     readFile = (is_preview: boolean, drop_event: DragEvent, file: File): void => {
         const reader = new FileReader();
         const file_name = file?.name.replace(/\.[^/.]+$/, '') || '';
+        const parser = new DOMParser();
+
+        reader.onerror = () => {
+            this.setOpenButtonDisabled(false);
+            this.showErrorMessage(localize('Failed to read file. Please try again.'));
+        };
 
         reader.onload = action(async e => {
-            const load_options = {
-                block_string: e?.target?.result,
-                drop_event,
-                from: save_types.LOCAL,
-                workspace: null as window.Blockly.WorkspaceSvg | null,
-                file_name,
-                strategy_id: '',
-                showIncompatibleStrategyDialog: false,
-            };
-            if (this.local_workspace) {
-                this.local_workspace.dispose();
-                this.local_workspace = null;
+            try {
+                const content = e?.target?.result;
+                if (!content || typeof content !== 'string') {
+                    this.showErrorMessage(localize('Invalid file content. Please select a valid XML file.'));
+                    return;
+                }
+
+                if (content.length > 5 * 1024 * 1024) {
+                    this.showErrorMessage(localize('File is too large. Maximum size is 5MB.'));
+                    return;
+                }
+
+                const parsed_xml = parser.parseFromString(content, 'text/xml');
+                if (parsed_xml.querySelector('parsererror') || parsed_xml.documentElement?.nodeName !== 'xml') {
+                    this.showErrorMessage(localize('Invalid XML file. Please upload a valid bot strategy file.'));
+                    return;
+                }
+
+                const load_options = {
+                    block_string: content,
+                    drop_event,
+                    from: save_types.LOCAL,
+                    workspace: null as window.Blockly.WorkspaceSvg | null,
+                    file_name,
+                    strategy_id: '',
+                    showIncompatibleStrategyDialog: false,
+                };
+                if (this.local_workspace) {
+                    this.local_workspace.dispose();
+                    this.local_workspace = null;
+                }
+                this.loadStrategyOnModalLocalPreview(load_options);
+                this.setOpenButtonDisabled(false);
+            } catch (error) {
+                this.showErrorMessage(localize('Failed to load strategy. Please check the file format.'));
+                this.setOpenButtonDisabled(false);
             }
-            this.loadStrategyOnModalLocalPreview(load_options);
-            this.setOpenButtonDisabled(false);
         });
 
         reader.readAsText(file);
@@ -464,11 +496,7 @@ export default class LoadModalStore {
     };
 
     loadStrategyOnBotBuilder = async () => {
-        const {
-            strategy_id = window.Blockly.utils.idGenerator.genUid(),
-            convertedDom,
-            block_string,
-        } = window.Blockly.xmlValues;
+        const { strategy_id = window.Blockly.utils.idGenerator.genUid(), convertedDom } = window.Blockly.xmlValues;
         const derivWorkspace = window.Blockly.derivWorkspace;
 
         window.Blockly.Xml.clearWorkspaceAndLoadFromXml(convertedDom, derivWorkspace);
@@ -535,7 +563,7 @@ export default class LoadModalStore {
         /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
         /* [/AI] */
 
-        const result = await load({ ...load_options, show_snackbar: false });
+        await load({ ...load_options, show_snackbar: false });
         /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
         /* [/AI] */
     };

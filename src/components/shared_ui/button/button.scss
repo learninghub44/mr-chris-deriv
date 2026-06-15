@@ -2,9 +2,16 @@
 
 :root {
     --button-primary-default: #ff444f;
-    --text-colored-background: #fff;
     --button-primary-hover: #eb3e48;
     --button-secondary-default: #6e6e6e;
+}
+
+.theme--light {
+    --text-colored-background: #333333;
+}
+
+.theme--dark {
+    --text-colored-background: #ffffff;
 }
 
 .dc-btn {
@@ -91,7 +98,7 @@
 
     &--primary {
         background: var(--button-primary-default);
-        color: var(--text-colored-background);
+        color: var(--text-on-solid-color);
 
         &:hover:not([disabled]) {
             background: var(--button-primary-hover);
@@ -109,7 +116,7 @@
 
         .dc-btn__text,
         .dc-btn__icon {
-            color: var(--text-colored-background);
+            color: var(--text-on-solid-color);
         }
 
         .dc-btn__icon {
@@ -196,7 +203,7 @@
             background: var(--button-primary-default);
 
             .dc-btn__text {
-                color: var(--text-colored-background);
+                color: var(--text-on-solid-color);
             }
         }
 
@@ -219,7 +226,7 @@
 
         .dc-btn__text,
         .dc-btn__icon {
-            color: var(--text-colored-background);
+            color: var(--text-on-solid-color);
         }
     }
 
@@ -308,7 +315,7 @@
 
         /* postcss-bem-linter: ignore */
         .initial-loader__barspinner--rect {
-            background-color: var(--text-colored-background);
+            background-color: var(--text-on-solid-color);
         }
 
         /* postcss-bem-linter: ignore */

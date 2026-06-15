@@ -104,7 +104,8 @@
         --text-blue: #{constants.$color-blue-3};
         --text-info-blue: #{constants.$color-blue};
         --text-info-blue-background: #{constants.$color-blue-5};
-        --text-colored-background: #{constants.$color-white};
+        --text-colored-background: #{constants.$color-black-1};
+        --text-on-solid-color: #{constants.$color-white};
         --icon-light-background: #{constants.$color-black-9};
         --icon-dark-background: #{constants.$color-white};
         --icon-grey-background: #{constants.$color-grey-2};
@@ -247,6 +248,7 @@
         --text-loss-danger: #{constants.$color-red-2};
         --text-red: #{constants.$color-red};
         --text-colored-background: #{constants.$color-white};
+        --text-on-solid-color: #{constants.$color-white};
         --text-info-blue: #{constants.$color-blue-6};
         --text-info-blue-background: #{constants.$color-blue-7};
         --text-status-info-blue: #{constants.$color-blue};

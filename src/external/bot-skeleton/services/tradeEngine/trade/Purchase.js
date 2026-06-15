@@ -2,7 +2,7 @@ import { LogTypes } from '../../../constants/messages';
 import { assertApiTokenScope } from '@/utils/api-token-permissions';
 import { api_base } from '../../api/api-base';
 import { observer as globalObserver } from '../../../utils/observer';
-import { contractStatus, info, log } from '../utils/broadcast';
+import { contract as broadcastContract, contractStatus, info, log } from '../utils/broadcast';
 import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
 import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
@@ -55,6 +55,7 @@ export default Engine =>
 
                 this.contractId = buy.contract_id;
                 this.store.dispatch(purchaseSuccessful());
+                this.bootstrapPurchasedContract(buy);
 
                 if (this.is_proposal_subscription_required) {
                     this.renewProposalsOnPurchase();
@@ -158,5 +159,33 @@ export default Engine =>
         getPurchaseReference = () => purchase_reference;
         regeneratePurchaseReference = () => {
             purchase_reference = getUUID();
+        };
+        bootstrapPurchasedContract = buy => {
+            const baseContract = {
+                accountID: this.accountInfo.loginid,
+                buy_price: buy.buy_price,
+                contract_id: buy.contract_id,
+                currency: buy.currency,
+                date_start: buy.start_time,
+                status: 'open',
+                transaction_ids: {
+                    buy: buy.transaction_id,
+                },
+            };
+
+            broadcastContract(baseContract);
+
+            api_base.api
+                ?.send({ proposal_open_contract: 1, contract_id: buy.contract_id })
+                .then(response => {
+                    const contract = response?.proposal_open_contract;
+
+                    if (contract) {
+                        this.processOpenContract(contract);
+                    }
+                })
+                .catch(() => {
+                    // Keep the optimistic contract in the UI while the stream catches up.
+                });
         };
     };

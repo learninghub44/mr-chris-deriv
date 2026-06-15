@@ -5,11 +5,14 @@ import { isSafari, mobileOSDetect } from '@/components/shared';
 import { generateOAuthURL } from '@/components/shared/utils/config/config';
 import { standalone_routes } from '@/components/shared/utils/routes/routes';
 import { contract_stages, TContractStage } from '@/constants/contract-stage';
+import { TExecutionMode } from '@/constants/execution-modes';
 import { run_panel } from '@/constants/run-panel';
 import { ErrorTypes, MessageTypes, observer, unrecoverable_errors } from '@/external/bot-skeleton';
+import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import { getSelectedTradeType } from '@/external/bot-skeleton/scratch/utils';
 import { recordDiagnosticEvent } from '@/utils/diagnostics';
 import { handleBackendError, isBackendError } from '@/utils/error-handler';
+import { getSetting, storeSetting } from '@/utils/settings';
 // import { journalError, switch_account_notification } from '@/utils/bot-notifications';
 import GTM from '@/utils/gtm';
 import { helpers } from '@/utils/store-helpers';
@@ -109,6 +112,7 @@ export default class RunPanelStore {
             run_id: observable,
             error_type: observable,
             show_bot_stop_message: observable,
+            execution_mode: observable,
             is_stop_button_visible: computed,
             is_stop_button_disabled: computed,
             is_clear_stat_disabled: computed,
@@ -118,6 +122,7 @@ export default class RunPanelStore {
             setHasOpenContract: action,
             setIsRunning: action,
             setRunId: action,
+            setExecutionMode: action,
             onRunButtonClick: action,
             is_contract_buying_in_progress: observable,
             SetpurchaseInProgress: action,
@@ -173,6 +178,7 @@ export default class RunPanelStore {
     is_sell_requested = false;
     show_bot_stop_message = false;
     is_contract_buying_in_progress = false;
+    execution_mode: TExecutionMode = 'slow';
 
     run_id = '';
     onOkButtonClick: (() => void) | null = null;
@@ -246,6 +252,19 @@ export default class RunPanelStore {
         this.dbot.unHighlightAllBlocks();
         if (!client.is_logged_in) {
             this.showLoginDialog();
+            return;
+        }
+
+        api_base.setExecutionMode(this.execution_mode);
+        try {
+            await api_base.ensureConnectionReady();
+        } catch (connection_error) {
+            this.unregisterBotListeners();
+            this.showErrorMessage(
+                connection_error instanceof Error
+                    ? connection_error.message
+                    : localize('Unable to establish a stable API connection. Please try again.')
+            );
             return;
         }
 
@@ -600,8 +619,6 @@ export default class RunPanelStore {
             this.unregisterBotListeners();
         };
         if (this.error_type === ErrorTypes.RECOVERABLE_ERRORS) {
-            // Bot should indicate it started in below cases:
-            // - When error happens it's a recoverable error
             const { shouldRestartOnError = false, timeMachineEnabled = false } =
                 this.dbot?.interpreter?.bot?.tradeEngine?.options ?? {};
             const is_bot_recoverable = shouldRestartOnError || timeMachineEnabled;
@@ -614,25 +631,19 @@ export default class RunPanelStore {
                 indicateBotStopped();
             }
         } else if (this.error_type === ErrorTypes.UNRECOVERABLE_ERRORS) {
-            // Bot should indicate it stopped in below cases:
-            // - When error happens and it's an unrecoverable error
             this.setIsRunning(false);
             indicateBotStopped();
         } else if (this.has_open_contract) {
-            // Bot should indicate the contract is closed in below cases:
-            // - When bot was running and an error happens
             this.error_type = undefined;
             this.is_sell_requested = false;
             this.setContractStage(contract_stages.CONTRACT_CLOSED);
+            this.setHasOpenContract(false);
             ui.setAccountSwitcherDisabledMessage();
             this.unregisterBotListeners();
         }
 
-        this.setHasOpenContract(false);
-
         summary_card.clearContractUpdateConfigValues();
 
-        // listen for new version update
         const listen_new_version = new Event('ListenPWAUpdate');
         document.dispatchEvent(listen_new_version);
     };
@@ -652,11 +663,13 @@ export default class RunPanelStore {
         switch (contract_status.id) {
             case 'contract.purchase_sent': {
                 this.setContractStage(contract_stages.PURCHASE_SENT);
+                this.setHasOpenContract(true);
                 break;
             }
             case 'contract.purchase_received': {
                 this.is_contract_buying_in_progress = false;
                 this.setContractStage(contract_stages.PURCHASE_RECEIVED);
+                this.setHasOpenContract(true);
                 const { buy } = contract_status;
                 const { is_virtual } = this.core.client;
 
@@ -669,11 +682,13 @@ export default class RunPanelStore {
             case 'contract.settlement_recovery': {
                 this.is_contract_buying_in_progress = false;
                 this.setContractStage(contract_stages.SETTLEMENT_RECOVERY);
+                this.setHasOpenContract(true);
                 break;
             }
             case 'contract.sold': {
                 this.is_sell_requested = false;
                 this.setContractStage(contract_stages.CONTRACT_CLOSED);
+                this.setHasOpenContract(false);
                 if (contract_status.contract) GTM.onTransactionClosed(contract_status.contract);
                 break;
             }
@@ -696,13 +711,14 @@ export default class RunPanelStore {
         observer.emit('statistics.clear');
     };
 
-    onBotContractEvent = (data: { is_sold?: boolean; status?: string }) => {
+    onBotContractEvent = (data: { is_sold?: boolean; status?: string; contract_id?: string }) => {
         const is_closed_contract =
             !!data?.is_sold || CLOSED_CONTRACT_STATUSES.has(String(data?.status || '').toLowerCase());
 
         if (is_closed_contract) {
             this.is_sell_requested = false;
             this.setContractStage(contract_stages.CONTRACT_CLOSED);
+            this.setHasOpenContract(false);
         }
     };
 
@@ -859,8 +875,19 @@ export default class RunPanelStore {
         this.run_id = run_id;
     };
 
+    setExecutionMode = (mode: TExecutionMode) => {
+        this.execution_mode = mode;
+        api_base.setExecutionMode(mode);
+        storeSetting('execution_mode', mode);
+    };
+
     onMount = () => {
         const { journal } = this.root_store;
+        const stored_execution_mode = getSetting('execution_mode') as TExecutionMode | null;
+        if (stored_execution_mode === 'fast' || stored_execution_mode === 'slow') {
+            this.execution_mode = stored_execution_mode;
+        }
+        api_base.setExecutionMode(this.execution_mode);
         observer.register('ui.log.error', this.handleUiLogError);
         observer.register('ui.log.notify', journal.onNotify);
         observer.register('ui.log.success', journal.onLogSuccess);

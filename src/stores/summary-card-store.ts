@@ -157,11 +157,12 @@ export default class SummaryCardStore {
     onBotContractEvent(contract: TContractInfo) {
         const { profit } = contract;
         const indicative = getIndicativePrice(contract as ProposalOpenContract);
+        const next_contract_id = contract.contract_id ?? contract.id ?? null;
         this.profit = profit;
 
-        if (this.contract_id !== contract.id) {
+        if (this.contract_id !== next_contract_id) {
             this.clear(false);
-            this.contract_id = contract.id;
+            this.contract_id = next_contract_id;
             this.indicative = indicative;
         }
 
