@@ -640,7 +640,7 @@
         order: 2;
     }
 
-    .accumilatoirs-ticket__content > .accumilatoirs-field:first-child {
+    .accumilatoirs-ticket__content > .accumilatoirs-field--market {
         order: 3;
     }
 
@@ -648,21 +648,29 @@
         order: 4;
     }
 
-    .accumilatoirs-ticket__content > .accumilatoirs-field:nth-of-type(2) {
+    .accumilatoirs-ticket__content > .accumilatoirs-field--take-profit {
         order: 5;
     }
 
-    .accumilatoirs-ticket__content > .accumilatoirs-check {
+    .accumilatoirs-ticket__content > .accumilatoirs-ticket__row--martingale {
         order: 6;
     }
 
-    .accumilatoirs-ticket__content > .accumilatoirs-ticket__status {
+    .accumilatoirs-ticket__content > .accumilatoirs-field--martingale-threshold {
         order: 7;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-check {
+        order: 8;
+    }
+
+    .accumilatoirs-ticket__content > .accumilatoirs-ticket__status {
+        order: 9;
         white-space: normal;
     }
 
     .accumilatoirs-ticket__content > .accumilatoirs-ticket__meta {
-        order: 8;
+        order: 10;
     }
 
     .accumilatoirs-primary,

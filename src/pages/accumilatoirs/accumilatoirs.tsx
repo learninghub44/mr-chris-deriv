@@ -46,6 +46,12 @@ type TAutoCashoutSettings = {
     useServerTakeProfit: boolean;
 };
 
+type MartingaleModeType =
+    | 'no_martingale'
+    | 'after_one_loss'
+    | 'after_two_losses'
+    | 'custom_consecutive_loss_trigger';
+
 const ACCUMULATOR_MARKETS: TAccumulatorMarket[] = SUPPORTED_VOLATILITY_MARKETS.map(({ label, symbol }) => ({
     label,
     symbol,
@@ -61,6 +67,7 @@ const GROWTH_RATES = [
 
 const DEFAULT_STAKE = '1';
 const DEFAULT_TAKE_PROFIT = '1';
+const DEFAULT_MARTINGALE = '2';
 const PROPOSAL_REFRESH_MS = 500;
 const INITIAL_RETURN_PERCENT = 0;
 const MAX_GRAPH_TICKS = 60;
@@ -73,6 +80,93 @@ const formatMoney = (value: unknown, currency = 'USD') => {
     if (!Number.isFinite(amount)) return `0.00 ${currency}`;
 
     return `${amount.toFixed(2)} ${currency}`;
+};
+
+const normalizeMartingaleMode = (value: unknown): MartingaleModeType => {
+    if (value === 'no_martingale') return 'no_martingale';
+    if (value === 'after_two_losses') return 'after_two_losses';
+    if (value === 'custom_consecutive_loss_trigger' || value === 'consecutive_loss_trigger') {
+        return 'custom_consecutive_loss_trigger';
+    }
+    return 'after_one_loss';
+};
+
+const clampConsecutiveLossThreshold = (value: unknown) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 2;
+    return Math.min(10, Math.max(1, Math.trunc(numeric)));
+};
+
+const loadSaved = (key: string, fallback: string) => {
+    try {
+        return localStorage.getItem(`accumilatoirs_${key}`) || fallback;
+    } catch {
+        return fallback;
+    }
+};
+
+const loadSavedNum = (key: string, fallback: string, min: number, max: number) => {
+    const value = loadSaved(key, fallback);
+    const numberValue = Number(value);
+    return !isNaN(numberValue) && numberValue >= min && numberValue <= max ? value : fallback;
+};
+
+const getInitialConsecutiveLossThreshold = () => {
+    try {
+        const saved = localStorage.getItem('accumilatoirs_consecutiveLossCount');
+        return clampConsecutiveLossThreshold(saved || 2);
+    } catch {
+        return 2;
+    }
+};
+
+const getNextMartingaleState = ({
+    profit,
+    current_stake,
+    base_stake,
+    multiplier,
+    martingale_mode,
+    consecutive_losses,
+    consecutive_loss_trigger,
+}: {
+    profit: number;
+    current_stake: number;
+    base_stake: number;
+    multiplier: number;
+    martingale_mode: MartingaleModeType;
+    consecutive_losses: number;
+    consecutive_loss_trigger: number;
+}) => {
+    if (!(profit < 0)) {
+        return {
+            consecutiveLosses: 0,
+            lastResult: 'win' as const,
+            nextStake: base_stake,
+        };
+    }
+
+    const nextConsecutiveLosses = consecutive_losses + 1;
+    const normalizedMode = normalizeMartingaleMode(martingale_mode);
+    const normalizedTrigger = clampConsecutiveLossThreshold(consecutive_loss_trigger);
+
+    if (normalizedMode === 'no_martingale') {
+        return {
+            consecutiveLosses: nextConsecutiveLosses,
+            lastResult: 'loss' as const,
+            nextStake: base_stake,
+        };
+    }
+
+    const shouldApplyMartingale =
+        normalizedMode === 'after_one_loss' ||
+        (normalizedMode === 'after_two_losses' && nextConsecutiveLosses >= 2) ||
+        (normalizedMode === 'custom_consecutive_loss_trigger' && nextConsecutiveLosses >= normalizedTrigger);
+
+    return {
+        consecutiveLosses: nextConsecutiveLosses,
+        lastResult: 'loss' as const,
+        nextStake: shouldApplyMartingale ? parseFloat((current_stake * multiplier).toFixed(2)) : base_stake,
+    };
 };
 
 const getTickFromResponse = (data: any): TTickSnapshot | null => {
@@ -241,8 +335,22 @@ const Accumilatoirs = observer(() => {
     const currency = client.currency || 'USD';
 
     const [selectedSymbol, setSelectedSymbol] = useState(ACCUMULATOR_MARKETS[0]?.symbol ?? 'R_100');
-    const [stakeInput, setStakeInput] = useState(DEFAULT_STAKE);
+    const [stakeInput, setStakeInput] = useState(() => loadSavedNum('stake', DEFAULT_STAKE, 0.01, 100000));
     const [growthRate, setGrowthRate] = useState(GROWTH_RATES[0].value);
+    const [martingale, setMartingale] = useState(() => loadSavedNum('martingale', DEFAULT_MARTINGALE, 1.01, 100));
+    const [martingaleMode, setMartingaleMode] = useState<MartingaleModeType>(() => {
+        try {
+            return normalizeMartingaleMode(localStorage.getItem('accumilatoirs_martingaleMode'));
+        } catch {
+            return 'after_one_loss';
+        }
+    });
+    const [consecutiveLossCount, setConsecutiveLossCount] = useState(getInitialConsecutiveLossThreshold);
+    const [consecutiveLossCountInput, setConsecutiveLossCountInput] = useState(() =>
+        String(getInitialConsecutiveLossThreshold())
+    );
+    const [currentStakeDisplay, setCurrentStakeDisplay] = useState(() => Number(stakeInput) || Number(DEFAULT_STAKE));
+    const [consecutiveLossDisplay, setConsecutiveLossDisplay] = useState(0);
     const [autoCashout, setAutoCashout] = useState<TAutoCashoutSettings>({
         enabled: true,
         takeProfit: DEFAULT_TAKE_PROFIT,
@@ -285,6 +393,10 @@ const Accumilatoirs = observer(() => {
     const queuedPurchaseRef = useRef(false);
     const autoTradeEnabledRef = useRef(false);
     const executePurchaseRef = useRef<(() => void) | null>(null);
+    const nextStakeRef = useRef(Number(stakeInput) || Number(DEFAULT_STAKE));
+    const martingaleModeRef = useRef(martingaleMode);
+    const consecutiveLossCountRef = useRef(consecutiveLossCount);
+    const consecutiveLossRef = useRef(0);
     const hasOpenContractRef = useRef(false);
     const roundStatusRef = useRef<'flew' | 'running'>('running');
     const proposalBarrierRef = useRef<number | undefined>(undefined);
@@ -386,6 +498,47 @@ const Accumilatoirs = observer(() => {
     }, [autoTradeEnabled]);
 
     useEffect(() => {
+        try {
+            localStorage.setItem('accumilatoirs_stake', stakeInput);
+        } catch {
+            // Ignore unavailable storage.
+        }
+        const baseStake = Number(stakeInput);
+        if (Number.isFinite(baseStake) && baseStake > 0 && !hasOpenContractRef.current && !queuedPurchaseRef.current) {
+            nextStakeRef.current = baseStake;
+            setCurrentStakeDisplay(baseStake);
+        }
+    }, [stakeInput]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('accumilatoirs_martingale', martingale);
+        } catch {
+            // Ignore unavailable storage.
+        }
+    }, [martingale]);
+
+    useEffect(() => {
+        martingaleModeRef.current = martingaleMode;
+        try {
+            localStorage.setItem('accumilatoirs_martingaleMode', martingaleMode);
+        } catch {
+            // Ignore unavailable storage.
+        }
+    }, [martingaleMode]);
+
+    useEffect(() => {
+        const normalizedLossCount = clampConsecutiveLossThreshold(consecutiveLossCount);
+        consecutiveLossCountRef.current = normalizedLossCount;
+        setConsecutiveLossCountInput(String(normalizedLossCount));
+        try {
+            localStorage.setItem('accumilatoirs_consecutiveLossCount', String(normalizedLossCount));
+        } catch {
+            // Ignore unavailable storage.
+        }
+    }, [consecutiveLossCount]);
+
+    useEffect(() => {
         roundStatusRef.current = roundStatus;
     }, [roundStatus]);
 
@@ -415,6 +568,15 @@ const Accumilatoirs = observer(() => {
         }, 450);
     }, []);
 
+    const resetMartingaleSequence = useCallback(() => {
+        const baseStake = Number(stakeInput);
+        const normalizedBaseStake = Number.isFinite(baseStake) && baseStake > 0 ? baseStake : Number(DEFAULT_STAKE);
+        nextStakeRef.current = normalizedBaseStake;
+        consecutiveLossRef.current = 0;
+        setCurrentStakeDisplay(normalizedBaseStake);
+        setConsecutiveLossDisplay(0);
+    }, [stakeInput]);
+
     const pushContract = useCallback(
         (data: any) => {
             try {
@@ -428,13 +590,28 @@ const Accumilatoirs = observer(() => {
         [run_panel, summary_card, transactions]
     );
 
-    const buildAccumulatorParameters = useCallback(() => {
+    const commitConsecutiveLossCountInput = useCallback(() => {
+        const normalizedLossCount = clampConsecutiveLossThreshold(consecutiveLossCountInput || 2);
+        setConsecutiveLossCount(normalizedLossCount);
+        setConsecutiveLossCountInput(String(normalizedLossCount));
+    }, [consecutiveLossCountInput]);
+
+    const handleConsecutiveLossCountInputChange = useCallback((value: string) => {
+        const digitsOnly = value.replace(/\D/g, '').slice(0, 2);
+        setConsecutiveLossCountInput(digitsOnly);
+        const numericValue = Number(digitsOnly);
+        if (Number.isFinite(numericValue) && numericValue >= 1 && numericValue <= 10) {
+            setConsecutiveLossCount(Math.trunc(numericValue));
+        }
+    }, []);
+
+    const buildAccumulatorParameters = useCallback((stakeAmount = Number(stakeInput)) => {
         const takeProfit = Number(autoCashout.takeProfit);
         const shouldUseServerTakeProfit =
             autoCashout.enabled && autoCashout.useServerTakeProfit && Number.isFinite(takeProfit) && takeProfit > 0;
 
         return {
-            amount: Number(stakeInput),
+            amount: stakeAmount,
             basis: 'stake',
             contract_type: 'ACCU',
             currency,
@@ -831,7 +1008,8 @@ const Accumilatoirs = observer(() => {
     );
 
     const executePurchase = useCallback(async () => {
-        if (!Number.isFinite(stake) || stake <= 0) {
+        const activeStake = Number(nextStakeRef.current);
+        if (!Number.isFinite(activeStake) || activeStake <= 0) {
             setError('Enter a valid stake before buying an accumulator.');
             return;
         }
@@ -843,14 +1021,15 @@ const Accumilatoirs = observer(() => {
 
         const tradeStartTime = Math.floor(Date.now() / 1000);
         const verificationId = `accu_${selectedSymbol}_${tradeStartTime}_${Math.random().toString(36).slice(2, 11)}`;
-        const parameters = buildAccumulatorParameters();
+        const parameters = buildAccumulatorParameters(activeStake);
 
         setError('');
-        setMessage('Buying accumulator...');
+        setMessage(`Buying accumulator with ${formatMoney(activeStake, currency)} stake...`);
         setIsPurchasing(true);
         setQueuedPurchase(false);
         setRoundStatus('running');
         queuedPurchaseRef.current = false;
+        setCurrentStakeDisplay(activeStake);
 
         try {
             run_panel.setIsRunning(true);
@@ -860,7 +1039,7 @@ const Accumilatoirs = observer(() => {
             run_panel.setHasOpenContract?.(true);
             dashboard.setActiveTradingModule('accumilatoirs');
 
-            const buy = await buyContractForUi({ parameters, price: stake, source: 'Accumilatoirs' });
+            const buy = await buyContractForUi({ parameters, price: activeStake, source: 'Accumilatoirs' });
             const buySnapshot = {
                 buy_price: buy.buy_price,
                 contract_id: buy.contract_id,
@@ -904,6 +1083,22 @@ const Accumilatoirs = observer(() => {
                 pushContract(settledContract);
                 const profit = Number(settledContract.profit ?? 0);
                 if (settledContract.is_sold) {
+                    const baseStake = Number(stakeInput);
+                    const multiplier = Number(martingale);
+                    const nextMartingaleState = getNextMartingaleState({
+                        profit,
+                        current_stake: activeStake,
+                        base_stake: Number.isFinite(baseStake) && baseStake > 0 ? baseStake : Number(DEFAULT_STAKE),
+                        multiplier: Number.isFinite(multiplier) && multiplier >= 1.01 ? multiplier : Number(DEFAULT_MARTINGALE),
+                        martingale_mode: martingaleModeRef.current,
+                        consecutive_losses: consecutiveLossRef.current,
+                        consecutive_loss_trigger: consecutiveLossCountRef.current,
+                    });
+                    nextStakeRef.current = nextMartingaleState.nextStake;
+                    consecutiveLossRef.current = nextMartingaleState.consecutiveLosses;
+                    setCurrentStakeDisplay(nextMartingaleState.nextStake);
+                    setConsecutiveLossDisplay(nextMartingaleState.consecutiveLosses);
+
                     const wasCashoutRequested = cashoutRequestedRef.current;
                     const takeProfit = Number(autoCashoutRef.current.takeProfit);
                     const wasTakeProfitClose =
@@ -960,7 +1155,8 @@ const Accumilatoirs = observer(() => {
         run_panel,
         selectedMarket?.label,
         selectedSymbol,
-        stake,
+        stakeInput,
+        martingale,
         displayReturnPercent,
         recordFlewAway,
     ]);
@@ -986,6 +1182,7 @@ const Accumilatoirs = observer(() => {
         autoTradeEnabledRef.current = false;
         queuedPurchaseRef.current = false;
         setError('');
+        resetMartingaleSequence();
 
         if (hasOpenContract) {
             await cashoutContract('Stop all trades cashout');
@@ -1000,12 +1197,13 @@ const Accumilatoirs = observer(() => {
         run_panel.setHasOpenContract?.(false);
         run_panel.setContractStage?.(contract_stages.NOT_RUNNING);
         setMessage('All accumulator auto trading has been stopped.');
-    }, [cashoutContract, cleanupContractStream, dashboard, hasOpenContract, run_panel]);
+    }, [cashoutContract, cleanupContractStream, dashboard, hasOpenContract, resetMartingaleSequence, run_panel]);
 
     const handleMarketChange = (symbol: string) => {
         setSelectedSymbol(symbol);
         setLatestTick(null);
         setTickHistory([]);
+        resetMartingaleSequence();
         setOutcomeHistory([]);
         setProposalHistoryMoves([]);
         setProposalSurvivedTicks(null);
@@ -1221,7 +1419,7 @@ const Accumilatoirs = observer(() => {
                             </div>
 
                             <div className='accumilatoirs-ticket__content'>
-                                <label className='accumilatoirs-field'>
+                                <label className='accumilatoirs-field accumilatoirs-field--market'>
                                     <span>Market</span>
                                     <select
                                         className='accumilatoirs-field__control'
@@ -1269,7 +1467,7 @@ const Accumilatoirs = observer(() => {
                                     </label>
                                 </div>
 
-                                <label className='accumilatoirs-field'>
+                                <label className='accumilatoirs-field accumilatoirs-field--take-profit'>
                                     <span>Take profit</span>
                                     <div className='accumilatoirs-inline-input'>
                                         <input
@@ -1289,6 +1487,57 @@ const Accumilatoirs = observer(() => {
                                         <span>{currency}</span>
                                     </div>
                                 </label>
+
+                                <div className='accumilatoirs-ticket__row accumilatoirs-ticket__row--martingale'>
+                                    <label className='accumilatoirs-field'>
+                                        <span>Martingale ×</span>
+                                        <input
+                                            className='accumilatoirs-field__control'
+                                            disabled={hasOpenContract || queuedPurchase}
+                                            inputMode='decimal'
+                                            min='1.01'
+                                            step='0.5'
+                                            type='number'
+                                            value={martingale}
+                                            onChange={event => setMartingale(cleanMoneyInput(event.target.value))}
+                                        />
+                                    </label>
+
+                                    <label className='accumilatoirs-field'>
+                                        <span>Martingale Strategy</span>
+                                        <select
+                                            className='accumilatoirs-field__control'
+                                            disabled={hasOpenContract || queuedPurchase}
+                                            value={martingaleMode}
+                                            onChange={event => setMartingaleMode(normalizeMartingaleMode(event.target.value))}
+                                        >
+                                            <option value='no_martingale'>No Martingale</option>
+                                            <option value='after_one_loss'>After 1 loss</option>
+                                            <option value='after_two_losses'>After 2 losses</option>
+                                            <option value='custom_consecutive_loss_trigger'>Custom loss count</option>
+                                        </select>
+                                    </label>
+                                </div>
+
+                                {martingaleMode === 'custom_consecutive_loss_trigger' && (
+                                    <label className='accumilatoirs-field accumilatoirs-field--martingale-threshold'>
+                                        <span>Consecutive losses before martingale</span>
+                                        <input
+                                            className='accumilatoirs-field__control'
+                                            disabled={hasOpenContract || queuedPurchase}
+                                            inputMode='numeric'
+                                            max='10'
+                                            min='1'
+                                            step='1'
+                                            type='number'
+                                            value={consecutiveLossCountInput}
+                                            onBlur={commitConsecutiveLossCountInput}
+                                            onChange={event =>
+                                                handleConsecutiveLossCountInputChange(event.target.value)
+                                            }
+                                        />
+                                    </label>
+                                )}
 
                                 <label
                                     className={classNames('accumilatoirs-check accumilatoirs-check--auto', {
@@ -1356,6 +1605,8 @@ const Accumilatoirs = observer(() => {
                                 </div>
                                 <div className='accumilatoirs-ticket__meta'>
                                     <span>{selectedMarket?.label}</span>
+                                    <span>Current stake {formatMoney(currentStakeDisplay, currency)}</span>
+                                    <span>Consecutive losses {consecutiveLossDisplay}</span>
                                     {hasProposalBarrierData ? <span>Spot {formatQuote(proposalPreview.spot)}</span> : null}
                                     {hasProposalBarrierData ? <span>Low barrier {formatQuote(proposalPreview.lowBarrier)}</span> : null}
                                     {hasProposalBarrierData ? <span>High barrier {formatQuote(proposalPreview.highBarrier)}</span> : null}
