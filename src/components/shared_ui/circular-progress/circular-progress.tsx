@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import { LegacyTimeIcon } from '@deriv/quill-icons';
+import { LegacyTimeIcon } from '@/components/shared_ui/figma-icons';
 
 type TCircularProgressProps = {
     className?: string;

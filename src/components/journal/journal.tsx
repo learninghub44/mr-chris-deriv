@@ -1,9 +1,10 @@
 import classnames from 'classnames';
 import { observer } from 'mobx-react-lite';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import Text from '@/components/shared_ui/text';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
-// import { DerivLightEmptyCardboardBoxIcon } from '@deriv/quill-icons';
+// import { DerivLightEmptyCardboardBoxIcon } from '@/components/shared_ui/figma-icons';
 import { Localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import DataList from '../data-list';
@@ -11,6 +12,7 @@ import { TCheckedFilters, TFilterMessageValues, TJournalDataListArgs } from './j
 import { JournalItem, JournalLoader, JournalTools } from './journal-components';
 
 const Journal = observer(() => {
+    const ReportsIcon = getAssetIconComponent('IcReports');
     const { journal, run_panel } = useStore();
     const {
         checked_filters,
@@ -58,7 +60,7 @@ const Journal = observer(() => {
                             <JournalLoader is_mobile={!isDesktop} />
                         ) : (
                             <div className='journal-empty'>
-                                <img src='/assets/icons/IcReports.svg' alt='' aria-hidden='true' height='64' width='64' />
+                                <ReportsIcon aria-hidden='true' iconSize='xl' />
                                 <Text
                                     as='h4'
                                     size='xs'

@@ -11,8 +11,8 @@ import { useStore } from '@/hooks/useStore';
 import {
     LabelPairedPageCircleArrowRightSmRegularIcon,
     LabelPairedTrashSmRegularIcon,
-} from '@deriv/quill-icons/LabelPaired';
-import { LegacyMenuDots1pxIcon, LegacySave1pxIcon } from '@deriv/quill-icons/Legacy';
+} from '@/components/shared_ui/figma-icons/LabelPaired';
+import { LegacyMenuDots1pxIcon, LegacySave1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { Localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */

@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite';
-import { LabelPairedSearchCaptionRegularIcon } from '@deriv/quill-icons/LabelPaired';
-import { LegacyCloseCircle1pxBlackIcon } from '@deriv/quill-icons/Legacy';
+import { LabelPairedSearchCaptionRegularIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
+import { LegacyCloseCircle1pxBlackIcon } from '@/components/shared_ui/figma-icons/Legacy';
 
 type TSearchIcon = {
     search: string;

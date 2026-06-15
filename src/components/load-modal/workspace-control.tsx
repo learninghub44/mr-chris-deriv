@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
-import { LabelPairedMinusCaptionRegularIcon, LabelPairedPlusCaptionRegularIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedMinusCaptionRegularIcon, LabelPairedPlusCaptionRegularIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 
 type TWorkspaceControlProps = {
     mockZoomInOut?: (is_zoom_in: boolean) => void;

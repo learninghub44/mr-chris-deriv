@@ -17,6 +17,13 @@ export type ApiTokenAccountDetails = {
     status: string;
 };
 
+const SCOPE_ALIAS_MAP: Record<string, ApiTokenScope[]> = {
+    account_manage: ['account_manage', 'read'],
+    read: ['read'],
+    trade: ['trade'],
+    trading_information: ['trading_information', 'read'],
+};
+
 export const normalizeApiTokenInput = (input: string): string => {
     const trimmed = input.trim();
     if (!trimmed) return '';
@@ -30,13 +37,41 @@ export const normalizeApiTokenInput = (input: string): string => {
     }
 };
 
+const normalizeScopeValue = (value: unknown) => {
+    const normalized = String(value ?? '')
+        .trim()
+        .toLowerCase();
+    if (!normalized) return '';
+
+    return normalized.replace(/^['"]|['"]$/g, '').replace(/^scope:/i, '').trim();
+};
+
 export const normalizeScopes = (scopes: unknown): ApiTokenScope[] => {
-    if (Array.isArray(scopes)) return scopes.map(scope => String(scope).trim()).filter(Boolean);
-    if (typeof scopes === 'string')
-        return scopes
-            .split(/\s+/)
-            .map(scope => scope.trim())
-            .filter(Boolean);
+    if (Array.isArray(scopes)) {
+        return scopes.flatMap(scope => normalizeScopes(scope));
+    }
+
+    if (typeof scopes === 'string') {
+        const trimmed = scopes.trim();
+        if (!trimmed) return [];
+
+        try {
+            const parsed = JSON.parse(trimmed);
+            return normalizeScopes(parsed);
+        } catch {
+            const normalizedValues = trimmed
+                .split(/[\s,;]+/)
+                .map(normalizeScopeValue)
+                .filter(Boolean);
+
+            return [...new Set(normalizedValues.flatMap(scope => SCOPE_ALIAS_MAP[scope] || [scope]))];
+        }
+    }
+
+    if (scopes && typeof scopes === 'object') {
+        return normalizeScopes((scopes as Record<string, unknown>).scopes ?? (scopes as Record<string, unknown>).scope);
+    }
+
     return [];
 };
 
@@ -62,7 +97,7 @@ export const completeApiTokenSession = ({
     loginid: string;
     token: string;
     currency?: string;
-    scopes: ApiTokenScope[];
+    scopes: unknown;
 }) => {
     const accountsList = { [loginid]: token };
     const clientAccounts = {
@@ -72,6 +107,7 @@ export const completeApiTokenSession = ({
             currency: currency || 'USD',
         },
     };
+    const normalizedScopes = normalizeScopes(scopes);
 
     localStorage.setItem(API_TOKEN_AUTH_METHOD_KEY, API_TOKEN_AUTH_METHOD);
     localStorage.setItem('active_loginid', loginid);
@@ -79,7 +115,7 @@ export const completeApiTokenSession = ({
     localStorage.setItem('accountsList', JSON.stringify(accountsList));
     localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
     localStorage.setItem('account_type', isDemoAccount(loginid) ? 'demo' : 'real');
-    localStorage.setItem(API_TOKEN_SCOPES_KEY, JSON.stringify(scopes));
+    localStorage.setItem(API_TOKEN_SCOPES_KEY, JSON.stringify(normalizedScopes));
     localStorage.removeItem(API_TOKEN_PENDING_KEY);
     localStorage.removeItem(API_TOKEN_LOGIN_ERROR_KEY);
 };
@@ -98,7 +134,7 @@ export const getPendingApiToken = () => localStorage.getItem(API_TOKEN_PENDING_K
 
 export const getApiTokenScopes = (): ApiTokenScope[] => {
     try {
-        return normalizeScopes(JSON.parse(localStorage.getItem(API_TOKEN_SCOPES_KEY) || '[]'));
+        return [...new Set(normalizeScopes(JSON.parse(localStorage.getItem(API_TOKEN_SCOPES_KEY) || '[]')))];
     } catch {
         return [];
     }
@@ -106,7 +142,13 @@ export const getApiTokenScopes = (): ApiTokenScope[] => {
 
 export const hasApiTokenScope = (scope: ApiTokenScope) => {
     if (!isApiTokenSession()) return true;
-    return getApiTokenScopes().includes(scope);
+    const scopes = getApiTokenScopes();
+
+    // Some branded sites return incomplete or legacy scope labels; let the API decide
+    // rather than blocking bot runs locally when we cannot prove the scope is missing.
+    if (!scopes.length) return true;
+
+    return scopes.includes(normalizeScopeValue(scope));
 };
 
 export const canAccessApiTokenBalance = () => hasApiTokenScope('read');

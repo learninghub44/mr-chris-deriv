@@ -1,6 +1,6 @@
 import React from 'react';
 import classNames from 'classnames';
-import { LabelPairedCheckCaptionFillIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedCheckCaptionFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import Text from '../text';
 
 type TCheckBoxProps = Omit<React.HTMLProps<HTMLInputElement>, 'value' | 'label'> & {

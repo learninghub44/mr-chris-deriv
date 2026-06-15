@@ -5,7 +5,7 @@ import ContractResultOverlay from '@/components/contract-result-overlay';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
-import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */

@@ -4,7 +4,7 @@ import Text from '@/components/shared_ui/text';
 import {
     LabelPairedCircleCheckMdRegularIcon,
     LabelPairedCircleXmarkMdRegularIcon,
-} from '@deriv/quill-icons/LabelPaired';
+} from '@/components/shared_ui/figma-icons/LabelPaired';
 import { Localize } from '@deriv-com/translations';
 
 type TContractResultOverlayProps = {

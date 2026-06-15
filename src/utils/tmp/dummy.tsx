@@ -1,4 +1,5 @@
-import { memo, SyntheticEvent } from 'react';
+import { memo, type ReactNode } from 'react';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 
 type TIconComponent = {
     icon: string;
@@ -12,21 +13,18 @@ type TIconComponent = {
 };
 
 const IconComponent: React.FC<TIconComponent> = ({ icon, ...rest }) => {
-    const onError = (e: SyntheticEvent<HTMLImageElement, Event>) => {
-        // eslint-disable-next-line no-console
-        (e.target as HTMLImageElement).src = '/assets/icons/IcDashboard.svg';
-    };
+    const AssetIcon = getAssetIconComponent(icon);
 
     return (
         <div className='dummy-icon' {...rest}>
-            <img src={`/assets/icons/${icon}.svg`} alt='' aria-hidden='true' onError={onError} />
+            <AssetIcon aria-hidden='true' iconSize='md' />
         </div>
     );
 };
 
 export const Icon = memo(IconComponent);
 
-export const IconTradeTypes = ({ children }) => {
+export const IconTradeTypes = ({ children }: { children: ReactNode }) => {
     // Simulate scrollbars
     return <div className='dummy-IconTradeTypes'>{children}</div>;
 };

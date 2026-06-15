@@ -5,7 +5,7 @@ import Button from '@/components/shared_ui/button';
 import Text from '@/components/shared_ui/text';
 import ThemedScrollbars from '@/components/shared_ui/themed-scrollbars';
 import { useStore } from '@/hooks/useStore';
-import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyClose1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { localize } from '@deriv-com/translations';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
 /* [/AI] */

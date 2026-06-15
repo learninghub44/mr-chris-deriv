@@ -9,6 +9,7 @@ import {
     canTradeWithApiToken,
     completeApiTokenSession,
     getApiTokenAccountDetails,
+    getApiTokenScopes,
     getPendingApiToken,
     normalizeApiTokenInput,
     normalizeScopes,
@@ -80,6 +81,34 @@ describe('api token permissions', () => {
 
     it('normalizes scope strings and arrays', () => {
         expect(normalizeScopes('read trade')).toEqual(['read', 'trade']);
+        expect(normalizeScopes('read,trade')).toEqual(['read', 'trade']);
         expect(normalizeScopes(['read', 'trade'])).toEqual(['read', 'trade']);
+    });
+
+    it('maps legacy scope labels to read access', () => {
+        expect(normalizeScopes('trading_information account_manage')).toEqual([
+            'trading_information',
+            'read',
+            'account_manage',
+        ]);
+    });
+
+    it('stores comma-separated scopes from token sessions', () => {
+        completeApiTokenSession({
+            loginid: 'CR12345',
+            token: 'abc123',
+            currency: 'USD',
+            scopes: 'read, trade',
+        } as any);
+
+        expect(getApiTokenScopes()).toEqual(['read', 'trade']);
+        expect(canTradeWithApiToken()).toBe(true);
+    });
+
+    it('does not block token sessions when no scopes were stored locally yet', () => {
+        localStorage.setItem(API_TOKEN_AUTH_METHOD_KEY, API_TOKEN_AUTH_METHOD);
+
+        expect(canAccessApiTokenBalance()).toBe(true);
+        expect(canTradeWithApiToken()).toBe(true);
     });
 });

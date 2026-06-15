@@ -1,5 +1,5 @@
 import React from 'react';
-import { StandaloneSortDownFillIcon, StandaloneSortUpFillIcon } from '@deriv/quill-icons';
+import { StandaloneSortDownFillIcon, StandaloneSortUpFillIcon } from '@/components/shared_ui/figma-icons';
 
 type TArrowIndicatorProps = {
     className?: string;

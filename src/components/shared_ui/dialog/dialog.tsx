@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import ReactDOM from 'react-dom';
 import { CSSTransition } from 'react-transition-group';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
-import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyClose1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { localize } from '@deriv-com/translations';
 import Button from '../button';
 import Text from '../text';

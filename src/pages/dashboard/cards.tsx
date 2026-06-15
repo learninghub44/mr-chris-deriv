@@ -8,6 +8,7 @@ import Dialog from '@/components/shared_ui/dialog';
 import MobileFullPageModal from '@/components/shared_ui/mobile-full-page-modal';
 import Text from '@/components/shared_ui/text';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import { useStore } from '@/hooks/useStore';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
@@ -28,30 +29,13 @@ type TCardArray = {
     callback: () => void;
 };
 
-const getAssetUrl = (path: string) => `${window.__webpack_public_path__}${path.replace(/^\//, '')}`;
-
 const DashboardActionIcon = ({ name, alt }: { name: string; alt: string }) => {
-    const [has_load_error, setHasLoadError] = React.useState(false);
-
-    if (has_load_error) {
-        return (
-            <img
-                className='tab__dashboard__table__icon'
-                src={getAssetUrl('/assets/icons/IcDashboard.svg')}
-                alt=''
-                aria-label={alt}
-            />
-        );
-    }
+    const AssetIcon = getAssetIconComponent(name);
 
     return (
-        <img
-            className='tab__dashboard__table__icon'
-            src={getAssetUrl(`/assets/icons/${name}.svg`)}
-            alt=''
-            aria-label={alt}
-            onError={() => setHasLoadError(true)}
-        />
+        <div className='tab__dashboard__table__icon' aria-label={alt}>
+            <AssetIcon aria-hidden='true' iconSize='lg' />
+        </div>
     );
 };
 

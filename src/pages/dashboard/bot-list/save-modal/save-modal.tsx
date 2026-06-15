@@ -11,6 +11,7 @@ import RadioGroup from '@/components/shared_ui/radio-group';
 import Text from '@/components/shared_ui/text';
 import ThemedScrollbars from '@/components/shared_ui/themed-scrollbars';
 import { config, save_types } from '@/external/bot-skeleton';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
@@ -56,6 +57,8 @@ const SaveModalForm: React.FC<TSaveModalForm> = ({
         onSubmit={onConfirmSave}
     >
         {({ values: { is_local }, setFieldValue, touched, errors }) => {
+            const MyComputerIcon = getAssetIconComponent('IcMyComputer');
+            const GoogleDriveIcon = getAssetIconComponent('IcGoogleDriveDbot');
             const content_height = !is_mobile ? '500px' : `calc(100%)`;
             return (
                 <ThemedScrollbars height={content_height} autohide>
@@ -99,15 +102,7 @@ const SaveModalForm: React.FC<TSaveModalForm> = ({
                                         label={
                                             <IconRadio
                                                 text={localize('Local')}
-                                                icon={
-                                                    <img
-                                                        src='/assets/icons/IcMyComputer.svg'
-                                                        alt=''
-                                                        aria-hidden='true'
-                                                        height='48'
-                                                        width='48'
-                                                    />
-                                                }
+                                                icon={<MyComputerIcon aria-hidden='true' iconSize='xl' />}
                                             />
                                         }
                                         value={save_types.LOCAL}
@@ -117,15 +112,7 @@ const SaveModalForm: React.FC<TSaveModalForm> = ({
                                         label={
                                             <IconRadio
                                                 text={'Google Drive'}
-                                                icon={
-                                                    <img
-                                                        src='/assets/icons/IcGoogleDriveDbot.svg'
-                                                        alt=''
-                                                        aria-hidden='true'
-                                                        height='48'
-                                                        width='48'
-                                                    />
-                                                }
+                                                icon={<GoogleDriveIcon aria-hidden='true' iconSize='xl' />}
                                                 google_drive_connected={is_authorised}
                                                 onDriveConnect={onDriveConnect}
                                             />

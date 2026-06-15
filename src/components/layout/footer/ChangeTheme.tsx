@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import useThemeSwitcher from '@/hooks/useThemeSwitcher';
-import { LegacyThemeDarkIcon, LegacyThemeLightIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyThemeDarkIcon, LegacyThemeLightIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { useTranslations } from '@deriv-com/translations';
 import { Tooltip } from '@deriv-com/ui';
 

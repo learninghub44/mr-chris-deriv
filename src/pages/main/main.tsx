@@ -38,7 +38,7 @@ import {
     LabelPairedPlaceholderCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
     LabelPairedSearchCaptionRegularIcon,
-} from '@deriv/quill-icons/LabelPaired';
+} from '@/components/shared_ui/figma-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';

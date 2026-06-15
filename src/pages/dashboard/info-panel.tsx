@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import Modal from '@/components/shared_ui/modal';
 import Text from '@/components/shared_ui/text';
 import { useStore } from '@/hooks/useStore';
-import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyClose1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { useDevice } from '@deriv-com/ui';
 import { SIDEBAR_INTRO } from './constants';
 

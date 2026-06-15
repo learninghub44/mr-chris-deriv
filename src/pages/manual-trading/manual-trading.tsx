@@ -16,6 +16,7 @@ import {
 import { getLastDigitFromQuote, isExpectedStreamInterruption } from '@/utils/market-data';
 import { buyContractForUi, streamContractUntilSettled } from '@/utils/trade-purchase';
 import { safeSubscribe } from '@/utils/websocket-handler';
+import { getMartingaleStakeForRun, type ManualMartingaleMode } from './martingale-utils';
 
 type TManualMarket = {
     label: string;
@@ -126,6 +127,12 @@ const clampRunCount = (value: number) => {
     if (!Number.isFinite(value)) return 1;
 
     return Math.min(100, Math.max(1, Math.round(value)));
+};
+
+const clampMartingaleThreshold = (value: number) => {
+    if (!Number.isFinite(value)) return 2;
+
+    return Math.min(10, Math.max(1, Math.round(value)));
 };
 
 const createEmptyStats = (): TDigitStat[] =>
@@ -307,6 +314,11 @@ const ManualTrading = observer(() => {
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [tradeMessage, setTradeMessage] = useState('');
     const [tradeError, setTradeError] = useState('');
+    const [martingaleMode, setMartingaleMode] = useState<ManualMartingaleMode>('after_one_loss');
+    const [martingaleMultiplierInput, setMartingaleMultiplierInput] = useState('2');
+    const [consecutiveLossCount, setConsecutiveLossCount] = useState(2);
+    const [consecutiveLossCountInput, setConsecutiveLossCountInput] = useState('2');
+    const [currentLossStreak, setCurrentLossStreak] = useState(0);
     const [proposalPreviews, setProposalPreviews] = useState<Record<string, TProposalPreview>>({});
     const [isProposalLoading, setIsProposalLoading] = useState(false);
     const [proposalRefreshKey, setProposalRefreshKey] = useState(0);
@@ -730,8 +742,8 @@ const ManualTrading = observer(() => {
     }, [activeTickCount, clearStrategyMonitorSubscriptions, showManualTrading]);
 
     const buildTradeParameters = useCallback(
-        (contractType: TManualTradeAction['contractType']) => {
-            const stake = Number(stakeInput);
+        (contractType: TManualTradeAction['contractType'], stakeOverride?: number) => {
+            const stake = Number(stakeOverride ?? stakeInput);
             const duration = clampDuration(Number(durationInput));
             const loadedStrategy = loadedSignalRef.current ? DIGIT_STRATEGIES[loadedSignalRef.current.strategyId] : null;
             const barrierValue =
@@ -901,6 +913,31 @@ const ManualTrading = observer(() => {
         setStakeInput(cleaned);
     };
 
+    const handleMartingaleMultiplierChange = (value: string) => {
+        const cleaned = value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+        setMartingaleMultiplierInput(cleaned);
+    };
+
+    const handleMartingaleMultiplierBlur = () => {
+        const nextMultiplier = Number(martingaleMultiplierInput);
+        const normalizedMultiplier = Number.isFinite(nextMultiplier) && nextMultiplier > 1 ? nextMultiplier : 2;
+        setMartingaleMultiplierInput(String(normalizedMultiplier));
+    };
+
+    const handleMartingaleModeChange = (value: ManualMartingaleMode) => {
+        setMartingaleMode(value);
+    };
+
+    const handleConsecutiveLossCountChange = (value: string) => {
+        setConsecutiveLossCountInput(value.replace(/\D/g, ''));
+    };
+
+    const handleConsecutiveLossCountBlur = () => {
+        const nextThreshold = clampMartingaleThreshold(Number(consecutiveLossCountInput));
+        setConsecutiveLossCount(nextThreshold);
+        setConsecutiveLossCountInput(String(nextThreshold));
+    };
+
     const handleLoadSignalMarket = useCallback(
         (signal: TMarketStrategyState) => {
             const strategy = DIGIT_STRATEGIES[signal.strategyId];
@@ -954,22 +991,32 @@ const ManualTrading = observer(() => {
         setIsPurchasing(true);
         stopRequestedRef.current = false;
 
-        const parameters = buildTradeParameters(action.contractType);
-
         try {
             let totalProfit = 0;
+            let activeLossStreak = currentLossStreak;
 
             for (let runIndex = 1; runIndex <= runCount; runIndex++) {
                 if (stopRequestedRef.current) {
                     break;
                 }
-                setTradeMessage(`Buying ${action.label} contract ${runIndex} of ${runCount}...`);
+
+                const effectiveStake = getMartingaleStakeForRun({
+                    stake,
+                    currentLossStreak: activeLossStreak,
+                    martingaleMultiplier: Number(martingaleMultiplierInput),
+                    martingaleMode,
+                    consecutiveLossCount,
+                });
+                const parameters = buildTradeParameters(action.contractType, effectiveStake);
+                setTradeMessage(
+                    `Buying ${action.label} contract ${runIndex} of ${runCount} at ${effectiveStake.toFixed(2)} ${currency}...`
+                );
                 const tradeStartTime = Math.floor(Date.now() / 1000);
                 const verificationId = `manual_${selectedSymbol}_${tradeStartTime}_${runIndex}_${Math.random()
                     .toString(36)
                     .slice(2, 11)}`;
                 const fallbackContract = {
-                    buy_price: stake,
+                    buy_price: effectiveStake,
                     date_start: tradeStartTime,
                     display_name: selectedMarket.label,
                     underlying_symbol: selectedSymbol,
@@ -978,7 +1025,7 @@ const ManualTrading = observer(() => {
                     currency,
                     verification_id: verificationId,
                 };
-                const buy = await buyContractForUi({ parameters, price: stake, source: 'ManualTrading' });
+                const buy = await buyContractForUi({ parameters, price: effectiveStake, source: 'ManualTrading' });
                 const buySnapshot = {
                     ...fallbackContract,
                     buy_price: buy.buy_price,
@@ -996,6 +1043,8 @@ const ManualTrading = observer(() => {
                 });
                 const profit = Number(settledContract.profit ?? 0);
                 totalProfit = Number((totalProfit + profit).toFixed(8));
+                activeLossStreak = profit < 0 ? activeLossStreak + 1 : 0;
+                setCurrentLossStreak(activeLossStreak);
                 if (stopRequestedRef.current && runIndex < runCount) {
                     setTradeMessage(
                         `${action.label} stopped after run ${runIndex}. Total P/L: ${totalProfit.toFixed(2)} ${currency}`
@@ -1023,7 +1072,11 @@ const ManualTrading = observer(() => {
         }
     }, [
         buildTradeParameters,
+        consecutiveLossCount,
         currency,
+        currentLossStreak,
+        martingaleMode,
+        martingaleMultiplierInput,
         pushContract,
         runCountInput,
         selectedMarket.label,
@@ -1222,6 +1275,68 @@ const ManualTrading = observer(() => {
                             <span>runs</span>
                         </div>
                     </label>
+                </div>
+
+                <div className='manual-trading-ticket__inputs'>
+                    <label className='manual-trading-field'>
+                        <span>Martingale</span>
+                        <select
+                            aria-label='Martingale mode'
+                            className='manual-trading-field__control'
+                            value={martingaleMode}
+                            onChange={event => handleMartingaleModeChange(event.target.value as ManualMartingaleMode)}
+                        >
+                            <option value='no_martingale'>No martingale</option>
+                            <option value='after_one_loss'>After 1 loss</option>
+                            <option value='after_two_losses'>After 2 losses</option>
+                            <option value='custom_consecutive_loss_trigger'>Custom threshold</option>
+                        </select>
+                    </label>
+                    <label className='manual-trading-field'>
+                        <span>Multiplier</span>
+                        <div className='manual-trading-inline-input'>
+                            <input
+                                aria-label='Martingale multiplier'
+                                className='manual-trading-field__control'
+                                inputMode='decimal'
+                                value={martingaleMultiplierInput}
+                                onBlur={handleMartingaleMultiplierBlur}
+                                onChange={event => handleMartingaleMultiplierChange(event.target.value)}
+                            />
+                            <span>x</span>
+                        </div>
+                    </label>
+                    {martingaleMode === 'custom_consecutive_loss_trigger' && (
+                        <label className='manual-trading-field'>
+                            <span>Losses before raise</span>
+                            <div className='manual-trading-inline-input'>
+                                <input
+                                    aria-label='Consecutive losses before martingale'
+                                    className='manual-trading-field__control'
+                                    inputMode='numeric'
+                                    value={consecutiveLossCountInput}
+                                    onBlur={handleConsecutiveLossCountBlur}
+                                    onChange={event => handleConsecutiveLossCountChange(event.target.value)}
+                                />
+                                <span>losses</span>
+                            </div>
+                        </label>
+                    )}
+                </div>
+
+                <div className='manual-trading-ticket__message'>
+                    <span>Loss streak: {currentLossStreak}</span>
+                    <span>
+                        Next stake:{' '}
+                        {getMartingaleStakeForRun({
+                            stake: Number(stakeInput) || 0,
+                            currentLossStreak,
+                            martingaleMultiplier: Number(martingaleMultiplierInput) || 2,
+                            martingaleMode,
+                            consecutiveLossCount,
+                        }).toFixed(2)}{' '}
+                        {currency}
+                    </span>
                 </div>
 
                 <div className='manual-trading-actions'>

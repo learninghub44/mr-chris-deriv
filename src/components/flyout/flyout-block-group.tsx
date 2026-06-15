@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import { browserOptimizer } from '@/utils/browser-performance-optimizer';
 import { clickRateLimiter } from '@/utils/click-rate-limiter';
-import { LabelPairedPlusLgFillIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedPlusLgFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import { Localize } from '@deriv-com/translations';
 import Button from '../shared_ui/button';
 import Text from '../shared_ui/text';

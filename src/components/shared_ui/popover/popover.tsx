@@ -5,8 +5,8 @@ import { useHover, useHoverCallback } from '@/hooks/useHover';
 import {
     LabelPairedCircleDotCaptionFillIcon,
     LabelPairedCircleInfoCaptionRegularIcon,
-} from '@deriv/quill-icons/LabelPaired';
-import { LegacyWarningIcon } from '@deriv/quill-icons/Legacy';
+} from '@/components/shared_ui/figma-icons/LabelPaired';
+import { LegacyWarningIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { useDevice } from '@deriv-com/ui';
 import Text from '../text';
 import { TPopoverProps } from '../types';

@@ -2,7 +2,7 @@ import { getImageLocation } from '../../../public-path';
 import React from 'react';
 import Text from '@/components/shared_ui/text';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
-import { LabelPairedCircleCheckMdFillIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedCircleCheckMdFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
 import TourSteps from './common/tour-steps';
 

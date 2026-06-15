@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { useStore } from '@/hooks/useStore';
-import { LabelPairedChevronDownMdFillIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedChevronDownMdFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */

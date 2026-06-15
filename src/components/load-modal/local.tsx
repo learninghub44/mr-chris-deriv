@@ -2,9 +2,10 @@ import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Button from '@/components/shared_ui/button';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
-import { LegacyClose1pxIcon, LegacyInfo1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyClose1pxIcon, LegacyInfo1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { botNotification } from '../bot-notification/bot-notification';
@@ -14,6 +15,7 @@ import SectionMessage from './section-message';
 import WorkspaceControl from './workspace-control';
 
 const LocalComponent = observer(() => {
+    const MyComputerIcon = getAssetIconComponent('IcMyComputer');
     const { dashboard, load_modal, blockly_store } = useStore();
     const { active_tab, active_tour } = dashboard;
     const { handleFileChange, loaded_local_file, setLoadedLocalFile, imported_strategy_type, is_open_button_loading } =
@@ -105,10 +107,10 @@ const LocalComponent = observer(() => {
                     }}
                 >
                     {!isDesktop ? (
-                        <img src='/assets/icons/IcMyComputer.svg' alt='' aria-hidden='true' height='96' width='96' />
+                        <MyComputerIcon aria-hidden='true' iconSize='xl' />
                     ) : (
                         <React.Fragment>
-                            <img src='/assets/icons/IcMyComputer.svg' alt='' aria-hidden='true' height='128' width='128' />
+                            <MyComputerIcon aria-hidden='true' iconSize='xl' />
                             <div className='load-strategy__local-title'>
                                 <Localize i18n_default_text='Drag your XML file here' />
                             </div>

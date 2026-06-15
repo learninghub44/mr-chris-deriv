@@ -12,7 +12,7 @@ import {
     LabelPairedMagnifyingGlassMinusMdRegularIcon,
     LabelPairedMagnifyingGlassPlusMdRegularIcon,
     LabelPairedObjectsAlignLeftMdRegularIcon,
-} from '@deriv/quill-icons/LabelPaired';
+} from '@/components/shared_ui/figma-icons/LabelPaired';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */

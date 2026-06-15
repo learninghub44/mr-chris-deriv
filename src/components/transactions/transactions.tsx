@@ -4,12 +4,13 @@ import { observer } from 'mobx-react-lite';
 import Download from '@/components/download';
 import Button from '@/components/shared_ui/button';
 import DataList from '@/components/shared_ui/data-list';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import Text from '@/components/shared_ui/text';
 import { TContractInfo } from '@/components/summary/summary-card.types';
 import { contract_stages } from '@/constants/contract-stage';
 import { transaction_elements } from '@/constants/transactions';
 import { useStore } from '@/hooks/useStore';
-// import { DerivLightEmptyCardboardBoxIcon } from '@deriv/quill-icons';
+// import { DerivLightEmptyCardboardBoxIcon } from '@/components/shared_ui/figma-icons';
 import { Localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import ThemedScrollbars from '../shared_ui/themed-scrollbars';
@@ -54,6 +55,7 @@ const TransactionItem = ({ row = false, onClickTransaction, active_transaction_i
 };
 
 const Transactions = observer(({ is_drawer_open }: TTransactions) => {
+    const ReportsIcon = getAssetIconComponent('IcReports');
     const [active_transaction_id, setActiveTransactionId] = React.useState<number | null>(null);
     const { run_panel, transactions } = useStore();
     const { contract_stage } = run_panel;
@@ -182,13 +184,7 @@ const Transactions = observer(({ is_drawer_open }: TTransactions) => {
                                     <div className='transactions-empty-box'>
                                         <div className='transactions-empty'>
                                             <div className='transactions-empty__icon-box'>
-                                                <img
-                                                    src='/assets/icons/IcReports.svg'
-                                                    alt=''
-                                                    aria-hidden='true'
-                                                    height='64'
-                                                    width='64'
-                                                />
+                                                <ReportsIcon aria-hidden='true' iconSize='xl' />
                                             </div>
                                             <Text
                                                 as='h4'

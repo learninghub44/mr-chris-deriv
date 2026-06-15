@@ -1,7 +1,7 @@
 // Removed unused React import - React 17+ JSX transform doesn't require it
 import Dialog from '@/components/shared_ui/dialog';
 import Text from '@/components/shared_ui/text';
-import { LabelPairedCheckCaptionFillIcon } from '@deriv/quill-icons';
+import { LabelPairedCheckCaptionFillIcon } from '@/components/shared_ui/figma-icons';
 // Removed import for rudderStackSendCloseEvent as per V2 requirements - no close events needed
 import { IconAnnounceModal } from './announcement-components';
 import { TAnnounce, TContentItem } from './config';

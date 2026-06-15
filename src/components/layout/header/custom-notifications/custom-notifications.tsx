@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { LegacyNotificationIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyNotificationIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { useTranslations } from '@deriv-com/translations';
 import { Notifications, Tooltip, useDevice } from '@deriv-com/ui';
 import './custom-notifications.scss';

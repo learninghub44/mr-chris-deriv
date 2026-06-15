@@ -7,7 +7,7 @@ import { popover_zindex } from '@/constants/z-indexes';
 import { getContractTypeName } from '@/external/bot-skeleton';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
 import { getSymbolDisplayNameSync } from '@/utils/symbol-display-name';
-import { LegacyRadioOffIcon, LegacyRadioOnIcon } from '@deriv/quill-icons';
+import { LegacyRadioOffIcon, LegacyRadioOnIcon } from '@/components/shared_ui/figma-icons';
 import { Localize, localize } from '@deriv-com/translations';
 import { MarketIcon } from '../market/market-icon';
 import { convertDateFormat } from '../shared';

@@ -1,6 +1,6 @@
 import { standalone_routes } from '@/components/shared/utils/routes/routes';
 import { generateUrlWithRedirect } from '@/utils/url-redirect-utils';
-import { LegacyOpenPositionIcon, LegacyProfitTableIcon, LegacyStatementIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyOpenPositionIcon, LegacyProfitTableIcon, LegacyStatementIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { useTranslations } from '@deriv-com/translations';
 import { MenuItem, Text } from '@deriv-com/ui';
 

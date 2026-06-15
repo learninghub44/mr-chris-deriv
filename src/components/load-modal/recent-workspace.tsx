@@ -1,10 +1,11 @@
 import React from 'react';
 import classnames from 'classnames';
 import { observer } from 'mobx-react-lite';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import { timeSince } from '@/external/bot-skeleton';
 import { save_types } from '@/external/bot-skeleton/constants/save-type';
 import { useStore } from '@/hooks/useStore';
-import { LegacyReportsIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyReportsIcon } from '@/components/shared_ui/figma-icons/Legacy';
 
 type TRecentWorkspaceProps = {
     workspace: { [key: string]: any };
@@ -15,6 +16,9 @@ type TIcons = {
 
 //export const getRecentFileIcon = (save_type: string, class_name: string = ''): React.ReactElement => {
 export const getRecentFileIcon = (save_type: string): React.ReactElement => {
+    const MyComputerIcon = getAssetIconComponent('IcMyComputer');
+    const GoogleDriveIcon = getAssetIconComponent('IcGoogleDriveDbot');
+
     if (!save_type && typeof save_type !== 'string')
         return <LegacyReportsIcon iconSize='xs' fill='var(--text-general)' />;
 
@@ -22,10 +26,8 @@ export const getRecentFileIcon = (save_type: string): React.ReactElement => {
         [save_types.UNSAVED]: (
             <LegacyReportsIcon iconSize='xs' fill='var(--text-general)' className='icon-general-fill-g-path' />
         ),
-        [save_types.LOCAL]: <img src='/assets/icons/IcMyComputer.svg' alt='' aria-hidden='true' height='16' width='16' />,
-        [save_types.GOOGLE_DRIVE]: (
-            <img src='/assets/icons/IcGoogleDriveDbot.svg' alt='' aria-hidden='true' height='16' width='16' />
-        ),
+        [save_types.LOCAL]: <MyComputerIcon aria-hidden='true' iconSize='xs' />,
+        [save_types.GOOGLE_DRIVE]: <GoogleDriveIcon aria-hidden='true' iconSize='xs' />,
     };
     return icons[save_type as string] as React.ReactElement;
 };

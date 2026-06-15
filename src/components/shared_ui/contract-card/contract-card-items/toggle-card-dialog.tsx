@@ -1,7 +1,7 @@
 /* eslint-disable no-unsafe-optional-chaining */
 import React from 'react';
 import { isDesktop, isMobile } from '@/components/shared';
-import { LegacyEdit1pxIcon } from '@deriv/quill-icons';
+import { LegacyEdit1pxIcon } from '@/components/shared_ui/figma-icons';
 import DesktopWrapper from '../../desktop-wrapper';
 import Div100vhContainer from '../../div100vh-container';
 import MobileDialog from '../../mobile-dialog';

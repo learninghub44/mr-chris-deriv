@@ -1,7 +1,7 @@
 // Updated to show brand logo instead of "Menu" text
 import { ComponentProps } from 'react';
 import { BrandLogo } from '@/components/layout/app-logo/BrandLogo';
-import { LabelPairedGlobeSmRegularIcon } from '@deriv/quill-icons';
+import { LabelPairedGlobeSmRegularIcon } from '@/components/shared_ui/figma-icons';
 import { useTranslations } from '@deriv-com/translations';
 import { Text, useDevice } from '@deriv-com/ui';
 

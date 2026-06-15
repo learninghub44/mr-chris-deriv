@@ -1,4 +1,4 @@
-import { LegacyChevronLeft1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyChevronLeft1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { Text, useDevice } from '@deriv-com/ui';
 
 type TBackButton = {

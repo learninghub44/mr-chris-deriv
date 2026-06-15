@@ -1,5 +1,5 @@
 import useFullScreen from '@/hooks/useFullScreen';
-import { LegacyFullscreen1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyFullscreen1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { useTranslations } from '@deriv-com/translations';
 import { Tooltip } from '@deriv-com/ui';
 

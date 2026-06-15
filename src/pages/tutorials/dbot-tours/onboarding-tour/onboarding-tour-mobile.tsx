@@ -6,7 +6,7 @@ import Text from '@/components/shared_ui/text';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { getSetting } from '@/utils/settings';
-import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyClose1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { localize } from '@deriv-com/translations';
 import TourButton from '../common/tour-button';
 import { DBOT_ONBOARDING_MOBILE, TMobileTourConfig } from '../tour-content';

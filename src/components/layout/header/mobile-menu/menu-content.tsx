@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
-import { LegacyChevronRight1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyChevronRight1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { MenuItem, Text, useDevice } from '@deriv-com/ui';
 import useMobileMenuConfig from './use-mobile-menu-config';
 

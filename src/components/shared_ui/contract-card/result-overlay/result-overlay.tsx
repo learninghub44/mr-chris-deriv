@@ -2,7 +2,7 @@ import React from 'react';
 import classNames from 'classnames';
 import { NavLink } from 'react-router-dom';
 import { CSSTransition } from 'react-transition-group';
-import { StandaloneFlagCheckeredFillIcon } from '@deriv/quill-icons';
+import { StandaloneFlagCheckeredFillIcon } from '@/components/shared_ui/figma-icons';
 import Money from '../../money';
 import Text from '../../text';
 import { TGetCardLables, TGetContractPath } from '../../types';

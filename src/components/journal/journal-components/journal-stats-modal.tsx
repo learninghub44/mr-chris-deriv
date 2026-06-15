@@ -3,7 +3,7 @@ import StreamIframe from '@/components/shared/stream-iframe/stream-iframe';
 import Modal from '@/components/shared_ui/modal';
 import Text from '@/components/shared_ui/text/text';
 import { getJournalStatsVideoId } from '@/constants/video-config';
-import { LegacyInfo1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyInfo1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import './journal-stats-modal.scss';

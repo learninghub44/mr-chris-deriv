@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccountsDerivAccountLightIcon } from '@deriv/quill-icons';
+import { AccountsDerivAccountLightIcon } from '@/components/shared_ui/figma-icons';
 import { useDevice } from '@deriv-com/ui';
 import { WalletIcon } from '../wallet-icon';
 import './app-linked-with-wallet-icon.scss';

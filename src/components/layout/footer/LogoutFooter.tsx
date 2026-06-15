@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { useLogout } from '@/hooks/useLogout';
-import { LegacyLogout1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyLogout1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { localize } from '@deriv-com/translations';
 import { Tooltip } from '@deriv-com/ui';
 

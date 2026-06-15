@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyClose1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import {
     calculateHeight,
     calculateWidth,

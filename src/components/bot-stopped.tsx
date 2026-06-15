@@ -4,7 +4,7 @@ import Text from '@/components/shared_ui/text';
 import { useStore } from '@/hooks/useStore';
 import { navigateToUrl, reloadPage } from '@/utils/navigation-utils';
 import { generateUrlWithRedirect } from '@/utils/url-redirect-utils';
-import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyClose1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
 import Dialog from './shared_ui/dialog';
 import { standalone_routes } from './shared';

@@ -1,11 +1,11 @@
 import { ReactNode } from 'react';
 import { standalone_routes } from '@/components/shared/utils/routes/routes';
-import { LegacyHomeNewIcon as TradershubLogo } from '@deriv/quill-icons/Legacy';
+import { LegacyHomeNewIcon as TradershubLogo } from '@/components/shared_ui/figma-icons/Legacy';
 import {
     DerivProductBrandLightDerivBotLogoWordmarkIcon as DerivBotLogo,
     DerivProductBrandLightDerivTraderLogoWordmarkIcon as DerivTraderLogo,
     PartnersProductBrandLightSmarttraderLogoWordmarkIcon as SmarttraderLogo,
-} from '@deriv/quill-icons/Logo';
+} from '@/components/shared_ui/figma-icons/Logo';
 import { localize } from '@deriv-com/translations';
 
 export type PlatformsConfig = {

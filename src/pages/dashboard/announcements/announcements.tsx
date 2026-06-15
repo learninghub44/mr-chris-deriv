@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useNavigate } from 'react-router-dom';
 import Text from '@/components/shared_ui/text';
 import { useStore } from '@/hooks/useStore';
-import { StandaloneBullhornRegularIcon } from '@deriv/quill-icons';
+import { StandaloneBullhornRegularIcon } from '@/components/shared_ui/figma-icons';
 import { localize } from '@deriv-com/translations';
 import { Notifications as Announcement } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */

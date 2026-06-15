@@ -2,8 +2,8 @@ import React, { MouseEventHandler } from 'react';
 import classNames from 'classnames';
 import ReactDOM from 'react-dom';
 import { CSSTransition } from 'react-transition-group';
-import { LabelPairedArrowLeftCaptionFillIcon } from '@deriv/quill-icons/LabelPaired';
-import { LegacyClose1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LabelPairedArrowLeftCaptionFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
+import { LegacyClose1pxIcon } from '@/components/shared_ui/figma-icons/Legacy';
 
 type TPageOverlay = {
     header?: React.ReactNode;

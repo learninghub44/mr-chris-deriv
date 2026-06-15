@@ -1,5 +1,5 @@
 import Text from '@/components/shared_ui/text';
-import { LabelPairedGlobeSmRegularIcon } from '@deriv/quill-icons';
+import { LabelPairedGlobeSmRegularIcon } from '@/components/shared_ui/figma-icons';
 import { useTranslations } from '@deriv-com/translations';
 import { Tooltip } from '@deriv-com/ui';
 

@@ -2,7 +2,7 @@ import React from 'react';
 import classNames from 'classnames';
 import { useHover } from '@/hooks/useHover';
 import { Icon } from '@/utils/tmp/dummy';
-import { LabelPairedCircleInfoCaptionRegularIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedCircleInfoCaptionRegularIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 
 type TTooltip = {
     alignment: string;

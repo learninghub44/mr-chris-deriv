@@ -2,6 +2,7 @@ import React from 'react';
 import classnames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Button from '@/components/shared_ui/button';
+import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import StaticUrl from '@/components/shared_ui/static-url';
 import { useStore } from '@/hooks/useStore';
 import { Localize } from '@deriv-com/translations';
@@ -11,22 +12,15 @@ import { useDevice } from '@deriv-com/ui';
 import './google-drive.scss';
 
 const GoogleDrive: React.FC = observer(() => {
+    const GoogleDriveIcon = getAssetIconComponent('IcGoogleDriveDbot');
     const { google_drive, load_modal } = useStore();
     const { is_authorised, signIn, signOut } = google_drive;
     const { is_open_button_loading, onDriveOpen } = load_modal;
     const { isDesktop } = useDevice();
-    const icon_size = isDesktop ? '128' : '96';
-
     return (
         <div className='load-strategy__container' data-testid='dt_google_drive'>
             <div className='load-strategy__google-drive'>
-                <img
-                    src='/assets/icons/IcGoogleDriveDbot.svg'
-                    alt=''
-                    aria-hidden='true'
-                    height={icon_size}
-                    width={icon_size}
-                />
+                <GoogleDriveIcon aria-hidden='true' iconSize={isDesktop ? 'xl' : 'lg'} />
                 <div className='load-strategy__google-drive-connected-text'>
                     {is_authorised ? (
                         <Localize i18n_default_text='You are connected to Google Drive' />

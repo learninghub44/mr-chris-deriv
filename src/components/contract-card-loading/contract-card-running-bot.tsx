@@ -1,5 +1,5 @@
 import Text from '@/components/shared_ui/text';
-import { LabelPairedLoaderMdBoldIcon } from '@deriv/quill-icons/LabelPaired';
+import { LabelPairedLoaderMdBoldIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import { localize } from '@deriv-com/translations';
 import './contract-card-loading.scss';
 
