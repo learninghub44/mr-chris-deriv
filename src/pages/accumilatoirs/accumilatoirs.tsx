@@ -42,7 +42,7 @@ type TProposalPreview = {
 
 type TAutoCashoutSettings = {
     enabled: boolean;
-    takeProfit: string;
+    takeProfitPercent: string;
     useServerTakeProfit: boolean;
 };
 
@@ -66,7 +66,7 @@ const GROWTH_RATES = [
 ];
 
 const DEFAULT_STAKE = '1';
-const DEFAULT_TAKE_PROFIT = '1';
+const DEFAULT_TAKE_PROFIT_PERCENT = '100';
 const DEFAULT_MARTINGALE = '2';
 const PROPOSAL_REFRESH_MS = 500;
 const INITIAL_RETURN_PERCENT = 0;
@@ -80,6 +80,14 @@ const formatMoney = (value: unknown, currency = 'USD') => {
     if (!Number.isFinite(amount)) return `0.00 ${currency}`;
 
     return `${amount.toFixed(2)} ${currency}`;
+};
+
+const getTakeProfitAmountFromPercent = (stakeAmount: unknown, takeProfitPercent: unknown) => {
+    const stake = Number(stakeAmount);
+    const percent = Number(takeProfitPercent);
+    if (!Number.isFinite(stake) || stake <= 0 || !Number.isFinite(percent) || percent <= 0) return 0;
+
+    return Number(((stake * percent) / 100).toFixed(2));
 };
 
 const normalizeMartingaleMode = (value: unknown): MartingaleModeType => {
@@ -353,7 +361,7 @@ const Accumilatoirs = observer(() => {
     const [consecutiveLossDisplay, setConsecutiveLossDisplay] = useState(0);
     const [autoCashout, setAutoCashout] = useState<TAutoCashoutSettings>({
         enabled: true,
-        takeProfit: DEFAULT_TAKE_PROFIT,
+        takeProfitPercent: DEFAULT_TAKE_PROFIT_PERCENT,
         useServerTakeProfit: true,
     });
     const [proposalPreview, setProposalPreview] = useState<TProposalPreview>({
@@ -409,6 +417,7 @@ const Accumilatoirs = observer(() => {
     );
     const growthRatePercent = Number(growthRate) * 100;
     const stake = Number(stakeInput);
+    const currentTakeProfitAmount = getTakeProfitAmountFromPercent(currentStakeDisplay, autoCashout.takeProfitPercent);
     const currentProfit = Number(openContract?.profit ?? 0);
     const bidPrice = Number(openContract?.bid_price ?? openContract?.sell_price ?? 0);
     const buyPrice = Number(openContract?.buy_price ?? 0);
@@ -606,7 +615,7 @@ const Accumilatoirs = observer(() => {
     }, []);
 
     const buildAccumulatorParameters = useCallback((stakeAmount = Number(stakeInput)) => {
-        const takeProfit = Number(autoCashout.takeProfit);
+        const takeProfit = getTakeProfitAmountFromPercent(stakeAmount, autoCashout.takeProfitPercent);
         const shouldUseServerTakeProfit =
             autoCashout.enabled && autoCashout.useServerTakeProfit && Number.isFinite(takeProfit) && takeProfit > 0;
 
@@ -623,7 +632,7 @@ const Accumilatoirs = observer(() => {
                   }
                 : undefined,
         };
-    }, [autoCashout.enabled, autoCashout.takeProfit, autoCashout.useServerTakeProfit, currency, growthRate, selectedSymbol, stakeInput]);
+    }, [autoCashout.enabled, autoCashout.takeProfitPercent, autoCashout.useServerTakeProfit, currency, growthRate, selectedSymbol, stakeInput]);
 
     const cashoutContract = useCallback(
         async (reason = 'Manual cashout') => {
@@ -661,7 +670,7 @@ const Accumilatoirs = observer(() => {
             if (!settings.enabled) return;
 
             const profit = Number(snapshot.profit ?? 0);
-            const takeProfit = Number(settings.takeProfit);
+            const takeProfit = getTakeProfitAmountFromPercent(snapshot.buy_price ?? nextStakeRef.current, settings.takeProfitPercent);
 
             if (Number.isFinite(takeProfit) && takeProfit > 0 && profit >= takeProfit) {
                 void cashoutContract('Automated take profit');
@@ -1100,7 +1109,10 @@ const Accumilatoirs = observer(() => {
                     setConsecutiveLossDisplay(nextMartingaleState.consecutiveLosses);
 
                     const wasCashoutRequested = cashoutRequestedRef.current;
-                    const takeProfit = Number(autoCashoutRef.current.takeProfit);
+                    const takeProfit = getTakeProfitAmountFromPercent(
+                        settledContract.buy_price ?? activeStake,
+                        autoCashoutRef.current.takeProfitPercent
+                    );
                     const wasTakeProfitClose =
                         !wasCashoutRequested && Number.isFinite(takeProfit) && takeProfit > 0 && profit >= takeProfit;
                     cashoutRequestedRef.current = false;
@@ -1468,29 +1480,29 @@ const Accumilatoirs = observer(() => {
                                 </div>
 
                                 <label className='accumilatoirs-field accumilatoirs-field--take-profit'>
-                                    <span>Take profit</span>
+                                    <span>Take profit (%)</span>
                                     <div className='accumilatoirs-inline-input'>
                                         <input
                                             className='accumilatoirs-field__control'
                                             disabled={hasOpenContract || queuedPurchase}
                                             inputMode='decimal'
-                                            value={autoCashout.takeProfit}
+                                            value={autoCashout.takeProfitPercent}
                                             onChange={event =>
                                                 setAutoCashout(previous => ({
                                                     ...previous,
                                                     enabled: true,
-                                                    takeProfit: cleanMoneyInput(event.target.value),
+                                                    takeProfitPercent: cleanMoneyInput(event.target.value),
                                                     useServerTakeProfit: true,
                                                 }))
                                             }
                                         />
-                                        <span>{currency}</span>
+                                        <span>%</span>
                                     </div>
                                 </label>
 
                                 <div className='accumilatoirs-ticket__row accumilatoirs-ticket__row--martingale'>
                                     <label className='accumilatoirs-field'>
-                                        <span>Martingale ×</span>
+                                        <span>Martingale x</span>
                                         <input
                                             className='accumilatoirs-field__control'
                                             disabled={hasOpenContract || queuedPurchase}
@@ -1606,6 +1618,9 @@ const Accumilatoirs = observer(() => {
                                 <div className='accumilatoirs-ticket__meta'>
                                     <span>{selectedMarket?.label}</span>
                                     <span>Current stake {formatMoney(currentStakeDisplay, currency)}</span>
+                                    <span>
+                                        TP {autoCashout.takeProfitPercent || 0}% = {formatMoney(currentTakeProfitAmount, currency)}
+                                    </span>
                                     <span>Consecutive losses {consecutiveLossDisplay}</span>
                                     {hasProposalBarrierData ? <span>Spot {formatQuote(proposalPreview.spot)}</span> : null}
                                     {hasProposalBarrierData ? <span>Low barrier {formatQuote(proposalPreview.lowBarrier)}</span> : null}
