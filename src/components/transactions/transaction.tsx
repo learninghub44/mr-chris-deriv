@@ -1,18 +1,16 @@
 import React from 'react';
 import classNames from 'classnames';
 import ContentLoader from 'react-content-loader';
+import { LegacyRadioOffIcon, LegacyRadioOnIcon } from '@/components/shared_ui/figma-icons';
 import Money from '@/components/shared_ui/money';
 import { TContractInfo } from '@/components/summary/summary-card.types';
 import { popover_zindex } from '@/constants/z-indexes';
 import { getContractTypeName } from '@/external/bot-skeleton';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
 import { getSymbolDisplayNameSync } from '@/utils/symbol-display-name';
-import { LegacyRadioOffIcon, LegacyRadioOnIcon } from '@/components/shared_ui/figma-icons';
 import { Localize, localize } from '@deriv-com/translations';
-import { MarketIcon } from '../market/market-icon';
 import { convertDateFormat } from '../shared';
 import Popover from '../shared_ui/popover';
-import { TradeTypeIcon } from '../trade-type/trade-type-icon';
 
 type TTransactionIconWithText = {
     icon: React.ReactElement;
@@ -79,6 +77,25 @@ const TransactionIconLoader = () => (
 
 const TransactionSpotValue = ({ value }: { value: React.ReactNode }) => (
     <span className='transactions__spot-value'>{value}</span>
+);
+
+const TransactionMarketGlyph = () => (
+    <span className='transactions__glyph transactions__glyph--market' aria-hidden='true'>
+        <span className='transactions__glyph-stick transactions__glyph-stick--short' />
+        <span className='transactions__glyph-stick transactions__glyph-stick--tall' />
+        <span className='transactions__glyph-stick transactions__glyph-stick--mid' />
+    </span>
+);
+
+const TransactionContractGlyph = () => (
+    <span className='transactions__glyph transactions__glyph--contract' aria-hidden='true'>
+        <svg viewBox='0 0 16 16' role='presentation'>
+            <path
+                d='M3 11.5h6.7l-1.8 1.8.85.85L13 9.85 8.75 5.6l-.85.85 1.8 1.8H3z'
+                fill='currentColor'
+            />
+        </svg>
+    </span>
 );
 
 const PopoverItem = ({ icon, title, children }: TPopoverItem) => (
@@ -180,11 +197,7 @@ const Transaction = ({ contract, active_transaction_id, onClickTransaction }: TT
                     <div className='transactions__loader-container'>
                         {contract ? (
                             <TransactionIconWithText
-                                icon={
-                                    <MarketIcon
-                                        type={(contract as any).underlying_symbol || (contract as any).underlying}
-                                    />
-                                }
+                                icon={<TransactionMarketGlyph />}
                                 title={
                                     contract.display_name ||
                                     getSymbolDisplayNameSync(
@@ -199,7 +212,7 @@ const Transaction = ({ contract, active_transaction_id, onClickTransaction }: TT
                     <div className='transactions__loader-container'>
                         {contract ? (
                             <TransactionIconWithText
-                                icon={<TradeTypeIcon type={contract.contract_type || ''} size='sm' />}
+                                icon={<TransactionContractGlyph />}
                                 title={getContractTypeName(contract)}
                             />
                         ) : (

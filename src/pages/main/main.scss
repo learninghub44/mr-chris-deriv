@@ -257,16 +257,17 @@
         inset-inline-end: 1.6rem;
         top: 1.6rem;
         z-index: 2;
-        width: min(33.6rem, calc(100vw - 43rem));
-        max-width: calc(100vw - 43rem);
+        width: min(100%, 33.6rem);
+        max-width: min(33.6rem, calc(100vw - 43rem));
+        min-width: 0;
 
         @include desktop-screen {
             position: absolute;
         }
 
         @media (width <= 1400px) {
-            width: min(29.6rem, calc(100vw - 41rem));
-            max-width: calc(100vw - 41rem);
+            width: min(100%, 29.6rem);
+            max-width: min(29.6rem, calc(100vw - 41rem));
         }
 
         .animation {
@@ -287,6 +288,13 @@
             &__container {
                 background-color: var(--rm-shell-run-panel);
             }
+        }
+
+        @include mobile-or-tablet-screen {
+            width: 100%;
+            max-width: 100%;
+            inset-inline-end: 0;
+            top: 0;
         }
     }
 

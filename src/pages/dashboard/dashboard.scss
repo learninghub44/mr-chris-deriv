@@ -113,12 +113,13 @@
         width: 100%;
         background:
             radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 32rem),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.98));
+            linear-gradient(180deg, rgb(255 255 255 / 4%), rgb(255 255 255 / 0%)),
+            var(--general-main-1);
 
         &__table {
             &__block {
-                border: 1px solid rgba(15, 23, 42, 0.08);
-                background: rgba(255, 255, 255, 0.92);
+                border: 1px solid var(--border-normal);
+                background: var(--general-main-1);
                 box-shadow: 0 1.2rem 3rem rgba(15, 23, 42, 0.08);
             }
 
@@ -136,8 +137,8 @@
                     justify-content: center;
                     color: #f97316;
                     font-weight: 700;
-                    background: #fff7ed;
-                    border: 1px solid rgba(249, 115, 22, 0.24);
+                    background: rgb(249 115 22 / 10%);
+                    border: 1px solid rgb(249 115 22 / 24%);
                 }
             }
         }

@@ -67,7 +67,7 @@
     &__wrapper {
         display: flex;
         align-items: center;
-        min-height: 40px;
+        min-height: 4rem;
         width: min(100%, 33.6rem);
         max-width: 100%;
     }
@@ -108,16 +108,20 @@
         min-height: 100%;
         flex: 1 1 auto;
         min-width: 0;
-        padding: 0.4rem 1rem 0.5rem;
+        padding: 0.5rem 1rem;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: space-evenly;
         border-start-end-radius: $BORDER_RADIUS;
         border-end-end-radius: $BORDER_RADIUS;
         background-color: var(--rm-shell-run-panel);
         border: solid 1px var(--rm-shell-run-panel);
         position: relative;
         overflow: hidden;
+
+        &--with-execution {
+            justify-content: flex-start;
+        }
     }
 
     .theme--light &__container {
@@ -126,19 +130,23 @@
     }
 
     &__execution-mode {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas:
-            'label toggle'
-            'value toggle';
+        display: flex;
         align-items: center;
-        column-gap: 0.8rem;
-        margin-bottom: 0.4rem;
+        justify-content: space-between;
+        gap: 0.8rem;
+        align-items: center;
+        margin-bottom: 0.3rem;
+        min-width: 0;
+    }
+
+    &__execution-mode-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
     }
 
     &__execution-mode-label {
-        grid-area: label;
-        color: #8c8c8c;
+        color: var(--text-less-prominent);
         font-size: 1rem;
         font-weight: 700;
         line-height: 1.1;
@@ -146,36 +154,34 @@
     }
 
     &__execution-mode-value {
-        grid-area: value;
         color: var(--text-prominent);
-        font-size: 1.5rem;
+        font-size: 1.4rem;
         font-weight: 800;
         letter-spacing: 0.02em;
         line-height: 1.1;
     }
 
     &__execution-mode-toggle {
-        grid-area: toggle;
         margin: 0;
         width: 4.2rem;
         height: 2.2rem;
         padding-left: 0.2rem;
-        background: #ececec;
-        border: 1px solid rgb(0 0 0 / 8%);
+        background: var(--general-disabled);
+        border: 1px solid var(--border-normal);
     }
 
     &__execution-mode-toggle-button {
         width: 1.6rem;
         height: 1.6rem;
-        background: #d6a227;
+        background: var(--gradient-gold);
     }
 
     .dc-toggle-switch:checked + &__execution-mode-toggle {
-        background: #dbeeea;
+        background: rgb(75 180 179 / 22%);
     }
 
     .dc-toggle-switch:checked + &__execution-mode-toggle &__execution-mode-toggle-button {
-        background: #4bb4b3;
+        background: var(--status-success);
     }
 
     &__text {
@@ -183,11 +189,12 @@
         font-size: 12px;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.5rem;
         line-height: 18px;
 
         &--with-execution {
             text-align: start;
+            margin-bottom: 0.4rem;
         }
     }
 
@@ -325,8 +332,8 @@
 
         &__run-button,
         &__stop-button {
-            min-width: 9rem;
-            padding-inline: 1.2rem;
+            min-width: 8.8rem;
+            padding-inline: 1rem;
         }
 
         &__container {
@@ -335,6 +342,16 @@
 
         &__execution-mode-value {
             font-size: 1.3rem;
+        }
+
+        &__execution-mode-toggle {
+            width: 3.8rem;
+            height: 2rem;
+        }
+
+        &__execution-mode-toggle-button {
+            width: 1.4rem;
+            height: 1.4rem;
         }
 
         &__text {

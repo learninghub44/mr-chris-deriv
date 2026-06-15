@@ -146,7 +146,7 @@ const Download = observer(({ tab }: TDownloadProps) => {
         >
             <Button
                 id='download-button'
-                disabled={disabled}
+                is_disabled={disabled}
                 className='download__button'
                 onClick={clickFunction}
                 secondary

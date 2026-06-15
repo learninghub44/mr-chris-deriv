@@ -17,8 +17,13 @@
     }
 
     .download__container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+        padding: 1.2rem 1.6rem;
+
         &__view-detail-button {
-            margin-inline-start: 12px;
+            margin-inline-start: 0;
         }
     }
 
@@ -246,6 +251,48 @@
         min-width: 1.6rem;
     }
 
+    &__glyph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.6rem;
+        height: 1.6rem;
+        color: var(--brand-danger);
+
+        &--market {
+            gap: 0.18rem;
+            color: #00a79e;
+        }
+
+        &--contract {
+            color: #ff4d5b;
+
+            svg {
+                width: 1.6rem;
+                height: 1.6rem;
+                display: block;
+            }
+        }
+    }
+
+    &__glyph-stick {
+        width: 0.24rem;
+        border-radius: 999px;
+        background: currentColor;
+
+        &--short {
+            height: 0.8rem;
+        }
+
+        &--mid {
+            height: 1rem;
+        }
+
+        &--tall {
+            height: 1.35rem;
+        }
+    }
+
     &__cell {
         display: flex;
         align-items: center;
@@ -294,6 +341,41 @@
             &:not(:last-of-type) {
                 margin-bottom: 0.8rem;
             }
+        }
+    }
+}
+
+@media (width <= 768px) {
+    .transactions {
+        $mobile-grid-template-columns: minmax(4.2rem, 0.72fr) minmax(7.2rem, 1fr) minmax(8rem, 1.02fr);
+
+        .download__container {
+            padding: 1.2rem;
+
+            .dc-btn {
+                flex: 1 1 12rem;
+                min-width: 0;
+            }
+        }
+
+        &__header {
+            grid-template-columns: $mobile-grid-template-columns;
+            padding: 0.8rem 1.2rem;
+            height: auto;
+            min-height: 5.6rem;
+        }
+
+        &__item {
+            grid-template-columns: $mobile-grid-template-columns;
+        }
+
+        &__item-wrapper {
+            padding: 0 1.2rem;
+        }
+
+        &__header-column {
+            font-size: 1.1rem;
+            line-height: 1.3;
         }
     }
 }

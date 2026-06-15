@@ -10,6 +10,8 @@ export interface IExecutionConfig {
     batchInterval: number;
     maxRetries: number;
     retryDelay: number;
+    settlementCheckMs: number;
+    settlementRecoveryCheckMs: number;
 }
 
 export const EXECUTION_MODES: Record<TExecutionMode, IExecutionConfig> = {
@@ -23,6 +25,8 @@ export const EXECUTION_MODES: Record<TExecutionMode, IExecutionConfig> = {
         batchInterval: 50,
         maxRetries: 3,
         retryDelay: 500,
+        settlementCheckMs: 250,
+        settlementRecoveryCheckMs: 500,
     },
     slow: {
         mode: 'slow',
@@ -34,6 +38,8 @@ export const EXECUTION_MODES: Record<TExecutionMode, IExecutionConfig> = {
         batchInterval: 0,
         maxRetries: 5,
         retryDelay: 1000,
+        settlementCheckMs: 500,
+        settlementRecoveryCheckMs: 1000,
     },
 };
 

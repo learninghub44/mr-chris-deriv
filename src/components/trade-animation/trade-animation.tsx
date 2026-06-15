@@ -2,10 +2,10 @@ import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import ContractResultOverlay from '@/components/contract-result-overlay';
+import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { contract_stages } from '@/constants/contract-stage';
 import { useStore } from '@/hooks/useStore';
-import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@/components/shared_ui/figma-icons/LabelPaired';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
@@ -139,6 +139,7 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         };
     }, [is_stop_button_visible, is_stop_button_disabled]);
     const show_overlay = should_show_overlay && is_contract_completed;
+    const show_execution_mode = !is_stop_button_visible;
 
     // Function to determine tooltip alignment based on run panel position
     const determineTooltipAlignment = (): string => {
@@ -226,14 +227,17 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                     'animation--running': contract_stage > 0,
                     'animation--completed': show_overlay,
                     'animation--disabled': is_disabled,
+                    'animation__container--with-execution': show_execution_mode,
                 })}
             >
-                {!is_stop_button_visible && (
+                {show_execution_mode && (
                     <div className='animation__execution-mode'>
-                        <span className='animation__execution-mode-label'>{localize('Execution')}</span>
-                        <span className='animation__execution-mode-value'>
-                            {execution_mode === 'fast' ? localize('FAST') : localize('SLOW')}
-                        </span>
+                        <div className='animation__execution-mode-copy'>
+                            <span className='animation__execution-mode-label'>{localize('Execution')}</span>
+                            <span className='animation__execution-mode-value'>
+                                {execution_mode === 'fast' ? localize('FAST') : localize('SLOW')}
+                            </span>
+                        </div>
                         <ToggleSwitch
                             id='db-animation__execution-toggle'
                             name='execution_mode'
@@ -247,7 +251,7 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                 {show_overlay && <ContractResultOverlay profit={profit} />}
                 <span
                     className={classNames('animation__text', {
-                        'animation__text--with-execution': !is_stop_button_visible,
+                        'animation__text--with-execution': show_execution_mode,
                     })}
                 >
                     <ContractStageText contract_stage={contract_stage} />

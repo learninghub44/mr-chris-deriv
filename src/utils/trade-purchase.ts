@@ -67,9 +67,7 @@ const ensureAuthorizedForTrading = async () => {
 
 const getMoneyDecimals = (currency?: string) => {
     const normalizedCurrency = (currency || '').toUpperCase();
-    return normalizedCurrency === 'BTC' || normalizedCurrency === 'ETH' || normalizedCurrency.includes('USDT')
-        ? 8
-        : 2;
+    return normalizedCurrency === 'BTC' || normalizedCurrency === 'ETH' || normalizedCurrency.includes('USDT') ? 8 : 2;
 };
 
 const formatAmount = (amount: number, currency: string) => `${amount.toFixed(getMoneyDecimals(currency))} ${currency}`;
@@ -204,7 +202,6 @@ export const sellContractForUi = async ({
 };
 
 const CLOSED_CONTRACT_STATUSES = new Set(['sold', 'won', 'lost']);
-const DEFAULT_SETTLEMENT_RECOVERY_CHECK_MS = 1000;
 const PROFIT_TABLE_RECOVERY_CHECK_MS = 5000;
 
 const isContractSettled = (contract: Record<string, any> = {}) =>
@@ -298,7 +295,8 @@ const getProfitTableContractSnapshot = (transaction: Record<string, any>, fallba
         transaction.sell_price !== undefined && transaction.sell_price !== null
             ? Number(transaction.sell_price)
             : undefined;
-    const payout = transaction.payout !== undefined && transaction.payout !== null ? Number(transaction.payout) : undefined;
+    const payout =
+        transaction.payout !== undefined && transaction.payout !== null ? Number(transaction.payout) : undefined;
     const profit =
         transaction.profit !== undefined && transaction.profit !== null
             ? Number(transaction.profit)
@@ -335,7 +333,7 @@ export const streamContractUntilSettled = ({
     contractId,
     fallback = {},
     onUpdate,
-    settlementCheckMs = 500,
+    settlementCheckMs = api_base.execution_config?.settlementCheckMs ?? 500,
     signal,
     source,
     timeoutMs = 90000,
@@ -433,7 +431,10 @@ export const streamContractUntilSettled = ({
                     finish(snapshot);
                 }
             } catch (profitTableError) {
-                console.warn(`[${source}] Profit table recovery failed for ${contractId} (${reason}).`, profitTableError);
+                console.warn(
+                    `[${source}] Profit table recovery failed for ${contractId} (${reason}).`,
+                    profitTableError
+                );
             } finally {
                 profitTableRequestInFlight = false;
             }
@@ -455,7 +456,10 @@ export const streamContractUntilSettled = ({
                     void requestProfitTableSnapshot(reason);
                 }
             } catch (snapshotError) {
-                console.warn(`[${source}] Contract settlement snapshot failed for ${contractId} (${reason}).`, snapshotError);
+                console.warn(
+                    `[${source}] Contract settlement snapshot failed for ${contractId} (${reason}).`,
+                    snapshotError
+                );
                 if (recoveryMode) void requestProfitTableSnapshot(reason);
             } finally {
                 snapshotRequestInFlight = false;
@@ -492,7 +496,12 @@ export const streamContractUntilSettled = ({
                 id: 'contract.settlement_recovery',
                 data: contractId,
             });
-            startSettlementPolling(Math.max(settlementCheckMs, DEFAULT_SETTLEMENT_RECOVERY_CHECK_MS));
+            startSettlementPolling(
+                Math.max(
+                    settlementCheckMs,
+                    api_base.execution_config?.settlementRecoveryCheckMs ?? settlementCheckMs
+                )
+            );
             void requestSettlementSnapshot('timeout-recovery');
         }, timeoutMs);
 
