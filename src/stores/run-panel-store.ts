@@ -8,10 +8,10 @@ import { contract_stages, TContractStage } from '@/constants/contract-stage';
 import { run_panel } from '@/constants/run-panel';
 import { ErrorTypes, MessageTypes, observer, unrecoverable_errors } from '@/external/bot-skeleton';
 import { getSelectedTradeType } from '@/external/bot-skeleton/scratch/utils';
+import { recordDiagnosticEvent } from '@/utils/diagnostics';
 import { handleBackendError, isBackendError } from '@/utils/error-handler';
 // import { journalError, switch_account_notification } from '@/utils/bot-notifications';
 import GTM from '@/utils/gtm';
-import { recordDiagnosticEvent } from '@/utils/diagnostics';
 import { helpers } from '@/utils/store-helpers';
 import { generateUrlWithRedirect } from '@/utils/url-redirect-utils';
 import { Buy, ProposalOpenContract } from '@deriv/api-types';
@@ -26,6 +26,8 @@ export type TContractState = {
     data: number;
     id: string;
 };
+
+const CLOSED_CONTRACT_STATUSES = new Set(['sold', 'won', 'lost', 'cancelled']);
 
 export default class RunPanelStore {
     root_store: RootStore;
@@ -694,8 +696,11 @@ export default class RunPanelStore {
         observer.emit('statistics.clear');
     };
 
-    onBotContractEvent = (data: { is_sold?: boolean }) => {
-        if (data?.is_sold) {
+    onBotContractEvent = (data: { is_sold?: boolean; status?: string }) => {
+        const is_closed_contract =
+            !!data?.is_sold || CLOSED_CONTRACT_STATUSES.has(String(data?.status || '').toLowerCase());
+
+        if (is_closed_contract) {
             this.is_sell_requested = false;
             this.setContractStage(contract_stages.CONTRACT_CLOSED);
         }

@@ -85,13 +85,11 @@ export const generateDerivApiInstance = async (forceNew = false) => {
             deriv_api.send = request => {
                 if (isApiTokenSession() && request && typeof request === 'object') {
                     if ('balance' in request) assertApiTokenScope('read');
-                    if (
-                        'buy' in request ||
-                        'sell' in request ||
-                        'proposal' in request ||
-                        'transaction' in request ||
-                        'proposal_open_contract' in request
-                    ) {
+                    if ('buy' in request || 'sell' in request || 'proposal' in request) {
+                        // Keep strict local checks for trade-mutating requests, but let
+                        // contract-monitoring reads reach the API. Some accounts can buy
+                        // successfully yet report incomplete/legacy scopes for follow-up
+                        // reads like proposal_open_contract or transaction.
                         assertApiTokenScope('trade');
                     }
                 }

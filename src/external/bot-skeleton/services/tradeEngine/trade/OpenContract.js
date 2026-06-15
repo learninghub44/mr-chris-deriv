@@ -3,6 +3,8 @@ import { api_base } from '../../api/api-base';
 import { contract as broadcastContract, contractStatus } from '../utils/broadcast';
 import { openContractReceived, sell } from './state/actions';
 
+const CLOSED_CONTRACT_STATUSES = new Set(['sold', 'won', 'lost', 'cancelled']);
+
 export default Engine =>
     class OpenContract extends Engine {
         observeOpenContract() {
@@ -15,20 +17,22 @@ export default Engine =>
                         return;
                     }
 
-                    this.setContractFlags(contract);
+                    const normalizedContract = this.normalizeContract(contract);
 
-                    this.data.contract = contract;
+                    this.setContractFlags(normalizedContract);
 
-                    broadcastContract({ accountID: api_base.account_info.loginid, ...contract });
+                    this.data.contract = normalizedContract;
+
+                    broadcastContract({ accountID: api_base.account_info.loginid, ...normalizedContract });
 
                     if (this.isSold) {
                         this.contractId = '';
                         clearTimeout(this.transaction_recovery_timeout);
-                        this.updateTotals(contract);
+                        this.updateTotals(normalizedContract);
                         contractStatus({
                             id: 'contract.sold',
-                            data: contract.transaction_ids.sell,
-                            contract,
+                            data: normalizedContract.transaction_ids?.sell,
+                            contract: normalizedContract,
                         });
 
                         if (this.afterPromise) {
@@ -51,12 +55,29 @@ export default Engine =>
         }
 
         setContractFlags(contract) {
-            const { is_expired, is_valid_to_sell, is_sold, entry_tick } = contract;
+            const { is_expired, is_valid_to_sell, is_sold, entry_tick, status } = contract;
+            const normalizedStatus = String(status || '').toLowerCase();
 
-            this.isSold = Boolean(is_sold);
+            this.isSold = Boolean(is_sold) || CLOSED_CONTRACT_STATUSES.has(normalizedStatus);
             this.isSellAvailable = !this.isSold && Boolean(is_valid_to_sell);
             this.isExpired = Boolean(is_expired);
             this.hasEntryTick = Boolean(entry_tick);
+        }
+
+        normalizeContract(contract) {
+            if (!contract) return contract;
+
+            const normalizedStatus = String(contract.status || '').toLowerCase();
+            if (contract.is_sold || !CLOSED_CONTRACT_STATUSES.has(normalizedStatus)) {
+                return contract;
+            }
+
+            // Some accounts report the final state via status before toggling is_sold.
+            // Normalize that shape so the bot and UI can advance consistently.
+            return {
+                ...contract,
+                is_sold: 1,
+            };
         }
 
         expectedContractId(contractId) {
