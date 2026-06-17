@@ -14,10 +14,10 @@
 
         &--mobile {
             position: fixed;
-            inset: 4rem 0 0;
+            inset: var(--app-header-height, 4rem) 0 0;
             width: 100%;
             z-index: 10000;
-            height: calc(100% - 4rem - env(safe-area-inset-bottom, 0));
+            height: calc(100% - var(--app-header-height, 4rem) - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
             background: var(--general-main-1);
             isolation: isolate;
@@ -155,10 +155,30 @@
         overflow: hidden !important;
 
         .dc-tabs {
+            &__list {
+                border-bottom: 1px solid var(--general-section-1);
+            }
+
             &__item {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 padding: 0 0.8rem;
+                color: var(--button-primary-default);
+                font-weight: 600;
+
+                @include mobile-or-tablet-screen {
+                    flex: 1 1 0;
+                    min-width: 0;
+                    font-size: 1.35rem;
+                }
+            }
+
+            &__active {
+                color: var(--button-primary-default);
+            }
+
+            &__active-line {
+                background: var(--button-primary-default);
             }
         }
     }
@@ -203,10 +223,12 @@
     &__clear-button {
         @include mobile-or-tablet-screen {
             position: absolute !important;
-            top: 0.5rem;
-            right: 1.6rem;
-            height: 2.6rem !important;
-            min-width: 8rem;
+            top: 0.8rem;
+            right: max(1.2rem, env(safe-area-inset-right, 0));
+            height: 3rem !important;
+            min-width: 7.2rem;
+            padding-inline: 1.2rem !important;
+            z-index: 3;
         }
     }
 }
@@ -241,6 +263,7 @@
         min-height: 6rem;
         display: flex;
         width: inherit;
+        align-items: center;
 
         @include tablet-screen {
             max-width: 60rem;

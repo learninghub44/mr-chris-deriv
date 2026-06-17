@@ -1,14 +1,20 @@
 @use 'components/shared/styles/mixins' as *;
 
 .layout {
+    --app-header-height: 4rem;
+
     display: flex;
     flex-direction: column;
     height: 100vh;
 
+    @include mobile-or-tablet-screen {
+        --app-header-height: calc(4rem + env(safe-area-inset-top, 0px));
+    }
+
     .deriv-header {
         background: #ff444f;
-        height: 4rem;
-        min-height: 4rem;
+        height: var(--app-header-height);
+        min-height: var(--app-header-height);
     }
 
     &.quick-strategy-active {

@@ -39,7 +39,7 @@ type TDrawerHeader = {
     is_clear_stat_disabled: boolean;
     is_mobile: boolean;
     is_drawer_open: boolean;
-    onClearStatClick: () => void;
+    onImmediateClearStatClick: () => void;
 };
 
 type TDrawerContent = {
@@ -115,7 +115,12 @@ export const StatisticsSummary = ({
     </div>
 );
 
-const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onClearStatClick }: TDrawerHeader) =>
+const DrawerHeader = ({
+    is_clear_stat_disabled,
+    is_mobile,
+    is_drawer_open,
+    onImmediateClearStatClick,
+}: TDrawerHeader) =>
     is_mobile &&
     is_drawer_open && (
         <Button
@@ -123,7 +128,7 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
             className='run-panel__clear-button'
             is_disabled={is_clear_stat_disabled}
             text={localize('Reset')}
-            onClick={onClearStatClick}
+            onClick={onImmediateClearStatClick}
             secondary
         />
     );
@@ -309,7 +314,7 @@ const RunPanel = observer(() => {
             is_clear_stat_disabled={is_clear_stat_disabled}
             is_mobile={!isDesktop}
             is_drawer_open={is_drawer_open}
-            onClearStatClick={onClearStatClick}
+            onImmediateClearStatClick={run_panel.clearStat}
         />
     );
 

@@ -2,8 +2,8 @@
 @use 'components/shared/styles/mixins' as *;
 
 .app-header {
-    height: 4rem;
-    min-height: 4rem;
+    height: var(--app-header-height, 4rem);
+    min-height: var(--app-header-height, 4rem);
     background: var(--rm-shell-top) !important;
     box-shadow: none !important;
     border: 0 !important;
@@ -14,10 +14,15 @@
         position: sticky;
         top: 0;
         z-index: 1200;
+        padding-top: env(safe-area-inset-top, 0);
 
         &:before,
         &:after {
             display: none !important;
+        }
+
+        .deriv-header__wrapper {
+            min-height: 4rem;
         }
     }
 
