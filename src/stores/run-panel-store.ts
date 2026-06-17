@@ -97,6 +97,9 @@ export default class RunPanelStore {
 
         this.showErrorMessage(errorMessage);
     };
+    private readonly handleExecutionConditionFailed = ({ message }: { message?: string }) => {
+        this.showExecutionConditionDialog(message);
+    };
 
     constructor(root_store: RootStore, core: TStores) {
         makeObservable(this, {
@@ -140,6 +143,7 @@ export default class RunPanelStore {
             showClearStatDialog: action,
             showIncompatibleStrategyDialog: action,
             showContractUpdateErrorDialog: action,
+            showExecutionConditionDialog: action,
             registerBotListeners: action,
             registerReactions: action,
             onBotRunningEvent: action,
@@ -520,6 +524,21 @@ export default class RunPanelStore {
         this.is_dialog_open = true;
     };
 
+    showExecutionConditionDialog = (message?: string) => {
+        if (this.is_dialog_open) return;
+
+        this.onOkButtonClick = () => {
+            this.onCloseDialog();
+            this.onStopButtonClick();
+        };
+        this.onCancelButtonClick = null;
+        this.dialog_options = {
+            title: localize('Market does not meet requirement'),
+            message: message || localize('Market does not meet the preset execution requirement.'),
+        };
+        this.is_dialog_open = true;
+    };
+
     registerBotListeners = () => {
         if (this.is_bot_listeners_registered) return;
         const { summary_card, transactions } = this.root_store;
@@ -534,6 +553,7 @@ export default class RunPanelStore {
         observer.register('bot.contract', this.onBotContractEvent);
         observer.register('bot.contract', summary_card.onBotContractEvent);
         observer.register('bot.contract', transactions.onBotContractEvent);
+        observer.register('bot.execution_condition_failed', this.handleExecutionConditionFailed);
         observer.register('bot.stop_button_click', this.onStopBotClick);
         observer.register('Error', this.onError);
         observer.register('bot.setPurchaseInProgress', this.SetpurchaseInProgress);
@@ -853,6 +873,7 @@ export default class RunPanelStore {
         observer.unregister('bot.contract', this.onBotContractEvent);
         observer.unregister('bot.contract', summary_card.onBotContractEvent);
         observer.unregister('bot.contract', transactions.onBotContractEvent);
+        observer.unregister('bot.execution_condition_failed', this.handleExecutionConditionFailed);
         observer.unregister('bot.stop_button_click', this.onStopBotClick);
         observer.unregister('Error', this.onError);
         observer.unregister('bot.setPurchaseInProgress', this.SetpurchaseInProgress);

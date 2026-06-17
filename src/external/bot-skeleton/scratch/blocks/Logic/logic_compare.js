@@ -8,6 +8,33 @@ const getBlockValueCode = (block, input_name, fallback = '0') =>
         window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
     ) || fallback;
 
+const getPresetThresholdExpression = target_block => {
+    if (!target_block || target_block.type !== 'over_under_percentage') return null;
+
+    const digit = getBlockValueCode(target_block, 'DIGIT');
+    const condition = target_block.getFieldValue('CONDITION');
+    const preset_map =
+        condition === 'under'
+            ? {
+                  8: 80,
+                  7: 70,
+                  6: 60,
+                  5: 50,
+              }
+            : {
+                  1: 80,
+                  2: 70,
+                  3: 60,
+                  4: 50,
+              };
+
+    return `(function () {
+        var digit = Number(${digit});
+        var presetMap = ${JSON.stringify(preset_map)};
+        return presetMap[digit];
+    })()`;
+};
+
 const getAnalysisMetadata = target_block => {
     if (!target_block) return null;
 
@@ -134,13 +161,16 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.logic_compare = block => 
 
     const argument0 = window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, 'A', order) || 'false';
     const argument1 = window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, 'B', order) || 'false';
+    const analysis_input_block = block.getInputTargetBlock('A') || block.getInputTargetBlock('B');
     const analysis_block_a = getAnalysisMetadata(block.getInputTargetBlock('A'));
     const analysis_block_b = getAnalysisMetadata(block.getInputTargetBlock('B'));
+    const preset_threshold_expression = getPresetThresholdExpression(analysis_input_block);
 
     if (analysis_block_a || analysis_block_b) {
         const analysis_side = analysis_block_a ? 'left' : 'right';
         const analysis_metadata = analysis_block_a || analysis_block_b;
         const target_side = analysis_side === 'left' ? 'right' : 'left';
+        const is_over_under_percentage = analysis_input_block?.type === 'over_under_percentage';
         const value_format =
             analysis_metadata.value_type === 'percent'
                 ? `Math.round(${analysis_side} * 100) / 100 + '%'`
@@ -148,10 +178,15 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.logic_compare = block => 
         const code = `(function () {
             var left = ${argument0};
             var right = ${argument1};
+            var presetThreshold = ${preset_threshold_expression || 'undefined'};
             var result = left ${operator} right;
             var analysisLabel = ${analysis_metadata.label_expression};
             var analysisValue = ${value_format};
             var targetValue = String(${target_side});
+            if (${is_over_under_percentage ? 'true' : 'false'} && typeof presetThreshold === 'number') {
+                result = Number(${analysis_side}) >= presetThreshold;
+                targetValue = String(presetThreshold) + '%';
+            }
             var message = result
                 ? 'Condition met: ' + analysisLabel + ' is ' + analysisValue + '. Purchasing contract.'
                 : 'Waiting: ' + analysisLabel + ' is ' + analysisValue + '. Target ' + '${operator}' + ' ' + targetValue + '.';
@@ -162,6 +197,17 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.logic_compare = block => 
                 analysis_append: true,
                 analysis_key: '${block.id}',
             });
+            if (${is_over_under_percentage ? 'true' : 'false'} && typeof presetThreshold === 'number' && !result) {
+                Bot.failExecutionCondition(
+                    'Market does not meet requirement. ' +
+                        analysisLabel +
+                        ' is ' +
+                        analysisValue +
+                        ', but this setup requires at least ' +
+                        targetValue +
+                        ' before execution can start.'
+                );
+            }
             return result;
         })()`;
 

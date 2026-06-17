@@ -5,6 +5,7 @@ import { notify } from '../utils/broadcast';
 const getMiscInterface = tradeEngine => {
     return {
         notify: args => globalObserver.emit('ui.log.notify', args),
+        failExecutionCondition: message => globalObserver.emit('bot.execution_condition_failed', { message }),
         console: ({ type, message }) => console[type](message), // eslint-disable-line no-console
         notifyTelegram: (access_token, chat_id, text) => {
             const url = `https://api.telegram.org/bot${access_token}/sendMessage`;
