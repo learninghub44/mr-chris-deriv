@@ -362,6 +362,52 @@ export default class ContractsFor {
         return durations.sort((a, b) => getDurationIndex(a.unit) - getDurationIndex(b.unit));
     }
 
+    getShortestDurationFromCache(symbol, trade_type) {
+        if (!symbol || !trade_type) return null;
+
+        const cached_contracts = this.contracts_for[symbol]?.contracts || [];
+        if (!cached_contracts.length) return null;
+
+        const contracts_for_category = cached_contracts.filter(
+            contract => contract.contract_category === this.getContractCategoryByTradeType(trade_type)
+        );
+        if (!contracts_for_category.length) return null;
+
+        const { DEFAULT_DURATION_DROPDOWN_OPTIONS } = config();
+        const getDurationIndex = input =>
+            DEFAULT_DURATION_DROPDOWN_OPTIONS.findIndex(d => d[1] === String(input || '').replace(/\d+/g, ''));
+
+        let shortest_duration = null;
+
+        contracts_for_category.forEach(contract => {
+            const raw_min_duration = String(contract.min_contract_duration || '').trim();
+            const duration = parseInt(raw_min_duration.replace(/\D/g, ''), 10);
+            const duration_unit = raw_min_duration.replace(/\d+/g, '');
+            const unit_index = getDurationIndex(raw_min_duration);
+
+            if (!duration || !duration_unit || unit_index < 0) return;
+
+            if (
+                !shortest_duration ||
+                unit_index < shortest_duration.unit_index ||
+                (unit_index === shortest_duration.unit_index && duration < shortest_duration.duration)
+            ) {
+                shortest_duration = {
+                    duration,
+                    duration_unit,
+                    unit_index,
+                };
+            }
+        });
+
+        return shortest_duration
+            ? {
+                  duration: shortest_duration.duration,
+                  duration_unit: shortest_duration.duration_unit,
+              }
+            : null;
+    }
+
     async getPredictionRange(symbol, trade_type) {
         const contracts = await this.getContractsByTradeType(symbol, trade_type);
         const contract_category = this.getContractCategoryByTradeType(trade_type);

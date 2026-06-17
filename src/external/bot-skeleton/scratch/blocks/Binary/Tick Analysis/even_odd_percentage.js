@@ -77,6 +77,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.even_odd_percentage = blo
                     (Math.round(percentage * 100) / 100) +
                     '%',
                 sound: '',
+                analysis_append: true,
                 analysis_key: '${block.id}',
             });
             return percentage;

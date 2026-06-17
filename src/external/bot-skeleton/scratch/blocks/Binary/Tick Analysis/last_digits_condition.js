@@ -24,6 +24,8 @@ window.Blockly.Blocks.last_digits_condition = {
                     options: [
                         [localize('less than'), 'lt'],
                         [localize('greater than'), 'gt'],
+                        [localize('less than or equal to'), 'lte'],
+                        [localize('greater than or equal to'), 'gte'],
                         [localize('equal to'), 'eq'],
                         [localize('different from'), 'neq'],
                     ],
@@ -71,10 +73,21 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.last_digits_condition = b
     const operator_map = {
         eq: '===',
         gt: '>',
+        gte: '>=',
         lt: '<',
+        lte: '<=',
         neq: '!==',
     };
     const operator = operator_map[condition] || '<';
+    const condition_text_map = {
+        eq: 'equal to',
+        gt: 'greater than',
+        gte: 'greater than or equal to',
+        lt: 'less than',
+        lte: 'less than or equal to',
+        neq: 'different from',
+    };
+    const condition_text = condition_text_map[condition] || 'less than';
 
     return [
         `(function () {
@@ -82,15 +95,18 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.last_digits_condition = b
             var target = Number(${digit});
             var index = 0;
             var result = true;
+            var digitsText = '';
             if (!digits.length) {
                 Bot.notify({
                     className: 'journal__text--analysis',
-                    message: 'Waiting: Last ' + Number(${count}) + ' digits are not available yet.',
+                    message: 'Last digits condition check: digits unavailable yet. Result: False.',
                     sound: '',
+                    analysis_append: true,
                     analysis_key: '${block.id}',
                 });
                 return false;
             }
+            digitsText = digits.join(', ');
             for (index = 0; index < digits.length; index += 1) {
                 if (!(Number(digits[index]) ${operator} target)) {
                     result = false;
@@ -99,10 +115,16 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.last_digits_condition = b
             }
             Bot.notify({
                 className: 'journal__text--analysis',
-                message: result
-                    ? 'Condition met: Last ' + Number(${count}) + ' digits satisfy the selected rule for digit ' + target + '. Purchasing contract.'
-                    : 'Waiting: Last ' + Number(${count}) + ' digits have not yet satisfied the selected rule for digit ' + target + '.',
+                message:
+                    'Last digits checked: [' +
+                    digitsText +
+                    ']. Rule: every digit is ${condition_text} ' +
+                    target +
+                    '. Result: ' +
+                    (result ? 'True' : 'False') +
+                    '.',
                 sound: '',
+                analysis_append: true,
                 analysis_key: '${block.id}',
             });
             return result;

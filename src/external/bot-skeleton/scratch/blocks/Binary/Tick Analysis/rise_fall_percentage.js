@@ -72,6 +72,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.rise_fall_percentage = bl
                     className: 'journal__text--analysis',
                     message: 'Waiting: At least 2 ticks are needed for the ${direction === 'fall' ? 'Fall' : 'Rise'} % analysis.',
                     sound: '',
+                    analysis_append: true,
                     analysis_key: '${block.id}',
                 });
                 return 0;
@@ -91,6 +92,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.rise_fall_percentage = bl
                     (Math.round(percentage * 100) / 100) +
                     '%',
                 sound: '',
+                analysis_append: true,
                 analysis_key: '${block.id}',
             });
             return percentage;

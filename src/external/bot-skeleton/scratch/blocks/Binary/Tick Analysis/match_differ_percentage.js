@@ -92,6 +92,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.match_differ_percentage =
                     (Math.round(percentage * 100) / 100) +
                     '%',
                 sound: '',
+                analysis_append: true,
                 analysis_key: '${block.id}',
             });
             return percentage;

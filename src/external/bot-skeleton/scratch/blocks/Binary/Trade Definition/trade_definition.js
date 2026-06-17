@@ -195,6 +195,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_definition = block 
     BinaryBotPrivateInit = function BinaryBotPrivateInit() {
         Bot.init('${account}', {
           symbol              : '${symbol}',
+          tradeType           : '${trade_type}',
           contractTypes       : ${JSON.stringify(contract_type_list)},
           candleInterval      : '${candle_interval || 'FALSE'}',
           shouldRestartOnError: ${should_restart_on_error},

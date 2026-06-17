@@ -159,6 +159,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.logic_compare = block => 
                 className: 'journal__text--analysis',
                 message: message,
                 sound: '',
+                analysis_append: true,
                 analysis_key: '${block.id}',
             });
             return result;

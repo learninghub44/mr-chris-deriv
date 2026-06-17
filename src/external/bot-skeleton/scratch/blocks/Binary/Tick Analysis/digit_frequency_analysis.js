@@ -88,6 +88,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_frequency_analysis 
                     ' digits: ' +
                     result,
                 sound: '',
+                analysis_append: true,
                 analysis_key: '${block.id}',
             });
             return result;

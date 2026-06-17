@@ -41,6 +41,7 @@ type TMessageItem = {
 } & TMessage;
 
 type TNotifyData = {
+    analysis_append?: boolean;
     analysis_key?: string;
     sound: string;
     block_id?: string;
@@ -211,7 +212,7 @@ export default class JournalStore {
     onNotify(data: TNotifyData) {
         const { run_panel, dbot, quick_strategy } = this.root_store;
 
-        const { message, className, message_type, sound, block_id, variable_name, analysis_key } = data;
+        const { message, className, message_type, sound, block_id, variable_name, analysis_key, analysis_append } = data;
         const selected_quick_strategy = quick_strategy.selected_strategy_for_notofy;
 
         // Special handling for stat notifications by block_id
@@ -245,7 +246,7 @@ export default class JournalStore {
             return;
         }
 
-        if (analysis_key && typeof message === 'string') {
+        if (analysis_key && typeof message === 'string' && !analysis_append) {
             this.updateAnalysisMessage(message, className, analysis_key);
             return;
         }

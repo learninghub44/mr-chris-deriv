@@ -71,6 +71,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.last_n_ticks_direction = 
                     className: 'journal__text--analysis',
                     message: 'Waiting: Last ' + size + ' ticks are not available yet.',
                     sound: '',
+                    analysis_append: true,
                     analysis_key: '${block.id}',
                 });
                 return false;
@@ -87,6 +88,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.last_n_ticks_direction = 
                     ? 'Condition met: Last ' + size + ' ticks direction is ${direction === 'fall' ? 'Fall' : 'Rise'}. Purchasing contract.'
                     : 'Waiting: Last ' + size + ' ticks direction is not yet ${direction === 'fall' ? 'Fall' : 'Rise'}.',
                 sound: '',
+                analysis_append: true,
                 analysis_key: '${block.id}',
             });
             return result;

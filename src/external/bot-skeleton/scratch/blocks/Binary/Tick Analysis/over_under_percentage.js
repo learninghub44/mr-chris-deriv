@@ -88,6 +88,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.over_under_percentage = b
                 (Math.round(percentage * 100) / 100) +
                 '%',
             sound: '',
+            analysis_append: true,
             analysis_key: '${block.id}',
         });
         return percentage;

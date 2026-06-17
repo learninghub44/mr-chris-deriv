@@ -1,6 +1,7 @@
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
 import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
+import ApiHelpers from '../../api/api-helpers';
 import { createError } from '../../../utils/error';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
@@ -104,6 +105,29 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.makeDirectPurchaseDecision();
     }
 
+    validateTradeOptions(tradeOptions) {
+        const validated_trade_options = super.validateTradeOptions(tradeOptions);
+        const is_fast_mode = api_base.execution_mode === 'fast';
+        const trade_type = this.options?.tradeType;
+        const is_duration_adjustable = !['multiplier', 'accumulator'].includes(trade_type);
+
+        if (is_fast_mode && is_duration_adjustable) {
+            const shortest_duration = ApiHelpers.instance?.contracts_for?.getShortestDurationFromCache?.(
+                this.options?.symbol,
+                trade_type
+            );
+
+            if (shortest_duration) {
+                validated_trade_options.duration = shortest_duration.duration;
+                validated_trade_options.duration_unit = shortest_duration.duration_unit;
+            } else if (validated_trade_options.duration_unit) {
+                validated_trade_options.duration = 1;
+            }
+        }
+
+        return validated_trade_options;
+    }
+
     loginAndGetBalance(token) {
         if (this.token === token) {
             return Promise.resolve();
@@ -121,6 +145,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             // solve the issue. This is a backup!
             const subscription = api_base.api.onMessage().subscribe(({ data }) => {
                 if (data.msg_type === 'transaction' && data.transaction.action === 'sell') {
+                    const settlement_check_ms = api_base.execution_config?.settlementCheckMs ?? 1500;
                     this.transaction_recovery_timeout = setTimeout(() => {
                         const { contract } = this.data;
                         const is_same_contract = contract.contract_id === data.transaction.contract_id;
@@ -130,7 +155,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                                 api_base.api.send({ proposal_open_contract: 1, contract_id: contract.contract_id });
                             }, ['PriceMoved']);
                         }
-                    }, 1500);
+                    }, settlement_check_ms);
                 }
                 resolve();
             });
