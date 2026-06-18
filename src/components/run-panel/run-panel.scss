@@ -4,6 +4,9 @@
 * @define -panel
 **/
 .run-panel {
+    --run-panel-mobile-controls-height: 7.6rem;
+    --run-panel-mobile-stat-height: 12.8rem;
+
     height: 0;
 
     &__container {
@@ -156,6 +159,7 @@
         @include mobile-or-tablet-screen {
             margin: 0;
             position: fixed;
+            min-height: var(--run-panel-mobile-stat-height);
 
             /* Fix for iOS devices to prevent stats panel overlap */
             @supports (-webkit-touch-callout: none) {
@@ -176,12 +180,22 @@
                 display: inline-block;
                 border-bottom: 1px dotted var(--text-general);
             }
+
+            @include mobile-or-tablet-screen {
+                width: 100%;
+                min-height: 2.4rem;
+                padding: 0.6rem 0 0;
+            }
         }
 
         &--tiles {
             width: 100%;
             display: grid;
             grid-template: 64px 64px / 1fr 1fr 1fr;
+
+            @include mobile-or-tablet-screen {
+                grid-template: 5rem 5rem / repeat(3, minmax(0, 1fr));
+            }
         }
 
         &-amount {
@@ -202,7 +216,13 @@
 
         &--mobile {
             width: 100%;
-            bottom: 0;
+            bottom: var(--run-panel-mobile-controls-height);
+            border-top: 1px solid var(--rm-shell-section-border);
+            border-bottom: 1px solid var(--rm-shell-section-border);
+
+            @supports (-webkit-touch-callout: none) {
+                bottom: calc(var(--run-panel-mobile-controls-height) + env(safe-area-inset-bottom, 0));
+            }
         }
     }
 
@@ -280,13 +300,16 @@
                 display: flex;
                 height: var(--drawer-content-height-mobile);
                 position: fixed;
-                bottom: 15.7rem;
+                bottom: calc(var(--run-panel-mobile-controls-height) + var(--run-panel-mobile-stat-height));
                 width: 100%;
                 padding: 0.4rem 0;
 
                 /* Fix for iOS devices to prevent tab content overlap with bottom controls */
                 @supports (-webkit-touch-callout: none) {
-                    bottom: calc(15.7rem + env(safe-area-inset-bottom, 0));
+                    bottom: calc(
+                        var(--run-panel-mobile-controls-height) + var(--run-panel-mobile-stat-height) +
+                            env(safe-area-inset-bottom, 0)
+                    );
                 }
             }
 
