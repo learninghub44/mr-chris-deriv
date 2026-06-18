@@ -10,7 +10,7 @@
     overflow: hidden;
 
     @include mobile-or-tablet-screen {
-        --app-header-height: calc(4rem + env(safe-area-inset-top, 0px));
+        --app-header-height: calc(5rem + env(safe-area-inset-top, 0px));
     }
 
     .deriv-header {

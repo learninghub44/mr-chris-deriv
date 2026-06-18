@@ -61,8 +61,8 @@ body {
 }
 
 .deriv-header {
-    height: 40px !important;
-    min-height: 40px !important;
+    height: var(--app-header-height, 40px) !important;
+    min-height: var(--app-header-height, 40px) !important;
     background: var(--rm-shell-top) !important;
     border-bottom: 0 !important;
     box-shadow: none !important;
