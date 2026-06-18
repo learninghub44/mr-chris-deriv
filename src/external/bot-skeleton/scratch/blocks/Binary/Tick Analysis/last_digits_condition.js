@@ -93,13 +93,17 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.last_digits_condition = b
         `(function () {
             var digits = Bot.getLastDigitList().slice(-Math.max(1, Number(${count}) || 1));
             var target = Number(${digit});
+            var requestedCount = Math.max(1, Number(${count}) || 1);
             var index = 0;
             var result = true;
             var digitsText = '';
             if (!digits.length) {
                 Bot.notify({
                     className: 'journal__text--analysis',
-                    message: 'Last digits condition check: digits unavailable yet. Result: False.',
+                    message:
+                        'Scanning exact last ' +
+                        requestedCount +
+                        ' digits: none available yet. Result: False.',
                     sound: '',
                     analysis_append: true,
                     analysis_key: '${block.id}',
@@ -116,9 +120,13 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.last_digits_condition = b
             Bot.notify({
                 className: 'journal__text--analysis',
                 message:
-                    'Last digits checked: [' +
+                    'Scanning exact last ' +
+                    requestedCount +
+                    ' digits: [' +
                     digitsText +
-                    ']. Rule: every digit is ${condition_text} ' +
+                    ']. Digits available: ' +
+                    digits.length +
+                    '. Rule: every digit is ${condition_text} ' +
                     target +
                     '. Result: ' +
                     (result ? 'True' : 'False') +
