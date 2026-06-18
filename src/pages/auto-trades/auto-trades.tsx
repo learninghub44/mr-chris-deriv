@@ -616,6 +616,8 @@ export const getNextMartingaleState = ({
     martingale_mode,
     consecutive_losses,
     consecutive_loss_trigger,
+    recover_until_total_profit = false,
+    total_profit_after_trade = 0,
 }: {
     profit: number;
     current_stake: number;
@@ -624,8 +626,18 @@ export const getNextMartingaleState = ({
     martingale_mode: MartingaleModeType;
     consecutive_losses: number;
     consecutive_loss_trigger: number;
+    recover_until_total_profit?: boolean;
+    total_profit_after_trade?: number;
 }) => {
     if (!(profit < 0)) {
+        if (recover_until_total_profit && consecutive_losses > 0 && total_profit_after_trade <= 0) {
+            return {
+                consecutiveLosses: Math.max(1, consecutive_losses),
+                lastResult: 'loss' as const,
+                nextStake: current_stake > 0 ? current_stake : base_stake,
+            };
+        }
+
         return {
             consecutiveLosses: 0,
             lastResult: 'win' as const,
@@ -1915,7 +1927,8 @@ const AutoTrades = observer(() => {
 
             const { martingale: mult, takeProfit: tp, stopLoss: sl, stake: baseStake } = configRef.current;
 
-            totalPnlRef.current = parseFloat((totalPnlRef.current + profit).toFixed(2));
+            const nextTotalPnl = parseFloat((totalPnlRef.current + profit).toFixed(2));
+            totalPnlRef.current = nextTotalPnl;
             totalTradesRef.current++;
 
             const nextMartingaleState = getNextMartingaleState({
@@ -1926,6 +1939,9 @@ const AutoTrades = observer(() => {
                 martingale_mode: martingaleModeRef.current,
                 consecutive_losses: consecutiveLossRef.current,
                 consecutive_loss_trigger: consecutiveLossCountRef.current,
+                recover_until_total_profit:
+                    strategyModeRef.current === 'PERCENTAGE' && usesLossPrediction(tradeTypeRef.current),
+                total_profit_after_trade: nextTotalPnl,
             });
 
             nextStakeRef.current = nextMartingaleState.nextStake;

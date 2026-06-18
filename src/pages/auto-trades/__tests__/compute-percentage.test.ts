@@ -261,6 +261,46 @@ describe('martingale progression', () => {
             nextStake: 0.35,
         });
     });
+
+    it('keeps recovery stake and after-loss state while percentage total P/L is not positive', () => {
+        expect(
+            getNextMartingaleState({
+                profit: 0.6,
+                current_stake: 1.4,
+                base_stake: 0.35,
+                multiplier: 2,
+                martingale_mode: 'after_one_loss',
+                consecutive_losses: 2,
+                consecutive_loss_trigger: 1,
+                recover_until_total_profit: true,
+                total_profit_after_trade: -0.2,
+            })
+        ).toMatchObject({
+            consecutiveLosses: 2,
+            lastResult: 'loss',
+            nextStake: 1.4,
+        });
+    });
+
+    it('resets percentage recovery once total P/L becomes profitable', () => {
+        expect(
+            getNextMartingaleState({
+                profit: 1.5,
+                current_stake: 1.4,
+                base_stake: 0.35,
+                multiplier: 2,
+                martingale_mode: 'after_one_loss',
+                consecutive_losses: 2,
+                consecutive_loss_trigger: 1,
+                recover_until_total_profit: true,
+                total_profit_after_trade: 0.1,
+            })
+        ).toMatchObject({
+            consecutiveLosses: 0,
+            lastResult: 'win',
+            nextStake: 0.35,
+        });
+    });
 });
 
 describe('risk-filtered streak gating', () => {
