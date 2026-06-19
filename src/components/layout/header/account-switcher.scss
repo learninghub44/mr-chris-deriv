@@ -285,19 +285,22 @@ $account-balance-green: #0b6b37;
     }
 
     @include mobile-screen {
-        justify-content: flex-end;
-        margin-left: auto;
-        padding: 0 0.4rem;
+        flex: 0 0 auto;
+        justify-content: flex-start;
+        margin-left: 0;
+        padding: 0 0.6rem;
         margin-right: 0;
-        gap: 0.4rem;
-        width: 100%;
+        gap: 0.45rem;
+        width: max-content;
         max-width: 100%;
+        min-width: 0;
 
         &__wrapper {
             gap: 0.4rem;
-            justify-content: space-between;
+            justify-content: flex-end;
             width: 100%;
             min-width: 0;
+            max-width: 100%;
         }
 
         &__currency-button {
@@ -309,8 +312,8 @@ $account-balance-green: #0b6b37;
 
         &__content {
             align-items: flex-end;
-            flex: 0 1 auto;
-            margin-inline-start: auto;
+            flex: 0 0 auto;
+            margin-inline-start: 0.1rem;
             min-width: max-content;
             max-width: 100%;
             text-align: right;
@@ -323,7 +326,7 @@ $account-balance-green: #0b6b37;
         }
 
         &__balance {
-            font-size: clamp(1rem, 3vw, 1.2rem);
+            font-size: clamp(1rem, 2.8vw, 1.15rem);
             max-width: none;
             overflow: visible;
             text-overflow: clip;
@@ -332,6 +335,20 @@ $account-balance-green: #0b6b37;
             &--no-currency {
                 white-space: nowrap;
             }
+        }
+
+        &__id {
+            flex: 0 0 auto;
+            width: 2.4rem;
+
+            svg {
+                display: block;
+                flex: 0 0 auto;
+            }
+        }
+
+        &__select-arrow {
+            flex: 0 0 auto;
         }
     }
 

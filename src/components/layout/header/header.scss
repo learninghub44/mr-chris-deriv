@@ -47,6 +47,7 @@
         .deriv-wrapper__left {
             flex: 1 1 auto;
             justify-content: flex-start;
+            min-width: 0;
         }
 
         .deriv-wrapper__right {
@@ -80,7 +81,7 @@
 
         .account-info {
             flex: 1 1 auto;
-            max-width: min(18rem, calc(100vw - 16rem));
+            max-width: min(24rem, calc(100vw - 13.6rem));
             overflow: visible;
         }
 
@@ -90,14 +91,14 @@
         }
 
         .acc-info__content {
-            min-width: 0;
-            overflow: hidden;
+            min-width: max-content;
+            overflow: visible;
         }
 
         .acc-info__balance {
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            max-width: none;
+            overflow: visible;
+            text-overflow: clip;
             white-space: nowrap;
         }
 
