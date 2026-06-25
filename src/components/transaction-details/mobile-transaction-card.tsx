@@ -9,7 +9,7 @@ import { MarketIcon } from '../market/market-icon';
 import { convertDateFormat } from '../shared';
 import Money from '../shared_ui/money';
 import Popover from '../shared_ui/popover';
-import { TradeTypeIcon } from '../trade-type/trade-type-icon';
+import { getTradeTypeIconType, TradeTypeIcon } from '../trade-type/trade-type-icon';
 import { TTransaction } from './transaction-details.types';
 
 const PARENT_CLASS = 'transaction-details-modal-mobile';
@@ -88,7 +88,7 @@ export default function MobileTransactionCards({ transaction }: { transaction: T
                             />
                             <IconContainer
                                 message={getContractTypeName(transaction)}
-                                icon={<TradeTypeIcon type={transaction?.contract_type} size='md' />}
+                                icon={<TradeTypeIcon type={getTradeTypeIconType(transaction)} size='md' />}
                             />
                         </div>
                     }

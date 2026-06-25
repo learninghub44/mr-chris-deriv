@@ -9,7 +9,7 @@ import Money from '../shared_ui/money';
 import { MarketIcon } from '../market/market-icon';
 import { convertDateFormat } from '../shared';
 import Popover from '../shared_ui/popover';
-import { TradeTypeIcon } from '../trade-type/trade-type-icon';
+import { getTradeTypeIconType, TradeTypeIcon } from '../trade-type/trade-type-icon';
 import { TColumn, TDesktopTransactionTable, TTableCell } from './transaction-details.types';
 
 const PARENT_CLASS = 'transaction-details-modal-desktop';
@@ -110,7 +110,7 @@ export default function DesktopTransactionTable({
                                     label={
                                         <IconWrapper
                                             message={getContractTypeName(data)}
-                                            icon={<TradeTypeIcon type={data?.contract_type} size='sm' />}
+                                            icon={<TradeTypeIcon type={getTradeTypeIconType(data)} size='sm' />}
                                         />
                                     }
                                 />

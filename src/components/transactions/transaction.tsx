@@ -9,8 +9,10 @@ import { getContractTypeName } from '@/external/bot-skeleton';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
 import { getSymbolDisplayNameSync } from '@/utils/symbol-display-name';
 import { Localize, localize } from '@deriv-com/translations';
+import { MarketIcon } from '../market/market-icon';
 import { convertDateFormat } from '../shared';
 import Popover from '../shared_ui/popover';
+import { getTradeTypeIconType, TradeTypeIcon } from '../trade-type/trade-type-icon';
 
 type TTransactionIconWithText = {
     icon: React.ReactElement;
@@ -77,25 +79,6 @@ const TransactionIconLoader = () => (
 
 const TransactionSpotValue = ({ value }: { value: React.ReactNode }) => (
     <span className='transactions__spot-value'>{value}</span>
-);
-
-const TransactionMarketGlyph = () => (
-    <span className='transactions__glyph transactions__glyph--market' aria-hidden='true'>
-        <span className='transactions__glyph-stick transactions__glyph-stick--short' />
-        <span className='transactions__glyph-stick transactions__glyph-stick--tall' />
-        <span className='transactions__glyph-stick transactions__glyph-stick--mid' />
-    </span>
-);
-
-const TransactionContractGlyph = () => (
-    <span className='transactions__glyph transactions__glyph--contract' aria-hidden='true'>
-        <svg viewBox='0 0 16 16' role='presentation'>
-            <path
-                d='M3 11.5h6.7l-1.8 1.8.85.85L13 9.85 8.75 5.6l-.85.85 1.8 1.8H3z'
-                fill='currentColor'
-            />
-        </svg>
-    </span>
 );
 
 const PopoverItem = ({ icon, title, children }: TPopoverItem) => (
@@ -180,6 +163,8 @@ const PopoverContent = ({ contract }: TPopoverContent) => (
 );
 
 const Transaction = ({ contract, active_transaction_id, onClickTransaction }: TTransaction) => {
+    const underlying_symbol = (contract as any)?.underlying_symbol || (contract as any)?.underlying || '';
+
     return (
         <Popover
             zIndex={popover_zindex.TRANSACTION.toString()}
@@ -197,13 +182,8 @@ const Transaction = ({ contract, active_transaction_id, onClickTransaction }: TT
                     <div className='transactions__loader-container'>
                         {contract ? (
                             <TransactionIconWithText
-                                icon={<TransactionMarketGlyph />}
-                                title={
-                                    contract.display_name ||
-                                    getSymbolDisplayNameSync(
-                                        (contract as any).underlying_symbol || (contract as any).underlying || ''
-                                    )
-                                }
+                                icon={<MarketIcon type={underlying_symbol} size='sm' />}
+                                title={contract.display_name || getSymbolDisplayNameSync(underlying_symbol)}
                             />
                         ) : (
                             <TransactionIconLoader />
@@ -212,7 +192,7 @@ const Transaction = ({ contract, active_transaction_id, onClickTransaction }: TT
                     <div className='transactions__loader-container'>
                         {contract ? (
                             <TransactionIconWithText
-                                icon={<TransactionContractGlyph />}
+                                icon={<TradeTypeIcon type={getTradeTypeIconType(contract)} size='sm' />}
                                 title={getContractTypeName(contract)}
                             />
                         ) : (

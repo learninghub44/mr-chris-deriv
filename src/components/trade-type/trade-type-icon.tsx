@@ -1,10 +1,21 @@
 import { lazy, Suspense } from 'react';
+import { isHighLow } from '@/components/shared';
 import { IconSize } from '@/components/shared_ui/figma-icons';
 
 const TRADE_TYPE_ICONS = {
     ACCU: lazy(() =>
         import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
             default: module.TradeTypesAccumulatorStayInIcon,
+        }))
+    ),
+    ACCUMULATOR: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesAccumulatorStayInIcon,
+        }))
+    ),
+    ACCUBREAK: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesAccumulatorBreakOutIcon,
         }))
     ),
     DIGITDIFF: lazy(() =>
@@ -97,6 +108,41 @@ const TRADE_TYPE_ICONS = {
             default: module.TradeTypesSpreadsPutIcon,
         }))
     ),
+    LBFLOATCALL: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesLookbacksCloseLowIcon,
+        }))
+    ),
+    LBFLOATPUT: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesLookbacksHighCloseIcon,
+        }))
+    ),
+    LBHIGHLOW: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesLookbacksHighLowIcon,
+        }))
+    ),
+    TURBOSLONG: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesTurboLongIcon,
+        }))
+    ),
+    TURBOSSHORT: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesTurboShortIcon,
+        }))
+    ),
+    VANILLALONGCALL: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesVanillaCallIcon,
+        }))
+    ),
+    VANILLALONGPUT: lazy(() =>
+        import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesVanillaPutIcon,
+        }))
+    ),
     ASIAND: lazy(() =>
         import('@/components/shared_ui/figma-icons/TradeTypes').then(module => ({
             default: module.TradeTypesUpsAndDownsAsianDownIcon,
@@ -162,6 +208,16 @@ const TRADE_TYPE_ICONS = {
             default: module.IllustrativeMarketsIcon,
         }))
     ),
+};
+
+export const getTradeTypeIconType = (contract?: { contract_type?: string; shortcode?: string } | null) => {
+    const contract_type = contract?.contract_type?.toUpperCase() || '';
+    const is_high_low = isHighLow({ shortcode: contract?.shortcode || '' });
+
+    if (is_high_low && contract_type === 'CALL') return 'HIGHER';
+    if (is_high_low && contract_type === 'PUT') return 'LOWER';
+
+    return contract_type;
 };
 
 export const TradeTypeIcon = ({ type, size, className }: { type: string; size?: IconSize; className?: string }) => {
