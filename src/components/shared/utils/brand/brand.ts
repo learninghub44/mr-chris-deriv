@@ -20,8 +20,13 @@ const isDomainAllowed = (domain_name: string) => {
         'termicafx.site',
         'mrzetuzetu.site',
         'masterhunter.site',
+        'husseinfx.site',
+        'levynetrading.site',
         'tradinghubs.site',
         'mafiahub.site',
+        'easytraders.site',
+        'dollarmaster.site',
+        'primempire.site',
         'kicktrade.site',
         'dollarsigns.site',
     ];

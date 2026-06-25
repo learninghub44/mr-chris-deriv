@@ -44,8 +44,8 @@ describe('DOMAIN_CONFIG', () => {
     });
 
     it.each([
-        ['tradinghubs.site', '33hi7ev9NiDjWY640JuSw', '122208', 'Trading Hubs', false],
-        ['mafiahub.site', '331bCUS8izRudblAnSACt', '120589', 'Mafia Hub', false],
+        ['tradinghubs.site', '33hi7ev9NiDjWY64OJuSw', '122208', 'Trading Hubs', false],
+        ['mafiahub.site', '33ABjz4hBB7eawgytiT6P', '120589', 'Mafia Hub', false],
     ])(
         'returns auth and bot folder settings for %s',
         (domain, clientId, appId, brandName, useLegacyOAuthLogin, botsFolder = domain) => {
@@ -222,6 +222,40 @@ describe('DOMAIN_CONFIG', () => {
         });
     });
 
+    it.each([
+        ['husseinfx.site', '33B0O9dYtRl6X3OQ6rJsz', 'Husseinfx'],
+        ['levynetrading.site', '33B45506MeTF6j6VHOi7A', 'Levyne Trading'],
+        ['easytraders.site', '33Dp1fPdIGm7Sf0zGpJYw', 'Easy Traders'],
+        ['dollarmaster.site', '33Do7K9svQABFySnUo7pE', 'Dollar Master'],
+        ['primempire.site', '33DtjQWnmdxRkogkgAOtP', 'Prime Empire'],
+    ])('returns OAuth2-only auth settings for %s', (domain, clientId, brandName) => {
+        expect(getDomainConfigForHost(domain)).toMatchObject({
+            clientId,
+            appId: '',
+            redirectUri: `https://${domain}/`,
+            botsFolder: domain,
+            canonicalHost: domain,
+            includeLegacyAppIdInOAuth: false,
+            useLegacyOAuthLogin: false,
+            ui: {
+                brandName,
+            },
+            features: {
+                autoTrades: true,
+                manualTrading: true,
+            },
+        });
+        expect(getDomainConfigForHost(`www.${domain}`)).toMatchObject({
+            clientId,
+            appId: '',
+            redirectUri: `https://${domain}/`,
+            botsFolder: domain,
+            canonicalHost: domain,
+            includeLegacyAppIdInOAuth: false,
+            useLegacyOAuthLogin: false,
+        });
+    });
+
     it('removes old hosted domain entries that should no longer process login directly', () => {
         expect(getDomainConfigForHost('optimumtraders.site')).toBeUndefined();
         expect(getDomainConfigForHost('www.optimumtraders.site')).toBeUndefined();
@@ -234,8 +268,13 @@ describe('DOMAIN_CONFIG', () => {
 
     it.each([
         ['masterhunter.site', '96223', '33y9R1zDsuaYKXK2RaEH9', 'https://masterhunter.site/'],
-        ['tradinghubs.site', '122208', '33hi7ev9NiDjWY640JuSw', 'https://tradinghubs.site/'],
-        ['mafiahub.site', '120589', '331bCUS8izRudblAnSACt', 'https://mafiahub.site/'],
+        ['tradinghubs.site', '122208', '33hi7ev9NiDjWY64OJuSw', 'https://tradinghubs.site/'],
+        ['mafiahub.site', '120589', '33ABjz4hBB7eawgytiT6P', 'https://mafiahub.site/'],
+        ['husseinfx.site', '', '33B0O9dYtRl6X3OQ6rJsz', 'https://husseinfx.site/'],
+        ['levynetrading.site', '', '33B45506MeTF6j6VHOi7A', 'https://levynetrading.site/'],
+        ['easytraders.site', '', '33Dp1fPdIGm7Sf0zGpJYw', 'https://easytraders.site/'],
+        ['dollarmaster.site', '', '33Do7K9svQABFySnUo7pE', 'https://dollarmaster.site/'],
+        ['primempire.site', '', '33DtjQWnmdxRkogkgAOtP', 'https://primempire.site/'],
         ['kicktrade.site', '80364', '33vlry53HSLhXICBcUURu', 'https://www.kicktrade.site/'],
         ['www.kicktrade.site', '80364', '33vlry53HSLhXICBcUURu', 'https://www.kicktrade.site/'],
     ])('uses the working OAuth2 PKCE login wiring for %s', async (host, appId, clientId, expectedRedirectUri) => {

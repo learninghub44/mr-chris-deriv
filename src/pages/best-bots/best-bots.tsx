@@ -449,8 +449,13 @@ const BOTS_BY_FOLDER: Record<string, TBot[]> = {
     'optimumtraders.site': OPTIMUM_BOTS,
     'mrzetuzetu.site': [],
     'masterhunter.site': [],
+    'husseinfx.site': [],
+    'levynetrading.site': [],
     'tradinghubs.site': [],
     'mafiahub.site': [],
+    'easytraders.site': [],
+    'dollarmaster.site': [],
+    'primempire.site': [],
     'kicktrade.site': [],
     'dollarsigns.site': DOLLARSIGNS_BOTS,
 };

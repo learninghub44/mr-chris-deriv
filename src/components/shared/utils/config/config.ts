@@ -234,9 +234,41 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         },
     }),
     ...createHostedDomainEntries({
+        primaryDomain: 'husseinfx.site',
+        aliases: ['www.husseinfx.site'],
+        clientId: '33B0O9dYtRl6X3OQ6rJsz',
+        appId: '',
+        redirectUri: 'https://husseinfx.site/',
+        botsFolder: 'husseinfx.site',
+        includeLegacyAppIdInOAuth: false,
+        features: {
+            autoTrades: true,
+            manualTrading: true,
+        },
+        ui: {
+            brandName: 'Husseinfx',
+        },
+    }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'levynetrading.site',
+        aliases: ['www.levynetrading.site'],
+        clientId: '33B45506MeTF6j6VHOi7A',
+        appId: '',
+        redirectUri: 'https://levynetrading.site/',
+        botsFolder: 'levynetrading.site',
+        includeLegacyAppIdInOAuth: false,
+        features: {
+            autoTrades: true,
+            manualTrading: true,
+        },
+        ui: {
+            brandName: 'Levyne Trading',
+        },
+    }),
+    ...createHostedDomainEntries({
         primaryDomain: 'tradinghubs.site',
         aliases: ['www.tradinghubs.site'],
-        clientId: '33hi7ev9NiDjWY640JuSw',
+        clientId: '33hi7ev9NiDjWY64OJuSw',
         appId: '122208',
         redirectUri: 'https://tradinghubs.site/',
         botsFolder: 'tradinghubs.site',
@@ -252,7 +284,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
     ...createHostedDomainEntries({
         primaryDomain: 'mafiahub.site',
         aliases: ['www.mafiahub.site'],
-        clientId: '331bCUS8izRudblAnSACt',
+        clientId: '33ABjz4hBB7eawgytiT6P',
         appId: '120589',
         redirectUri: 'https://mafiahub.site/',
         botsFolder: 'mafiahub.site',
@@ -263,6 +295,54 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         },
         ui: {
             brandName: 'Mafia Hub',
+        },
+    }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'easytraders.site',
+        aliases: ['www.easytraders.site'],
+        clientId: '33Dp1fPdIGm7Sf0zGpJYw',
+        appId: '',
+        redirectUri: 'https://easytraders.site/',
+        botsFolder: 'easytraders.site',
+        includeLegacyAppIdInOAuth: false,
+        features: {
+            autoTrades: true,
+            manualTrading: true,
+        },
+        ui: {
+            brandName: 'Easy Traders',
+        },
+    }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'dollarmaster.site',
+        aliases: ['www.dollarmaster.site'],
+        clientId: '33Do7K9svQABFySnUo7pE',
+        appId: '',
+        redirectUri: 'https://dollarmaster.site/',
+        botsFolder: 'dollarmaster.site',
+        includeLegacyAppIdInOAuth: false,
+        features: {
+            autoTrades: true,
+            manualTrading: true,
+        },
+        ui: {
+            brandName: 'Dollar Master',
+        },
+    }),
+    ...createHostedDomainEntries({
+        primaryDomain: 'primempire.site',
+        aliases: ['www.primempire.site'],
+        clientId: '33DtjQWnmdxRkogkgAOtP',
+        appId: '',
+        redirectUri: 'https://primempire.site/',
+        botsFolder: 'primempire.site',
+        includeLegacyAppIdInOAuth: false,
+        features: {
+            autoTrades: true,
+            manualTrading: true,
+        },
+        ui: {
+            brandName: 'Prime Empire',
         },
     }),
     ...createHostedDomainEntries({

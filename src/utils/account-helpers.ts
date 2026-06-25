@@ -3,7 +3,7 @@
 
 export const MAX_MOBILE_WIDTH = 926;
 export const ACCOUNT_TYPE_KEY = 'account_type';
-export const SPECIAL_REAL_JOURNAL_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'VRW70350']);
+export const SPECIAL_REAL_JOURNAL_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'DOT92075124', 'VRW70350']);
 
 /**
  * Check if a loginid represents a demo account

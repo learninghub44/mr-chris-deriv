@@ -20,7 +20,11 @@
         box-shadow:
             0 0 0 1px var(--rm-shell-run-panel-border-soft),
             0 1.2rem 3.2rem rgb(0 0 0 / 28%);
-        overflow: hidden;
+        overflow: visible;
+
+        .dc-drawer__container {
+            overflow: hidden;
+        }
 
         &--mobile {
             position: fixed;

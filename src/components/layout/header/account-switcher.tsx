@@ -34,7 +34,7 @@ const CURRENCY_NAMES: Record<string, string> = {
 };
 
 const getCurrencyName = (currency?: string) => CURRENCY_NAMES[currency?.toUpperCase() ?? ''] ?? currency ?? 'Account';
-const DOLLAR_ICON_DEMO_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'VRW70350']);
+const DOLLAR_ICON_DEMO_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'DOT92075124', 'VRW70350']);
 
 const DEFAULT_DEMO_RESET = 10000;
 const SPECIAL_DEMO_RESET_LOGINID = 'DOT91317422';

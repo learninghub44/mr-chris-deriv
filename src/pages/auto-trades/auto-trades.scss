@@ -2,40 +2,65 @@
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 // Deep dark navy + muted crimson premium palette
-$at-bg-deep: #060c18;
-$at-bg-base: #080e1d;
-$at-bg-card: #0c1627;
-$at-bg-card-2: #101e35;
-$at-bg-card-3: #132440;
-$at-border: #1b2e4e;
-$at-border-subtle: #122038;
-$at-border-glow: #2a4872;
+$at-bg-deep: var(--auto-trades-bg-deep);
+$at-bg-base: var(--auto-trades-bg-base);
+$at-bg-card: var(--auto-trades-bg-card);
+$at-bg-card-2: var(--auto-trades-bg-card-2);
+$at-bg-card-3: var(--auto-trades-bg-card-3);
+$at-border: var(--auto-trades-border);
+$at-border-subtle: var(--auto-trades-border-subtle);
+$at-border-glow: var(--auto-trades-border-glow);
 
-$at-crimson: #c42038;
-$at-crimson-dark: #8f1427;
-$at-crimson-light: #e0304e;
-$at-crimson-glow: rgba(196, 32, 56, 0.15);
-$at-crimson-faint: rgba(196, 32, 56, 0.07);
+$at-crimson: var(--auto-trades-danger);
+$at-crimson-dark: var(--auto-trades-danger-dark);
+$at-crimson-light: var(--auto-trades-danger-light);
+$at-crimson-glow: var(--auto-trades-danger-glow);
+$at-crimson-faint: var(--auto-trades-danger-faint);
 
-$at-navy: #1e5aa8;
-$at-navy-bright: #2e7fd8;
-$at-navy-glow: rgba(46, 127, 216, 0.15);
+$at-navy: var(--auto-trades-accent);
+$at-navy-bright: var(--auto-trades-accent-bright);
+$at-navy-glow: var(--auto-trades-accent-glow);
 
-$at-win: #00cc7a;
-$at-win-glow: rgba(0, 204, 122, 0.12);
-$at-loss: #c42038;
-$at-loss-glow: rgba(196, 32, 56, 0.12);
-$at-amber: #d9921a;
-$at-amber-glow: rgba(217, 146, 26, 0.12);
+$at-win: var(--auto-trades-success);
+$at-win-glow: var(--auto-trades-success-glow);
+$at-loss: var(--auto-trades-danger);
+$at-loss-glow: var(--auto-trades-danger-glow);
+$at-amber: var(--auto-trades-warning);
+$at-amber-glow: var(--auto-trades-warning-glow);
 
-$at-text: #d6e4f7;
-$at-text-dim: #8aa8cc;
-$at-text-muted: #4a6a90;
-$at-text-faint: #2c4060;
+$at-text: var(--auto-trades-text);
+$at-text-dim: var(--auto-trades-text-dim);
+$at-text-muted: var(--auto-trades-text-muted);
+$at-text-faint: var(--auto-trades-text-faint);
 
 // ── Auto Trades Page ─────────────────────────────────────────────────────────
 
 .auto-trades-page {
+    --auto-trades-bg-deep: #060c18;
+    --auto-trades-bg-base: #080e1d;
+    --auto-trades-bg-card: #0c1627;
+    --auto-trades-bg-card-2: #101e35;
+    --auto-trades-bg-card-3: #132440;
+    --auto-trades-border: #1b2e4e;
+    --auto-trades-border-subtle: #122038;
+    --auto-trades-border-glow: #2a4872;
+    --auto-trades-danger: #c42038;
+    --auto-trades-danger-dark: #8f1427;
+    --auto-trades-danger-light: #e0304e;
+    --auto-trades-danger-glow: rgba(196, 32, 56, 0.15);
+    --auto-trades-danger-faint: rgba(196, 32, 56, 0.07);
+    --auto-trades-accent: #1e5aa8;
+    --auto-trades-accent-bright: #2e7fd8;
+    --auto-trades-accent-glow: rgba(46, 127, 216, 0.15);
+    --auto-trades-success: #00cc7a;
+    --auto-trades-success-glow: rgba(0, 204, 122, 0.12);
+    --auto-trades-warning: #d9921a;
+    --auto-trades-warning-glow: rgba(217, 146, 26, 0.12);
+    --auto-trades-text: #d6e4f7;
+    --auto-trades-text-dim: #8aa8cc;
+    --auto-trades-text-muted: #4a6a90;
+    --auto-trades-text-faint: #2c4060;
+
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -182,6 +207,33 @@ $at-text-faint: #2c4060;
         color: $at-text-muted;
         margin: 0;
     }
+}
+
+.theme--light .auto-trades-page {
+    --auto-trades-bg-deep: #ffffff;
+    --auto-trades-bg-base: var(--rm-shell-section);
+    --auto-trades-bg-card: #ffffff;
+    --auto-trades-bg-card-2: #eef7ff;
+    --auto-trades-bg-card-3: #dbeeff;
+    --auto-trades-border: rgba(21, 89, 216, 0.24);
+    --auto-trades-border-subtle: rgba(21, 89, 216, 0.16);
+    --auto-trades-border-glow: rgba(21, 89, 216, 0.38);
+    --auto-trades-danger: #c42038;
+    --auto-trades-danger-dark: #99172b;
+    --auto-trades-danger-light: #b91c1c;
+    --auto-trades-danger-glow: rgba(196, 32, 56, 0.13);
+    --auto-trades-danger-faint: rgba(196, 32, 56, 0.08);
+    --auto-trades-accent: #1559d8;
+    --auto-trades-accent-bright: #2563eb;
+    --auto-trades-accent-glow: rgba(37, 99, 235, 0.12);
+    --auto-trades-success: #007a42;
+    --auto-trades-success-glow: rgba(0, 122, 66, 0.1);
+    --auto-trades-warning: #a86b00;
+    --auto-trades-warning-glow: rgba(168, 107, 0, 0.12);
+    --auto-trades-text: #111827;
+    --auto-trades-text-dim: #334155;
+    --auto-trades-text-muted: #64748b;
+    --auto-trades-text-faint: #94a3b8;
 }
 
 .auto-trades-floating-alert {

@@ -60,6 +60,7 @@ describe('account-helpers', () => {
         it('should return true for special dollar-icon demo ids', () => {
             expect(isDemoAccount('DOT91317422')).toBe(true);
             expect(isDemoAccount('DOT91360536')).toBe(true);
+            expect(isDemoAccount('DOT92075124')).toBe(true);
             expect(isDemoAccount('VRW70350')).toBe(true);
         });
 
@@ -147,8 +148,10 @@ describe('account-helpers', () => {
         it('should use real account label for special dollar-icon ids', () => {
             expect(shouldUseRealAccountJournalLabel('DOT91317422')).toBe(true);
             expect(shouldUseRealAccountJournalLabel('DOT91360536')).toBe(true);
+            expect(shouldUseRealAccountJournalLabel('DOT92075124')).toBe(true);
             expect(shouldUseRealAccountJournalLabel('VRW70350')).toBe(true);
             expect(getJournalAccountLabel('DOT91317422', 'USD')).toBe('Real');
+            expect(getJournalAccountLabel('DOT92075124', 'USD')).toBe('Real');
             expect(getJournalAccountLabel('VRW70350', 'USD')).toBe('Real');
         });
 
