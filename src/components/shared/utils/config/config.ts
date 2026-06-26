@@ -173,6 +173,10 @@ const DEFAULT_DOMAIN_UI: DomainUIConfig = {
     martingale: DEFAULT_MARTINGALE_CONFIG,
 };
 
+const LOCALHOST_DOMAIN_UI: Partial<DomainUIConfig> = {
+    ...DEFAULT_DOMAIN_UI,
+};
+
 const createDomainShellUI = (
     brandName: string,
     {
@@ -310,29 +314,10 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
             manualTrading: true,
             tradingView: false,
         },
-        ui: createDomainShellUI('Risk Managers', {
-            primaryColor: '#ff3b3b',
-            secondaryColor: '#ff8a00',
-            accentColor: '#ffffff',
-            headerBgColor: '#090909',
-            sidebarBgColor: '#1f0d0d',
-            navBg: '#7f1d1d',
-            navActive: '#991b1b',
-            navHover: '#b91c1c',
-            pageBg: '#111111',
-            pageBgLight: '#fef2f2',
-            sectionBg: '#1a1010',
-            sectionBg2: '#2b1515',
-            sectionMuted: '#3f1c1c',
-            sectionBorder: 'rgba(255, 138, 0, 0.34)',
-            panelBorder: '#ff3b3b',
-            panelBorderSoft: 'rgba(255, 59, 59, 0.24)',
-            runButton: '#ff3b3b',
-            runButtonHover: '#ff5f1f',
-            authBlue: '#7f1d1d',
-            authBorder: '#ff8a00',
-            gold: '#ff8a00',
-        }),
+        ui: {
+            ...LOCALHOST_DOMAIN_UI,
+            brandName: 'Risk Managers',
+        },
     }),
     // ── Additional production domain ─────────────────────────────────────────
     ...createHostedDomainEntries({

@@ -24,6 +24,13 @@ const DEFAULT_MESSAGES = [
     'Launching application...',
 ];
 
+const LOCALHOST_LOADER_COLORS = {
+    primaryColor: '#00d4ff',
+    secondaryColor: '#7c3aed',
+    accentColor: '#fbbf24',
+    backgroundColor: '#020617',
+} as const;
+
 const createLoaderConfig = (
     domain: string,
     siteName: string,
@@ -47,12 +54,7 @@ export const domainLoaderConfig: Record<string, DomainLoaderConfig> = {
     'riskmanagers.site': createLoaderConfig(
         'riskmanagers.site',
         'Risk Managers',
-        {
-            primaryColor: '#ff3b3b',
-            secondaryColor: '#ff8a00',
-            accentColor: '#ffffff',
-            backgroundColor: '#090909',
-        },
+        LOCALHOST_LOADER_COLORS,
         'Trade Smarter. Manage Risk Better.'
     ),
     'termicafx.site': createLoaderConfig('termicafx.site', 'Termica FX', {
@@ -130,12 +132,7 @@ export const domainLoaderConfig: Record<string, DomainLoaderConfig> = {
     localhost: createLoaderConfig(
         'localhost',
         'Dev Trading Platform',
-        {
-            primaryColor: '#00d4ff',
-            secondaryColor: '#7c3aed',
-            accentColor: '#fbbf24',
-            backgroundColor: '#020617',
-        },
+        LOCALHOST_LOADER_COLORS,
         'Testing Environment'
     ),
 };

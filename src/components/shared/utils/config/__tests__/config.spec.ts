@@ -35,7 +35,14 @@ describe('DOMAIN_CONFIG', () => {
             accumilatoirs: true,
             tradingView: false,
         });
-        expect(getDomainConfigForHost('riskmanagers.site')?.ui.brandName).toBe('Risk Managers');
+        expect(getDomainConfigForHost('riskmanagers.site')?.ui).toMatchObject({
+            brandName: 'Risk Managers',
+            primaryColor: '#f97316',
+            secondaryColor: '#1a1a2e',
+            accentColor: '#2196f3',
+            headerBgColor: '#1a1a2e',
+            sidebarBgColor: '#16213e',
+        });
         expect(getDomainConfigForHost('riskmanagers.site')).toMatchObject({
             redirectUri: 'https://riskmanagers.site/',
             includeLegacyAppIdInOAuth: true,

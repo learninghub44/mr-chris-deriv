@@ -8,8 +8,13 @@ import Dialog from '@/components/shared_ui/dialog';
 import MobileFullPageModal from '@/components/shared_ui/mobile-full-page-modal';
 import Text from '@/components/shared_ui/text';
 import { DBOT_TABS } from '@/constants/bot-contents';
-import { getAssetIconComponent } from '@/components/shared_ui/figma-icons/asset-icons';
 import { useStore } from '@/hooks/useStore';
+import { SocialGoogleBrandIcon } from '@deriv/quill-icons/Social';
+import {
+    StandaloneArrowUpFromBracketRegularIcon,
+    StandalonePuzzleRegularIcon,
+    StandaloneSparklesRegularIcon,
+} from '@deriv/quill-icons/Standalone';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
@@ -29,12 +34,13 @@ type TCardArray = {
     callback: () => void;
 };
 
-const DashboardActionIcon = ({ name, alt }: { name: string; alt: string }) => {
-    const AssetIcon = getAssetIconComponent(name);
-
+const DashboardActionIcon = ({ icon, alt }: { icon: React.ReactElement; alt: string }) => {
     return (
         <div className='tab__dashboard__table__icon' aria-label={alt}>
-            <AssetIcon aria-hidden='true' iconSize='lg' />
+            {React.cloneElement(icon, {
+                'aria-hidden': 'true',
+                iconSize: 'lg',
+            })}
         </div>
     );
 };
@@ -62,8 +68,13 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
     const actions: TCardArray[] = [
         {
             id: 'my-computer',
-            icon_name: 'IcMyComputer',
-            icon: <DashboardActionIcon name='IcMyComputer' alt={localize('My computer')} />,
+            icon_name: 'StandaloneArrowUpFromBracketRegularIcon',
+            icon: (
+                <DashboardActionIcon
+                    icon={<StandaloneArrowUpFromBracketRegularIcon />}
+                    alt={localize('Import bot from my computer')}
+                />
+            ),
             content: is_mobile ? <Localize i18n_default_text='Local' /> : <Localize i18n_default_text='My computer' />,
             callback: () => {
                 openFileLoader();
@@ -73,8 +84,8 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
         },
         {
             id: 'google-drive',
-            icon_name: 'IcGoogleDriveDbot',
-            icon: <DashboardActionIcon name='IcGoogleDriveDbot' alt={localize('Google Drive')} />,
+            icon_name: 'SocialGoogleBrandIcon',
+            icon: <DashboardActionIcon icon={<SocialGoogleBrandIcon />} alt={localize('Google Drive')} />,
             content: <Localize i18n_default_text='Google Drive' />,
             callback: () => {
                 openGoogleDriveDialog();
@@ -84,8 +95,8 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
         },
         {
             id: 'bot-builder',
-            icon_name: 'IcBotBuilder',
-            icon: <DashboardActionIcon name='IcBotBuilder' alt={localize('Bot Builder')} />,
+            icon_name: 'StandalonePuzzleRegularIcon',
+            icon: <DashboardActionIcon icon={<StandalonePuzzleRegularIcon />} alt={localize('Bot Builder')} />,
             content: <Localize i18n_default_text='Bot Builder' />,
             callback: () => {
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
@@ -95,8 +106,8 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
         },
         {
             id: 'quick-strategy',
-            icon_name: 'IcQuickStrategy',
-            icon: <DashboardActionIcon name='IcQuickStrategy' alt={localize('Quick strategy')} />,
+            icon_name: 'StandaloneSparklesRegularIcon',
+            icon: <DashboardActionIcon icon={<StandaloneSparklesRegularIcon />} alt={localize('Quick strategy')} />,
             content: <Localize i18n_default_text='Quick strategy' />,
             callback: () => {
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
