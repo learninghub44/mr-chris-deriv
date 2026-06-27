@@ -8,6 +8,11 @@ const apiBaseUrl = process.env.API_BASE_URL || '/api';
 
 const buildCompetitionUrl = (path: string) => `${apiBaseUrl}${path}`;
 
+const getHtmlCompetitionErrorMessage = (response: Response, fallbackMessage: string) =>
+    response.status === 404
+        ? 'Competition API route was not found. Make sure /api/competitions is deployed and reachable.'
+        : 'Competition API returned HTML instead of JSON. Make sure the backend route /api/competitions is running and reachable.';
+
 const parseCompetitionError = async (response: Response, fallbackMessage: string) => {
     const contentType = response.headers.get('content-type') || '';
 
@@ -18,6 +23,12 @@ const parseCompetitionError = async (response: Response, fallbackMessage: string
         }
 
         const text = await response.text();
+        const htmlLike = text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html');
+
+        if (htmlLike) {
+            return getHtmlCompetitionErrorMessage(response, fallbackMessage);
+        }
+
         return text || fallbackMessage;
     } catch {
         return fallbackMessage;
@@ -33,7 +44,7 @@ const parseCompetitionJson = async <T>(response: Response, fallbackMessage: stri
 
         throw new Error(
             htmlLike
-                ? 'Competition API returned HTML instead of JSON. Make sure the backend route /api/competitions is running and reachable.'
+                ? getHtmlCompetitionErrorMessage(response, fallbackMessage)
                 : fallbackMessage
         );
     }
