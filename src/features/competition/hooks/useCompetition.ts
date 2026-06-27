@@ -58,7 +58,7 @@ const parseCompetitionJson = async <T>(response: Response, fallbackMessage: stri
 
 const toCompetitionErrorMessage = (error: unknown, fallbackMessage: string) => {
     if (error instanceof TypeError) {
-        return 'Competition service is unavailable. Start the backend server on port 8000 and try again.';
+        return 'Competition service is unavailable. Check the deployed API and Supabase configuration, then try again.';
     }
 
     if (error instanceof Error) {
@@ -133,7 +133,7 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
                 isLoading: false,
                 error: toCompetitionErrorMessage(
                     error,
-                    'Unable to load the competition. Check that the competition backend is running.'
+                    'Unable to load the competition. Check that the competition API and Supabase backend are running.'
                 ),
             }));
         }
@@ -176,7 +176,7 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
         } catch (error) {
             const message = toCompetitionErrorMessage(
                 error,
-                'Unable to create your competition profile. Check that the competition backend is running.'
+                'Unable to create your competition profile. Check that the competition API and Supabase backend are running.'
             );
             setState(prev => ({ ...prev, isJoining: false, error: message }));
             throw error;
@@ -225,7 +225,7 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
         } catch (error) {
             const message = toCompetitionErrorMessage(
                 error,
-                'Unable to connect this Deriv account. Check that the competition backend is running.'
+                'Unable to connect this Deriv account. Check that the competition API and Supabase backend are running.'
             );
             setState(prev => ({ ...prev, isJoining: false, error: message }));
             throw error;
@@ -271,7 +271,7 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
         } catch (error) {
             const message = toCompetitionErrorMessage(
                 error,
-                'Unable to refresh your competition balance. Check that the competition backend is running.'
+                'Unable to refresh your competition balance. Check that the competition API and Supabase backend are running.'
             );
             setState(prev => ({ ...prev, isRefreshingBalance: false, error: message }));
             throw error;
@@ -305,7 +305,7 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
         } catch (error) {
             const message = toCompetitionErrorMessage(
                 error,
-                'Unable to complete the admin action. Check that the competition backend is running.'
+                'Unable to complete the admin action. Check that the competition API and Supabase backend are running.'
             );
             setState(prev => ({ ...prev, isJoining: false, error: message }));
             throw error;

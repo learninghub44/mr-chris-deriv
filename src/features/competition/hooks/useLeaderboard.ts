@@ -62,7 +62,7 @@ const parseLeaderboardJson = async <T>(response: Response, fallbackMessage: stri
 
 const toLeaderboardErrorMessage = (error: unknown, fallbackMessage: string) => {
     if (error instanceof TypeError) {
-        return 'Competition service is unavailable. Start the backend server on port 8000 and refresh the page.';
+        return 'Competition service is unavailable. Check the deployed API and Supabase configuration, then refresh the page.';
     }
 
     if (error instanceof Error && error.message) {
@@ -118,7 +118,7 @@ export const useLeaderboard = (slug = DEFAULT_COMPETITION_SLUG) => {
                     isLoading: false,
                     error: toLeaderboardErrorMessage(
                         error,
-                        'Unable to load the competition leaderboard. Check that the competition backend is running.'
+                        'Unable to load the competition leaderboard. Check that the competition API and Supabase backend are running.'
                     ),
                 });
             }
