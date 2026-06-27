@@ -192,26 +192,6 @@ FROM competition_participants cp
 JOIN competition_results cr ON cr.participant_id = cp.id
 WHERE cp.registration_status = 'verified' AND cp.is_real_account = true;
 
-ALTER TABLE competitions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE competition_participants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE competition_results ENABLE ROW LEVEL SECURITY;
-ALTER TABLE competition_admin_actions ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS competitions_no_public_table_access ON competitions;
-CREATE POLICY competitions_no_public_table_access ON competitions FOR SELECT USING (false);
-
-DROP POLICY IF EXISTS competition_participants_no_public_table_access ON competition_participants;
-CREATE POLICY competition_participants_no_public_table_access ON competition_participants FOR SELECT USING (false);
-
-DROP POLICY IF EXISTS competition_results_no_public_table_access ON competition_results;
-CREATE POLICY competition_results_no_public_table_access ON competition_results FOR SELECT USING (false);
-
-DROP POLICY IF EXISTS competition_admin_actions_no_public_table_access ON competition_admin_actions;
-CREATE POLICY competition_admin_actions_no_public_table_access ON competition_admin_actions FOR SELECT USING (false);
-
-GRANT SELECT ON public_competitions TO anon, authenticated;
-GRANT SELECT ON public_competition_leaderboard TO anon, authenticated;
-
 INSERT INTO competitions (
     name,
     slug,
@@ -326,17 +306,7 @@ const ensureCompetitionSchema = async pool => {
         return schemaPromise;
     }
 
-    schemaPromise = (async () => {
-        try {
-            await pool.query('SELECT id FROM competitions LIMIT 1');
-        } catch (error) {
-            if (!isMissingRelationError(error)) {
-                throw error;
-            }
-
-            await applyCompetitionMigrations(pool);
-        }
-    })().catch(error => {
+    schemaPromise = applyCompetitionMigrations(pool).catch(error => {
         schemaPromise = null;
         throw error;
     });

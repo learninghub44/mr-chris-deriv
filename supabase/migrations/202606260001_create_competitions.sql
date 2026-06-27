@@ -166,26 +166,6 @@ from competition_participants cp
 join competition_results cr on cr.participant_id = cp.id
 where cp.registration_status = 'verified' and cp.is_real_account = true;
 
-alter table competitions enable row level security;
-alter table competition_participants enable row level security;
-alter table competition_results enable row level security;
-alter table competition_admin_actions enable row level security;
-
-drop policy if exists competitions_no_public_table_access on competitions;
-create policy competitions_no_public_table_access on competitions for select using (false);
-
-drop policy if exists competition_participants_no_public_table_access on competition_participants;
-create policy competition_participants_no_public_table_access on competition_participants for select using (false);
-
-drop policy if exists competition_results_no_public_table_access on competition_results;
-create policy competition_results_no_public_table_access on competition_results for select using (false);
-
-drop policy if exists competition_admin_actions_no_public_table_access on competition_admin_actions;
-create policy competition_admin_actions_no_public_table_access on competition_admin_actions for select using (false);
-
-grant select on public_competitions to anon, authenticated;
-grant select on public_competition_leaderboard to anon, authenticated;
-
 insert into competitions (
     name,
     slug,
