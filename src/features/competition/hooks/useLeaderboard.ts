@@ -8,7 +8,7 @@ type LeaderboardState = {
 };
 
 const DEFAULT_COMPETITION_SLUG = 'giftbaris-2026-july';
-const apiBaseUrl = process.env.API_BASE_URL || '/api';
+const apiBaseUrl = '/api';
 
 const buildCompetitionUrl = (path: string) => `${apiBaseUrl}${path}`;
 

@@ -4,7 +4,7 @@ import type { CompetitionRecord, ParticipantSnapshot } from '@/features/competit
 const DEFAULT_COMPETITION_SLUG = 'giftbaris-2026-july';
 const storageKey = (slug: string) => `competition:participant:${slug}`;
 
-const apiBaseUrl = process.env.API_BASE_URL || '/api';
+const apiBaseUrl = '/api';
 
 const buildCompetitionUrl = (path: string) => `${apiBaseUrl}${path}`;
 
