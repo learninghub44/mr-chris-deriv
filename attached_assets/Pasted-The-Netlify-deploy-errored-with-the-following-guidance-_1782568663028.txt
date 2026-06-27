@@ -1,0 +1,99 @@
+The Netlify deploy errored, with the following guidance provided:
+
+Diagnosis
+
+- The build fails during dependency installation: [line 23](#L23) and [line 35](#L35).
+- The immediate error is a DNS/network resolution failure when npm tries to fetch a package from a host named package-firewall.replit.local: see the network ENOTFOUND and the failed request to that host in [lines 24–27](#L24-L27). This means npm is configured to use a non-resolvable/custom registry (likely via a .npmrc or environment variable) that Netlify cannot reach.
+- There is also an engines warning: @semantic-release/npm requires a newer Node version than the one in use (current Node v20.20.2) — see [lines 14](#L14) and [18–21](#L18-L21). This is a secondary issue you should address if that package needs to run on the build system.
+
+Cause
+- npm is trying to download packages from a custom/internal registry (package-firewall.replit.local). That host is not resolvable from Netlify, so install fails with ENOTFOUND.
+- Separately, some packages declare an engine that requires a newer Node.js version than the build is using.
+
+Solution
+
+1) Confirm where the registry is coming from
+- Search your repository for references to the custom registry:
+```bash
+git grep -n "package-firewall.replit.local" || true
+git grep -n "registry=" || true
+```
+- Check for a committed .npmrc at the repo root (or other locations) and check package-lock.json/shrinkwrap for registry URLs. Example files to inspect: .npmrc, .yarnrc, package-lock.json.
+
+2) If the repo contains a .npmrc or references to the custom registry
+- If you find a .npmrc that sets registry to package-firewall.replit.local, either:
+  - Remove or edit the file to use the public npm registry (if you don't need the private registry):
+    - Replace the registry line with:
+```ini
+registry=https://registry.npmjs.org/
+```
+  - OR, if you do need a private registry, configure the correct reachable registry and authentication in Netlify (see step 4).
+
+3) If there is no .npmrc in the repo, check build environment variables in Netlify
+- In Netlify UI, check Build & deploy → Environment → Environment variables for any of:
+  - NPM_CONFIG_REGISTRY, npm_config_registry
+  - HTTP_PROXY, HTTPS_PROXY, npm_config_proxy, npm_config_https_proxy
+- Remove or correct any variables pointing to package-firewall.replit.local.
+
+4) Quick CI/workaround: force the registry at build time
+- If you cannot edit files immediately, change the Netlify build command to force the public registry before install:
+  - In Netlify Build settings, set the Build command to:
+```bash
+npm config set registry https://registry.npmjs.org/ && npm ci
+```
+  - Or add a preinstall script in package.json:
+```json
+"scripts": {
+  "preinstall": "npm config set registry https://registry.npmjs.org/"
+}
+```
+Note: only use this if you do not require the private registry for private packages.
+
+5) If you need a private registry
+- Ensure the registry hostname is reachable from Netlify (most private registries are not). Instead, configure a public-facing registry or mirror, or publish the private packages to a registry accessible from Netlify and add any auth tokens as Netlify environment variables (e.g., NPM_TOKEN) and a .npmrc that reads from env variables. Do not commit plaintext tokens.
+
+6) Address the Node engine warning (optional/if needed)
+- The log shows @semantic-release/npm requires Node >=22.14.0 or >=24.10.0 while Netlify is using v20.20.2 ([lines 14](#L14) and [18–21](#L18-L21)). If that package must run during your build, update the Node version used by Netlify. See Netlify docs on changing Node versions:
+  - https://docs.netlify.com/configure-builds/manage-dependencies/#node-js-and-javascript
+- Ways to change Node on Netlify:
+  - Add an .nvmrc (e.g., "24") or set the "NODE_VERSION" environment variable, or set "engines.node" in package.json to a supported version, then trigger a redeploy.
+
+Checks to run locally / on the repo
+- Find occurrences of the bad host:
+```bash
+git grep -n "package-firewall.replit.local" || true
+```
+- If fixed, run a fresh install locally to validate:
+```bash
+npm config set registry https://registry.npmjs.org/
+npm ci
+```
+
+If you share the output of the repo search (the grep commands) or the contents of any .npmrc you find, I can give exact edits to make.
+
+The relevant error logs are:
+
+Line 13: v20.20.2 is already installed.
+Line 14: Now using node v20.20.2 (npm v10.8.2)
+Line 15: Enabling Node.js Corepack
+Line 16: No npm workspaces detected
+Line 17: Installing npm packages using npm version 10.8.2
+Line 18: npm warn EBADENGINE Unsupported engine {
+Line 19: npm warn EBADENGINE   package: '@semantic-release/npm@13.1.5',
+Line 20: npm warn EBADENGINE   required: { node: '^22.14.0 || >= 24.10.0' },
+Line 21: npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '10.8.2' }
+Line 22: npm warn EBADENGINE }
+Line 23: Failed during stage 'Install dependencies': dependency_installation script returned non-zero exit code: 1
+Line 24: npm error code ENOTFOUND
+Line 25: npm error syscall getaddrinfo
+Line 26: npm error errno ENOTFOUND
+Line 27: npm error network request to http://package-firewall.replit.local/npm/semver/-/semver-7.8.5.tgz failed, reason: getaddrinfo ENOT
+Line 28: npm error network This is a problem related to network connectivity.
+Line 29: npm error network In most cases you are behind a proxy or have bad network settings.
+Line 30: npm error network
+Line 31: npm error network If you are behind a proxy, please make sure that the
+Line 32: npm error network 'proxy' config is set properly.  See: 'npm help config'
+Line 33: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-06-27T13_53_25_995Z-debug-0.log
+Line 34: Error during npm install
+Line 35: Failing build: Failed to install dependencies
+Line 36: Finished processing build request in 1m23.05s
