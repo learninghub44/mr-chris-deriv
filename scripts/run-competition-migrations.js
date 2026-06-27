@@ -1,7 +1,5 @@
-const fs = require('fs');
-const path = require('path');
 const { Client } = require('pg');
-const { migrationFiles } = require('../backend/server/competition-schema');
+const { competitionMigrations } = require('../backend/server/competition-schema');
 
 async function run() {
     const connectionString = process.env.DATABASE_URL;
@@ -20,10 +18,9 @@ async function run() {
     await client.connect();
 
     try {
-        for (const file of migrationFiles) {
-            console.log(`Applying migration: ${path.basename(file)}`);
-            const sql = fs.readFileSync(file, 'utf8');
-            await client.query(sql);
+        for (const migration of competitionMigrations) {
+            console.log(`Applying migration: ${migration.name}`);
+            await client.query(migration.sql);
         }
 
         console.log('Competition migrations applied successfully.');
