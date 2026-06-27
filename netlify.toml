@@ -1,19 +1,18 @@
 [build]
-  command = "npm run build"
+  # Use npm install (not npm ci) so npm re-resolves packages from the public
+  # registry, ignoring any package-firewall.replit.local URLs in package-lock.json.
+  command = "npm install && npm run build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
 
-# Proxy /api/* to the Replit autoscale backend.
-# Set the REPLIT_BACKEND_URL environment variable in Netlify's site settings
-# to your deployed Replit URL (e.g. https://your-repl.replit.app).
-# This is only needed if the site is hosted on Netlify separately from the backend.
-# When deployed on Replit (autoscale), both frontend and backend share one origin
-# and no proxy is needed.
+# Proxy all /api/* requests to the Replit backend.
+# The Replit dev server (port 5000) internally proxies /api → port 8000 (Express).
+# Update this URL to your deployed Replit autoscale URL after publishing.
 [[redirects]]
   from = "/api/*"
-  to = ":REPLIT_BACKEND_URL/api/:splat"
+  to = "https://439a6b4c-93b6-40a3-9d2a-406052ed76f2-00-34dshrqu4dsru.janeway.replit.dev/api/:splat"
   status = 200
   force = true
 
