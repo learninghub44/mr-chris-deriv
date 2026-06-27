@@ -91,8 +91,10 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
 
     const participantId = typeof window !== 'undefined' ? localStorage.getItem(storageKey(slug)) : null;
 
-    const refreshCompetition = async () => {
-        setState(prev => ({ ...prev, isLoading: true, error: null }));
+    const refreshCompetition = async ({ silent = false }: { silent?: boolean } = {}) => {
+        if (!silent) {
+            setState(prev => ({ ...prev, isLoading: true, error: null }));
+        }
 
         try {
             const competitionResponse = await fetch(buildCompetitionUrl(`/competitions/${slug}`));
@@ -125,7 +127,7 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
                 competition: competitionPayload as CompetitionRecord,
                 participantSnapshot,
                 isLoading: false,
-                error: null,
+                error: silent ? prev.error : null,
             }));
         } catch (error) {
             setState(prev => ({

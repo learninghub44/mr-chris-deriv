@@ -9,6 +9,11 @@ import { useStore } from '@/hooks/useStore';
 import '../styles/competition.scss';
 
 const COMPETITION_API_UNAVAILABLE = 'Competition API route was not found.';
+const MINIMUM_COMPETITION_BALANCE = 20;
+
+type EligibleCompetitionAccount = DerivCompetitionAccount & {
+    current_balance: number;
+};
 
 const CompetitionPage = observer(() => {
     const store = useStore();
@@ -24,7 +29,7 @@ const CompetitionPage = observer(() => {
         connectAccount,
     } = useCompetition();
     const { entries, isLoading: isLeaderboardLoading, error: leaderboardError } = useLeaderboard();
-    const [availableAccounts, setAvailableAccounts] = useState<DerivCompetitionAccount[]>([]);
+    const [eligibleAccount, setEligibleAccount] = useState<EligibleCompetitionAccount | null>(null);
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [username, setUsername] = useState('');
     const [formError, setFormError] = useState('');
@@ -35,15 +40,44 @@ const CompetitionPage = observer(() => {
         : 'No verified participants have appeared on the leaderboard yet.';
 
     useEffect(() => {
+        let isMounted = true;
+
         if (!store?.client?.is_logged_in) {
-            setAvailableAccounts([]);
+            setEligibleAccount(null);
             return;
         }
 
-        derivAuth
-            .getAccounts()
-            .then(accounts => setAvailableAccounts(accounts.filter(account => derivAuth.isRealAccount(account))))
-            .catch(() => setAvailableAccounts([]));
+        const loadEligibleAccount = async () => {
+            try {
+                const accounts = await derivAuth.getAccounts();
+                const realAccounts = accounts.filter(account => derivAuth.isRealAccount(account));
+                const accountsWithBalances = await Promise.all(
+                    realAccounts.map(async account => ({
+                        ...account,
+                        current_balance: Number(await derivAuth.getBalance(account.loginid)),
+                    }))
+                );
+
+                const bestEligibleAccount =
+                    accountsWithBalances
+                        .filter(account => account.current_balance >= MINIMUM_COMPETITION_BALANCE)
+                        .sort((left, right) => right.current_balance - left.current_balance)[0] || null;
+
+                if (isMounted) {
+                    setEligibleAccount(bestEligibleAccount);
+                }
+            } catch {
+                if (isMounted) {
+                    setEligibleAccount(null);
+                }
+            }
+        };
+
+        void loadEligibleAccount();
+
+        return () => {
+            isMounted = false;
+        };
     }, [derivAuth, store?.client?.is_logged_in]);
 
     const handleCreateProfile = async () => {
@@ -54,10 +88,24 @@ const CompetitionPage = observer(() => {
             return;
         }
 
+        if (!eligibleAccount) {
+            setFormError('Only real accounts above 20 USD can join the competition. Top up and try again.');
+            return;
+        }
+
         setFormError('');
 
         try {
-            await createPendingProfile(normalized);
+            const profile = await createPendingProfile(normalized);
+
+            await connectAccount({
+                participantId: profile.participant.id,
+                accountId: eligibleAccount.loginid,
+                accountCurrency: eligibleAccount.currency,
+                currentBalance: eligibleAccount.current_balance,
+            });
+
+            setIsJoinModalOpen(false);
         } catch (createError) {
             setFormError(
                 createError instanceof Error
@@ -67,20 +115,22 @@ const CompetitionPage = observer(() => {
         }
     };
 
-    const handleConnectAccount = async (accountId: string) => {
+    const handleConnectEligibleAccount = async () => {
         if (!participantSnapshot) {
             return;
         }
 
-        try {
-            const account = await derivAuth.connectAccount(accountId);
-            const currentBalance = await derivAuth.getBalance(account.loginid);
+        if (!eligibleAccount) {
+            setFormError('Only real accounts above 20 USD can join the competition. Top up and try again.');
+            return;
+        }
 
+        try {
             await connectAccount({
                 participantId: participantSnapshot.participant.id,
-                accountId: account.loginid,
-                accountCurrency: account.currency,
-                currentBalance,
+                accountId: eligibleAccount.loginid,
+                accountCurrency: eligibleAccount.currency,
+                currentBalance: eligibleAccount.current_balance,
             });
             setIsJoinModalOpen(false);
             setFormError('');
@@ -94,6 +144,9 @@ const CompetitionPage = observer(() => {
     const joinState = participantSnapshot?.participant.registration_status || 'not_joined';
     const showUsernameStep = !participantSnapshot;
     const showAccountStep = participantSnapshot?.participant.registration_status === 'pending';
+    const ineligibleAccountMessage = store?.client?.is_logged_in
+        ? 'Only real accounts above 20 USD can join the competition. Top up and try again.'
+        : 'Log in with a real Deriv account above 20 USD to join the competition.';
 
     return (
         <div className='competition-page competition-page--fullscreen'>
@@ -105,7 +158,7 @@ const CompetitionPage = observer(() => {
                             <span className='competition-shell__status'>
                                 {participantSnapshot.participant.username}
                                 {participantSnapshot.participant.masked_account_id
-                                    ? ` \u2022 ${participantSnapshot.participant.masked_account_id}`
+                                    ? ` • ${participantSnapshot.participant.masked_account_id}`
                                     : ''}
                             </span>
                         ) : null}
@@ -117,7 +170,7 @@ const CompetitionPage = observer(() => {
                         ) : null}
                         <button
                             type='button'
-                            className='competition-button competition-button--primary'
+                            className='competition-button competition-button--primary competition-shell__manage-button'
                             disabled={competitionApiUnavailable}
                             onClick={() => {
                                 setFormError('');
@@ -145,7 +198,7 @@ const CompetitionPage = observer(() => {
                             <button
                                 type='button'
                                 className='competition-button competition-button--secondary'
-                                onClick={() => void refreshCompetition()}
+                                onClick={() => void refreshCompetition({ silent: true })}
                             >
                                 Retry
                             </button>
@@ -159,13 +212,13 @@ const CompetitionPage = observer(() => {
                     <div className='competition-modal__backdrop' onClick={() => !isJoining && setIsJoinModalOpen(false)} />
                     <div className='competition-modal__panel'>
                         <div className='competition-modal__header'>
-                            <h3>{participantSnapshot ? 'Join Competition' : 'Create Entry'}</h3>
+                            <h3>{participantSnapshot ? 'Competition entry' : 'Create Entry'}</h3>
                             <button
                                 type='button'
                                 className='competition-modal__close'
                                 onClick={() => !isJoining && setIsJoinModalOpen(false)}
                             >
-                                {'\u00D7'}
+                                {'×'}
                             </button>
                         </div>
 
@@ -181,6 +234,11 @@ const CompetitionPage = observer(() => {
 
                             {showUsernameStep && !competitionApiUnavailable ? (
                                 <div className='competition-join-minimal'>
+                                    <div className='competition-note'>
+                                        {eligibleAccount
+                                            ? `We'll automatically link your eligible real account ${eligibleAccount.loginid} (${eligibleAccount.currency} ${eligibleAccount.current_balance.toFixed(2)}).`
+                                            : ineligibleAccountMessage}
+                                    </div>
                                     <input
                                         value={username}
                                         onChange={event => {
@@ -198,43 +256,43 @@ const CompetitionPage = observer(() => {
                                     ) : null}
                                     <button
                                         type='button'
-                                        className='competition-button competition-button--primary'
-                                        disabled={isJoining || !store?.client?.is_logged_in}
+                                        className='competition-button competition-button--primary competition-button--full'
+                                        disabled={isJoining || !store?.client?.is_logged_in || !eligibleAccount}
                                         onClick={() => void handleCreateProfile()}
                                     >
-                                        {isJoining ? 'Saving...' : 'Continue'}
+                                        {isJoining ? 'Saving...' : 'Join competition'}
                                     </button>
                                 </div>
                             ) : null}
 
                             {showAccountStep && !competitionApiUnavailable ? (
                                 <div className='competition-account-list'>
-                                    {availableAccounts.map(account => (
-                                        <button
-                                            key={account.loginid}
-                                            type='button'
-                                            className='competition-account-option'
-                                            disabled={isJoining}
-                                            onClick={() => void handleConnectAccount(account.loginid)}
-                                        >
-                                            <strong>{account.loginid}</strong>
-                                            <span>{account.currency}</span>
-                                        </button>
-                                    ))}
+                                    <div className='competition-note'>
+                                        {eligibleAccount
+                                            ? `Only your eligible real account ${eligibleAccount.loginid} (${eligibleAccount.currency} ${eligibleAccount.current_balance.toFixed(2)}) can be linked.`
+                                            : ineligibleAccountMessage}
+                                    </div>
                                     {formError || error ? (
                                         <div className='competition-banner competition-banner--error'>
                                             {formError || error}
                                         </div>
                                     ) : null}
-                                    {!availableAccounts.length ? <div className='competition-empty'>No real account found.</div> : null}
+                                    <button
+                                        type='button'
+                                        className='competition-button competition-button--primary competition-button--full'
+                                        disabled={isJoining || !eligibleAccount}
+                                        onClick={() => void handleConnectEligibleAccount()}
+                                    >
+                                        {isJoining ? 'Linking...' : 'Link eligible real account'}
+                                    </button>
                                 </div>
                             ) : null}
 
                             {!showUsernameStep && !showAccountStep && participantSnapshot ? (
-                                <div className='competition-empty'>
+                                <div className='competition-empty competition-empty--summary'>
                                     {participantSnapshot.participant.username}
                                     {participantSnapshot.participant.masked_account_id
-                                        ? ` \u2022 ${participantSnapshot.participant.masked_account_id}`
+                                        ? ` • ${participantSnapshot.participant.masked_account_id}`
                                         : ''}
                                 </div>
                             ) : null}

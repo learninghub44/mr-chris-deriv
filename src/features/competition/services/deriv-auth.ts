@@ -15,6 +15,8 @@ declare global {
 }
 
 const isRealAccount = (account: DerivCompetitionAccount) => !String(account.loginid || '').startsWith('VR');
+const isEligibleRealAccount = (account: DerivCompetitionAccount) =>
+    !account.is_virtual && !String(account.loginid || '').startsWith('VR');
 
 export const getDerivCompetitionAuth = (store?: RootStore): DerivAuthLike => {
     if (window.derivAuth) {
@@ -35,6 +37,6 @@ export const getDerivCompetitionAuth = (store?: RootStore): DerivAuthLike => {
         async getBalance(accountId: string) {
             return Number(store?.client?.getDisplayBalanceAmount(accountId) || 0);
         },
-        isRealAccount,
+        isRealAccount: isEligibleRealAccount,
     };
 };

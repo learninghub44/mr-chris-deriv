@@ -82,8 +82,12 @@ export const useLeaderboard = (slug = DEFAULT_COMPETITION_SLUG) => {
     useEffect(() => {
         let isMounted = true;
 
-        const fetchLeaderboard = async () => {
-            setState(prev => ({ ...prev, isLoading: true, error: null }));
+        const fetchLeaderboard = async (options?: { silent?: boolean }) => {
+            const silent = options?.silent;
+
+            if (!silent) {
+                setState(prev => ({ ...prev, isLoading: true, error: null }));
+            }
 
             try {
                 const response = await fetch(buildCompetitionUrl(`/competitions/${slug}/leaderboard`));
@@ -113,20 +117,20 @@ export const useLeaderboard = (slug = DEFAULT_COMPETITION_SLUG) => {
                     return;
                 }
 
-                setState({
-                    entries: [],
+                setState(prev => ({
+                    entries: silent ? prev.entries : [],
                     isLoading: false,
                     error: toLeaderboardErrorMessage(
                         error,
                         'Unable to load the competition leaderboard. Check that the competition API and Supabase backend are running.'
                     ),
-                });
+                }));
             }
         };
 
         void fetchLeaderboard();
         const intervalId = window.setInterval(() => {
-            void fetchLeaderboard();
+            void fetchLeaderboard({ silent: true });
         }, 15000);
 
         return () => {

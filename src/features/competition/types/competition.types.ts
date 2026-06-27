@@ -80,6 +80,7 @@ export type DerivCompetitionAccount = {
     loginid: string;
     currency: string;
     balance?: number;
+    current_balance?: number;
     is_virtual?: number;
     is_disabled?: number;
 };
