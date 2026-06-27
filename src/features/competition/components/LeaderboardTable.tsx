@@ -35,14 +35,16 @@ const getRankMovement = (currentRank?: number | null, previousRank?: number | nu
 type LeaderboardTableProps = {
     entries: LeaderboardEntry[];
     competitionIsLive: boolean;
+    emptyMessage?: string;
 };
 
 const MAX_VISIBLE_ROWS = 50;
 const AWARD_CUTOFF = 20;
 
-const LeaderboardTable = ({ entries, competitionIsLive }: LeaderboardTableProps) => {
+const LeaderboardTable = ({ entries, competitionIsLive, emptyMessage = 'No competition entries yet.' }: LeaderboardTableProps) => {
     const visibleEntries = entries.slice(0, MAX_VISIBLE_ROWS);
     const fillerCount = Math.max(MAX_VISIBLE_ROWS - visibleEntries.length, 0);
+    const hasEntries = visibleEntries.length > 0;
 
     return (
         <div className='competition-card competition-leaderboard competition-leaderboard--minimal'>
@@ -69,6 +71,16 @@ const LeaderboardTable = ({ entries, competitionIsLive }: LeaderboardTableProps)
                         </tr>
                     </thead>
                     <tbody>
+                        {!hasEntries ? (
+                            <tr className='competition-leaderboard__row--empty'>
+                                <td
+                                    className='competition-leaderboard__empty-cell'
+                                    colSpan={competitionIsLive ? 7 : 5}
+                                >
+                                    <div className='competition-leaderboard__empty-state'>{emptyMessage}</div>
+                                </td>
+                            </tr>
+                        ) : null}
                         {visibleEntries.map((entry, index) => {
                             const tone =
                                 (entry.growth_percentage ?? 0) > 0
@@ -113,7 +125,8 @@ const LeaderboardTable = ({ entries, competitionIsLive }: LeaderboardTableProps)
                                 </tr>
                             );
                         })}
-                        {Array.from({ length: fillerCount }, (_, index) => {
+                        {hasEntries
+                            ? Array.from({ length: fillerCount }, (_, index) => {
                             const rank = visibleEntries.length + index + 1;
                             const isAwardZone = rank <= AWARD_CUTOFF;
 
@@ -145,12 +158,14 @@ const LeaderboardTable = ({ entries, competitionIsLive }: LeaderboardTableProps)
                                     )}
                                 </tr>
                             );
-                        })}
+                        })
+                            : null}
                     </tbody>
                 </table>
             </div>
 
             <div className='competition-leaderboard__cards'>
+                {!hasEntries ? <div className='competition-leaderboard__empty-state'>{emptyMessage}</div> : null}
                 {visibleEntries.map((entry, index) => {
                     const tone =
                         (entry.growth_percentage ?? 0) > 0

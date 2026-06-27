@@ -8,6 +8,8 @@ import type { DerivCompetitionAccount } from '@/features/competition/types/compe
 import { useStore } from '@/hooks/useStore';
 import '../styles/competition.scss';
 
+const COMPETITION_API_UNAVAILABLE = 'Competition API route was not found.';
+
 const CompetitionPage = observer(() => {
     const store = useStore();
     const derivAuth = useMemo(() => getDerivCompetitionAuth(store), [store]);
@@ -26,6 +28,11 @@ const CompetitionPage = observer(() => {
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [username, setUsername] = useState('');
     const [formError, setFormError] = useState('');
+    const combinedError = error || leaderboardError || '';
+    const competitionApiUnavailable = combinedError.includes(COMPETITION_API_UNAVAILABLE);
+    const leaderboardEmptyMessage = competitionApiUnavailable
+        ? 'Competition is temporarily unavailable while the service is being deployed. Please check back shortly.'
+        : 'No verified participants have appeared on the leaderboard yet.';
 
     useEffect(() => {
         if (!store?.client?.is_logged_in) {
@@ -111,6 +118,7 @@ const CompetitionPage = observer(() => {
                         <button
                             type='button'
                             className='competition-button competition-button--primary'
+                            disabled={competitionApiUnavailable}
                             onClick={() => {
                                 setFormError('');
                                 setIsJoinModalOpen(true);
@@ -125,11 +133,15 @@ const CompetitionPage = observer(() => {
                     {isLeaderboardLoading || isLoading ? (
                         <div className='competition-empty'>Loading...</div>
                     ) : (
-                        <LeaderboardTable entries={entries} competitionIsLive={competition?.status === 'live'} />
+                        <LeaderboardTable
+                            entries={entries}
+                            competitionIsLive={competition?.status === 'live'}
+                            emptyMessage={leaderboardEmptyMessage}
+                        />
                     )}
-                    {error || leaderboardError ? (
+                    {combinedError ? (
                         <div className='competition-banner competition-banner--error'>
-                            <strong>Competition error:</strong> {error || leaderboardError}
+                            <strong>Competition error:</strong> {combinedError}
                             <button
                                 type='button'
                                 className='competition-button competition-button--secondary'
@@ -161,8 +173,13 @@ const CompetitionPage = observer(() => {
                             {!store?.client?.is_logged_in ? (
                                 <div className='competition-empty'>Log in first.</div>
                             ) : null}
+                            {competitionApiUnavailable ? (
+                                <div className='competition-banner competition-banner--error'>
+                                    Competition signup is temporarily unavailable while the API is being deployed.
+                                </div>
+                            ) : null}
 
-                            {showUsernameStep ? (
+                            {showUsernameStep && !competitionApiUnavailable ? (
                                 <div className='competition-join-minimal'>
                                     <input
                                         value={username}
@@ -190,7 +207,7 @@ const CompetitionPage = observer(() => {
                                 </div>
                             ) : null}
 
-                            {showAccountStep ? (
+                            {showAccountStep && !competitionApiUnavailable ? (
                                 <div className='competition-account-list'>
                                     {availableAccounts.map(account => (
                                         <button
