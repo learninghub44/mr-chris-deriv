@@ -164,51 +164,6 @@ const LeaderboardTable = ({ entries, competitionIsLive, emptyMessage = 'No compe
                 </table>
             </div>
 
-            <div className='competition-leaderboard__cards'>
-                {!hasEntries ? <div className='competition-leaderboard__empty-state'>{emptyMessage}</div> : null}
-                {visibleEntries.map((entry, index) => {
-                    const tone =
-                        (entry.growth_percentage ?? 0) > 0
-                            ? 'positive'
-                            : (entry.growth_percentage ?? 0) < 0
-                              ? 'negative'
-                              : 'neutral';
-                    const isAwardZone = index < AWARD_CUTOFF;
-
-                    return (
-                        <article
-                            key={entry.participant_id}
-                            className={`competition-leaderboard__card${isAwardZone ? ' competition-leaderboard__card--award' : ''}`}
-                        >
-                            <div className='competition-leaderboard__card-top'>
-                                <strong>#{entry.current_rank || index + 1}</strong>
-                                <span>{getRankMovement(entry.current_rank, entry.previous_rank)}</span>
-                            </div>
-                            <h3>{entry.username}</h3>
-                            <p>{entry.masked_account_id || 'Pending verification'}</p>
-                            {competitionIsLive ? (
-                                <>
-                                    <p>Start: {formatMoney(entry.starting_balance, entry.account_currency || 'USD')}</p>
-                                    <p>Current: {formatMoney(entry.current_balance, entry.account_currency || 'USD')}</p>
-                                    <p className={`competition-metric competition-metric--${tone}`}>
-                                        Profit: {formatMoney(entry.adjusted_profit, entry.account_currency || 'USD')}
-                                    </p>
-                                    <p className={`competition-metric competition-metric--${tone}`}>
-                                        Growth: {formatGrowth(entry.growth_percentage)}
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <p>Current: {formatMoney(entry.current_balance, entry.account_currency || 'USD')}</p>
-                                    <p className={`competition-metric competition-metric--${tone}`}>
-                                        Growth: {formatGrowth(entry.growth_percentage)}
-                                    </p>
-                                </>
-                            )}
-                        </article>
-                    );
-                })}
-            </div>
         </div>
     );
 };

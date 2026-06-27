@@ -234,6 +234,36 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
         }
     };
 
+    const resetParticipantEntry = async (currentParticipantId: string) => {
+        setState(prev => ({ ...prev, isJoining: true, error: null }));
+
+        try {
+            const response = await fetch(buildCompetitionUrl(`/competitions/${slug}/participants/${currentParticipantId}/reset`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!response.ok) {
+                throw new Error(await parseCompetitionError(response, 'Unable to reset your competition entry.'));
+            }
+
+            localStorage.removeItem(storageKey(slug));
+            setState(prev => ({
+                ...prev,
+                participantSnapshot: null,
+                isJoining: false,
+            }));
+            await refreshCompetition({ silent: true });
+        } catch (error) {
+            const message = toCompetitionErrorMessage(
+                error,
+                'Unable to reset your competition entry. Check that the competition API and Supabase backend are running.'
+            );
+            setState(prev => ({ ...prev, isJoining: false, error: message }));
+            throw error;
+        }
+    };
+
     const refreshParticipantBalance = async ({
         participantId: currentParticipantId,
         accountId,
@@ -319,6 +349,7 @@ export const useCompetition = (slug = DEFAULT_COMPETITION_SLUG) => {
         refreshCompetition,
         createPendingProfile,
         connectAccount,
+        resetParticipantEntry,
         refreshParticipantBalance,
         runAdminAction,
         participantId,

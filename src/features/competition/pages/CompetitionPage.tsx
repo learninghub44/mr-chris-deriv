@@ -27,6 +27,7 @@ const CompetitionPage = observer(() => {
         refreshCompetition,
         createPendingProfile,
         connectAccount,
+        resetParticipantEntry,
     } = useCompetition();
     const { entries, isLoading: isLeaderboardLoading, error: leaderboardError } = useLeaderboard();
     const [eligibleAccount, setEligibleAccount] = useState<EligibleCompetitionAccount | null>(null);
@@ -141,6 +142,23 @@ const CompetitionPage = observer(() => {
         }
     };
 
+    const handleResetEntry = async () => {
+        if (!participantSnapshot) {
+            return;
+        }
+
+        try {
+            await resetParticipantEntry(participantSnapshot.participant.id);
+            setFormError('');
+            setUsername('');
+            setIsJoinModalOpen(false);
+        } catch (resetError) {
+            setFormError(
+                resetError instanceof Error ? resetError.message : 'Unable to reset this competition entry right now.'
+            );
+        }
+    };
+
     const joinState = participantSnapshot?.participant.registration_status || 'not_joined';
     const showUsernameStep = !participantSnapshot;
     const showAccountStep = participantSnapshot?.participant.registration_status === 'pending';
@@ -158,7 +176,7 @@ const CompetitionPage = observer(() => {
                             <span className='competition-shell__status'>
                                 {participantSnapshot.participant.username}
                                 {participantSnapshot.participant.masked_account_id
-                                    ? ` • ${participantSnapshot.participant.masked_account_id}`
+                                    ? ` - ${participantSnapshot.participant.masked_account_id}`
                                     : ''}
                             </span>
                         ) : null}
@@ -218,7 +236,7 @@ const CompetitionPage = observer(() => {
                                 className='competition-modal__close'
                                 onClick={() => !isJoining && setIsJoinModalOpen(false)}
                             >
-                                {'×'}
+                                {'x'}
                             </button>
                         </div>
 
@@ -289,11 +307,21 @@ const CompetitionPage = observer(() => {
                             ) : null}
 
                             {!showUsernameStep && !showAccountStep && participantSnapshot ? (
-                                <div className='competition-empty competition-empty--summary'>
-                                    {participantSnapshot.participant.username}
-                                    {participantSnapshot.participant.masked_account_id
-                                        ? ` • ${participantSnapshot.participant.masked_account_id}`
-                                        : ''}
+                                <div className='competition-account-list'>
+                                    <div className='competition-empty competition-empty--summary'>
+                                        {participantSnapshot.participant.username}
+                                        {participantSnapshot.participant.masked_account_id
+                                            ? ` - ${participantSnapshot.participant.masked_account_id}`
+                                            : ''}
+                                    </div>
+                                    <button
+                                        type='button'
+                                        className='competition-button competition-button--secondary competition-button--full'
+                                        disabled={isJoining}
+                                        onClick={() => void handleResetEntry()}
+                                    >
+                                        Reset entry
+                                    </button>
                                 </div>
                             ) : null}
                         </div>

@@ -209,6 +209,13 @@ const runCompetitionAdminAction = async (competitionId, action) => {
     });
 };
 
+const resetCompetitionEntry = async ({ slug, participantId }) => {
+    return await invokeRpc('reset_competition_entry', {
+        target_slug: slug,
+        target_participant_id: participantId,
+    });
+};
+
 module.exports = {
     CompetitionServiceError,
     connectCompetitionAccount,
@@ -216,6 +223,7 @@ module.exports = {
     getLeaderboardByCompetitionSlug,
     getParticipantSnapshot,
     joinCompetition,
+    resetCompetitionEntry,
     refreshCompetitionBalance,
     runCompetitionAdminAction,
 };

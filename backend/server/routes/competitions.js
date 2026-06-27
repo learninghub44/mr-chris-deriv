@@ -6,6 +6,7 @@ const {
     getLeaderboardByCompetitionSlug,
     getParticipantSnapshot,
     joinCompetition,
+    resetCompetitionEntry,
     refreshCompetitionBalance,
     runCompetitionAdminAction,
 } = require('../competition-supabase-service');
@@ -67,6 +68,19 @@ router.post('/:slug/participants/:participantId/balance', async (req, res, next)
                 participantId: req.params.participantId,
                 accountId: req.body?.accountId,
                 currentBalance: req.body?.currentBalance,
+            })
+        );
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post('/:slug/participants/:participantId/reset', async (req, res, next) => {
+    try {
+        res.json(
+            await resetCompetitionEntry({
+                slug: req.params.slug,
+                participantId: req.params.participantId,
             })
         );
     } catch (error) {

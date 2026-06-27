@@ -5,6 +5,7 @@ const {
     getLeaderboardByCompetitionSlug,
     getParticipantSnapshot,
     joinCompetition,
+    resetCompetitionEntry,
     refreshCompetitionBalance,
     runCompetitionAdminAction,
 } = require('../../backend/server/competition-supabase-service');
@@ -85,6 +86,16 @@ exports.handler = async event => {
                     participantId: segments[2],
                     accountId: body.accountId,
                     currentBalance: body.currentBalance,
+                })
+            );
+        }
+
+        if (segments.length === 4 && segments[1] === 'participants' && segments[3] === 'reset' && method === 'POST') {
+            return json(
+                200,
+                await resetCompetitionEntry({
+                    slug: segments[0],
+                    participantId: segments[2],
                 })
             );
         }

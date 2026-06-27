@@ -441,24 +441,6 @@
     cursor: pointer;
 }
 
-.competition-leaderboard__cards {
-    display: none;
-}
-
-.competition-leaderboard__card {
-    display: grid;
-    gap: 0.5rem;
-}
-
-.competition-leaderboard__card h3,
-.competition-leaderboard__card p {
-    margin: 0;
-}
-
-.competition-leaderboard__card p {
-    word-break: break-word;
-}
-
 @media (max-width: 1180px) and (min-width: 768px) {
     .competition-shell {
         border-radius: 20px;
@@ -530,48 +512,28 @@
     }
 
     .competition-leaderboard__table-wrap {
-        display: none;
-    }
-
-    .competition-leaderboard__cards {
-        display: grid;
-        gap: 0.75rem;
-        padding: 0.2rem;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .competition-leaderboard__empty-state {
-        min-height: 220px;
+        min-height: 200px;
     }
 
-    .competition-leaderboard__card {
-        border: 1px solid rgb(148 163 184 / 12%);
-        border-radius: 16px;
-        padding: 0.95rem;
-        background: rgb(15 23 42 / 40%);
-
-        .theme--light & {
-            background: rgb(255 255 255 / 72%);
-        }
+    .competition-leaderboard__table {
+        min-width: 100%;
+        font-size: 0.78rem;
     }
 
-    .competition-leaderboard__card--award {
-        border-color: rgb(59 130 246 / 35%);
-        background: linear-gradient(180deg, rgb(37 99 235 / 18%) 0%, rgb(15 23 42 / 48%) 100%);
-
-        .theme--light & {
-            border-color: rgb(37 99 235 / 45%);
-            background: linear-gradient(180deg, rgb(59 130 246 / 22%) 0%, rgb(255 255 255 / 88%) 100%);
-        }
+    .competition-leaderboard__table th,
+    .competition-leaderboard__table td {
+        padding: 0.7rem 0.45rem;
     }
 
-    .competition-leaderboard__card-top {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0.25rem;
-    }
-
-    .competition-leaderboard__card p {
-        white-space: normal;
+    .competition-rank {
+        gap: 0.25rem;
+        font-size: 0.75rem;
     }
 
     .competition-modal {
