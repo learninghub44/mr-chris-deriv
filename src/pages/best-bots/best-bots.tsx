@@ -89,8 +89,8 @@ const RISK_MANAGERS_BOTS: TBot[] = [
     },
     {
         id: 'tri-mode-regime-switcher-compatibility',
-        name: 'Tri-Mode Regime Switcher (Compatibility)',
-        file: 'Tri-Mode Regime Switcher (Compatibility).xml',
+        name: 'Tri-Mode Regime Switcher (Template Fixed)',
+        file: 'Tri-Mode Regime Switcher (Template Fixed).xml',
         description:
             'Risk Managers tri-mode competition bot using custom digit-frequency, match/differ, over/under, and rise/fall analysis blocks for site-native loading.',
         emoji: 'NEW',

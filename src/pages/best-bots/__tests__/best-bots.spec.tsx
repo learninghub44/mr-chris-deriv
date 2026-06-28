@@ -24,7 +24,7 @@ describe('Best Bots domain catalogs', () => {
     it('keeps the premium Risk Managers bot first for the Risk Managers folder', () => {
         const bots = getBestBotsForFolder('riskmanagers.site');
 
-        expect(bots).toHaveLength(4);
+        expect(bots).toHaveLength(5);
         expect(bots[0]).toMatchObject({
             id: 'percentage-over-by-mr-duke',
             name: 'Percentage Over by Mr Duke',
@@ -33,6 +33,13 @@ describe('Best Bots domain catalogs', () => {
             priority: 1,
         });
         expect(bots[1]).toMatchObject({
+            id: 'tri-mode-regime-switcher-compatibility',
+            name: 'Tri-Mode Regime Switcher (Template Fixed)',
+            file: 'Tri-Mode Regime Switcher (Template Fixed).xml',
+            is_premium: true,
+            priority: 2,
+        });
+        expect(bots[2]).toMatchObject({
             name: 'grffy v1',
             file: 'grffy v1.xml',
         });
