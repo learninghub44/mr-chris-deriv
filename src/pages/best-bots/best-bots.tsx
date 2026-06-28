@@ -4,7 +4,6 @@ import { getBestBotsFileUrl, getBestBotsFolder } from '@/components/shared';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { load, save_types } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
-import { API_BASE } from '@/utils/api-base';
 import { setActiveBot } from '@/utils/bot-tracker';
 import './best-bots.scss';
 
@@ -608,24 +607,6 @@ const BestBots = () => {
             isMounted = false;
         };
     }, [botsFolder]);
-
-    useEffect(() => {
-        const loadStats = () => {
-            fetch(`${API_BASE}/best-bot-stats`)
-                .then(r => r.json())
-                .then((rows: TBotStats[]) => {
-                    const map: Record<string, TBotStats> = {};
-                    rows.forEach(r => {
-                        map[r.bot_id] = r;
-                    });
-                    setStatsMap(map);
-                })
-                .catch(() => {});
-        };
-        loadStats();
-        const interval = setInterval(loadStats, 30_000);
-        return () => clearInterval(interval);
-    }, []);
 
     const rankedBots = [...bots].sort((a, b) => {
         const priorityA = a.priority ?? (a.is_premium ? 1 : 999);
