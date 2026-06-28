@@ -1,17 +1,6 @@
 import type { LeaderboardEntry } from '@/features/competition/types/competition.types';
+import { formatCompetitionMoney } from '@/features/competition/utils/formatCompetitionMoney';
 import { getDisplayMaskedLoginId } from '@/utils/account-helpers';
-
-const formatMoney = (amount?: number | null, currency = 'USD') => {
-    if (amount === null || amount === undefined) {
-        return '--';
-    }
-
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 2,
-    }).format(amount);
-};
 
 const formatGrowth = (growth?: number | null) => {
     if (growth === null || growth === undefined) {
@@ -106,10 +95,10 @@ const LeaderboardTable = ({ entries, competitionIsLive, emptyMessage = 'No compe
                                     <td>{getDisplayMaskedLoginId(entry.masked_account_id || '') || 'Pending verification'}</td>
                                     {competitionIsLive ? (
                                         <>
-                                            <td>{formatMoney(entry.starting_balance, entry.account_currency || 'USD')}</td>
-                                            <td>{formatMoney(entry.current_balance, entry.account_currency || 'USD')}</td>
+                                            <td>{formatCompetitionMoney(entry.starting_balance, entry.account_currency || 'USD')}</td>
+                                            <td>{formatCompetitionMoney(entry.current_balance, entry.account_currency || 'USD')}</td>
                                             <td className={`competition-metric competition-metric--${tone}`}>
-                                                {formatMoney(entry.adjusted_profit, entry.account_currency || 'USD')}
+                                                {formatCompetitionMoney(entry.adjusted_profit, entry.account_currency || 'USD')}
                                             </td>
                                             <td className={`competition-metric competition-metric--${tone}`}>
                                                 {formatGrowth(entry.growth_percentage)}
@@ -117,7 +106,7 @@ const LeaderboardTable = ({ entries, competitionIsLive, emptyMessage = 'No compe
                                         </>
                                     ) : (
                                         <>
-                                            <td>{formatMoney(entry.current_balance, entry.account_currency || 'USD')}</td>
+                                            <td>{formatCompetitionMoney(entry.current_balance, entry.account_currency || 'USD')}</td>
                                             <td className={`competition-metric competition-metric--${tone}`}>
                                                 {formatGrowth(entry.growth_percentage)}
                                             </td>

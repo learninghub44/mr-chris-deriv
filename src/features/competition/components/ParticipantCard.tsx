@@ -1,17 +1,6 @@
 import type { ParticipantSnapshot } from '@/features/competition/types/competition.types';
+import { formatCompetitionMoney } from '@/features/competition/utils/formatCompetitionMoney';
 import { getDisplayMaskedLoginId } from '@/utils/account-helpers';
-
-const formatMoney = (amount?: number | null, currency = 'USD') => {
-    if (amount === null || amount === undefined) {
-        return '--';
-    }
-
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 2,
-    }).format(amount);
-};
 
 type ParticipantCardProps = {
     participantSnapshot: ParticipantSnapshot;
@@ -47,7 +36,7 @@ const ParticipantCard = ({ participantSnapshot, canRefresh, isRefreshing, onRefr
                 </div>
                 <div>
                     <dt>Current balance</dt>
-                    <dd>{formatMoney(result?.current_balance, participant.account_currency || 'USD')}</dd>
+                    <dd>{formatCompetitionMoney(result?.current_balance, participant.account_currency || 'USD')}</dd>
                 </div>
             </dl>
 
