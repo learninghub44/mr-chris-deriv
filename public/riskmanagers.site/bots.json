@@ -9,6 +9,11 @@
         "priority": 1
     },
     {
+        "name": "Tri-Mode Regime Switcher (Template Fixed)",
+        "file": "Tri-Mode Regime Switcher (Template Fixed).xml",
+        "description": "Dynamic Risk Managers bot that rotates across Differs, Over/Under, and Rise/Fall without stopping when regimes shift."
+    },
+    {
         "name": "grffy v1",
         "file": "grffy v1.xml"
     },

@@ -1,0 +1,597 @@
+<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+    <variable id="rm_start_balance">Start Balance</variable>
+    <variable id="rm_stake">Stake</variable>
+    <variable id="rm_stake_pct">Stake %</variable>
+    <variable id="rm_contract_type">Contract Type</variable>
+    <variable id="rm_prediction">Prediction</variable>
+    <variable id="rm_duration">Duration</variable>
+    <variable id="rm_recovery_mode">Recovery Mode</variable>
+    <variable id="rm_primary_digit">Primary Differs Digit</variable>
+  </variables>
+  <block type="trade_definition" id="rm_trade_definition" deletable="false" x="24" y="40">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="rm_trade_market" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">1HZ10V</field>
+        <next>
+          <block type="trade_definition_tradetype" id="rm_trade_type" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">digits</field>
+            <field name="TRADETYPE_LIST">matchesdiffers</field>
+            <next>
+              <block type="trade_definition_contracttype" id="rm_trade_contract" deletable="false" movable="false">
+                <field name="TYPE_LIST">both</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="rm_trade_candle" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="rm_trade_restart_buy_sell" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id="rm_trade_restart_error" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="INITIALIZATION">
+      <block type="variables_set" id="rm_init_start_balance">
+        <field name="VAR" id="rm_start_balance">Start Balance</field>
+        <value name="VALUE">
+          <block type="balance" id="rm_init_balance">
+            <field name="BALANCE_TYPE">NUM</field>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set" id="rm_init_stake_pct">
+            <field name="VAR" id="rm_stake_pct">Stake %</field>
+            <value name="VALUE">
+              <block type="math_number" id="rm_init_stake_pct_num">
+                <field name="NUM">0.0035</field>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="rm_init_stake">
+                <field name="VAR" id="rm_stake">Stake</field>
+                <value name="VALUE">
+                  <block type="math_arithmetic" id="rm_init_stake_calc">
+                    <field name="OP">MULTIPLY</field>
+                    <value name="A">
+                      <block type="balance" id="rm_init_stake_balance">
+                        <field name="BALANCE_TYPE">NUM</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="variables_get" id="rm_init_stake_pct_get">
+                        <field name="VAR" id="rm_stake_pct">Stake %</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="rm_init_contract_type">
+                    <field name="VAR" id="rm_contract_type">Contract Type</field>
+                    <value name="VALUE">
+                      <block type="text" id="rm_init_contract_text">
+                        <field name="TEXT">DIGITDIFF</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="rm_init_prediction">
+                        <field name="VAR" id="rm_prediction">Prediction</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="rm_init_prediction_num">
+                            <field name="NUM">4</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="rm_init_duration">
+                            <field name="VAR" id="rm_duration">Duration</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="rm_init_duration_num">
+                                <field name="NUM">1</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="rm_init_recovery">
+                                <field name="VAR" id="rm_recovery_mode">Recovery Mode</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="rm_init_recovery_num">
+                                    <field name="NUM">0</field>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="variables_set" id="rm_init_primary_digit">
+                                    <field name="VAR" id="rm_primary_digit">Primary Differs Digit</field>
+                                    <value name="VALUE">
+                                      <block type="digit_frequency_analysis" id="rm_init_primary_digit_value">
+                                        <field name="RANK">most</field>
+                                        <value name="COUNT">
+                                          <shadow type="math_number" id="rm_init_primary_digit_count">
+                                            <field name="NUM">100</field>
+                                          </shadow>
+                                        </value>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="rm_trade_options">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+        <field name="DURATIONTYPE_LIST">t</field>
+        <value name="DURATION">
+          <shadow type="math_number_positive" id="rm_trade_duration_shadow">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="rm_trade_duration_value">
+            <field name="VAR" id="rm_duration">Duration</field>
+          </block>
+        </value>
+        <value name="AMOUNT">
+          <shadow type="math_number_positive" id="rm_trade_amount_shadow">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="rm_trade_amount_value">
+            <field name="VAR" id="rm_stake">Stake</field>
+          </block>
+        </value>
+        <value name="PREDICTION">
+          <shadow type="math_number_positive" id="rm_trade_prediction_shadow">
+            <field name="NUM">4</field>
+          </shadow>
+          <block type="variables_get" id="rm_trade_prediction_value">
+            <field name="VAR" id="rm_prediction">Prediction</field>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="before_purchase" id="rm_before_purchase" deletable="false" x="24" y="760">
+    <statement name="BEFOREPURCHASE_STACK">
+      <block type="variables_set" id="rm_refresh_stake">
+        <field name="VAR" id="rm_stake">Stake</field>
+        <value name="VALUE">
+          <block type="math_arithmetic" id="rm_refresh_stake_calc">
+            <field name="OP">MULTIPLY</field>
+            <value name="A">
+              <block type="balance" id="rm_refresh_stake_balance">
+                <field name="BALANCE_TYPE">NUM</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="variables_get" id="rm_refresh_stake_pct">
+                <field name="VAR" id="rm_stake_pct">Stake %</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set" id="rm_refresh_primary_digit">
+            <field name="VAR" id="rm_primary_digit">Primary Differs Digit</field>
+            <value name="VALUE">
+              <block type="digit_frequency_analysis" id="rm_before_primary_digit">
+                <field name="RANK">most</field>
+                <value name="COUNT">
+                  <shadow type="math_number" id="rm_before_primary_digit_count">
+                    <field name="NUM">100</field>
+                  </shadow>
+                </value>
+              </block>
+            </value>
+            <next>
+              <block type="controls_if" id="rm_choose_mode">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+                <value name="IF0">
+                  <block type="logic_compare" id="rm_is_primary_mode">
+                    <field name="OP">EQ</field>
+                    <value name="A">
+                      <block type="variables_get" id="rm_recovery_mode_get">
+                        <field name="VAR" id="rm_recovery_mode">Recovery Mode</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="math_number" id="rm_recovery_mode_zero">
+                        <field name="NUM">0</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <statement name="DO0">
+                  <block type="variables_set" id="rm_primary_contract">
+                    <field name="VAR" id="rm_contract_type">Contract Type</field>
+                    <value name="VALUE">
+                      <block type="text" id="rm_primary_contract_text">
+                        <field name="TEXT">DIGITDIFF</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="rm_primary_prediction">
+                        <field name="VAR" id="rm_prediction">Prediction</field>
+                        <value name="VALUE">
+                          <block type="variables_get" id="rm_primary_digit_get">
+                            <field name="VAR" id="rm_primary_digit">Primary Differs Digit</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="rm_primary_duration">
+                            <field name="VAR" id="rm_duration">Duration</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="rm_primary_duration_num">
+                                <field name="NUM">1</field>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </statement>
+                <statement name="ELSE">
+                  <block type="controls_if" id="rm_recovery_chain">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="3" else="1"></mutation>
+                    <value name="IF0">
+                      <block type="logic_compare" id="rm_over_bias_check">
+                        <field name="OP">GTE</field>
+                        <value name="A">
+                          <block type="over_under_percentage" id="rm_over_bias_value">
+                            <field name="CONDITION">over</field>
+                            <value name="DIGIT">
+                              <shadow type="math_number" id="rm_over_bias_digit">
+                                <field name="NUM">4</field>
+                              </shadow>
+                            </value>
+                            <value name="COUNT">
+                              <shadow type="math_number" id="rm_over_bias_count">
+                                <field name="NUM">100</field>
+                              </shadow>
+                            </value>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="math_number" id="rm_over_bias_threshold">
+                            <field name="NUM">58</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="variables_set" id="rm_set_under_contract">
+                        <field name="VAR" id="rm_contract_type">Contract Type</field>
+                        <value name="VALUE">
+                          <block type="text" id="rm_set_under_contract_text">
+                            <field name="TEXT">DIGITUNDER</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="rm_set_under_prediction">
+                            <field name="VAR" id="rm_prediction">Prediction</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="rm_set_under_prediction_num">
+                                <field name="NUM">4</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="rm_set_under_duration">
+                                <field name="VAR" id="rm_duration">Duration</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="rm_set_under_duration_num">
+                                    <field name="NUM">1</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <value name="IF1">
+                      <block type="logic_compare" id="rm_under_bias_check">
+                        <field name="OP">GTE</field>
+                        <value name="A">
+                          <block type="over_under_percentage" id="rm_under_bias_value">
+                            <field name="CONDITION">under</field>
+                            <value name="DIGIT">
+                              <shadow type="math_number" id="rm_under_bias_digit">
+                                <field name="NUM">4</field>
+                              </shadow>
+                            </value>
+                            <value name="COUNT">
+                              <shadow type="math_number" id="rm_under_bias_count">
+                                <field name="NUM">100</field>
+                              </shadow>
+                            </value>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="math_number" id="rm_under_bias_threshold">
+                            <field name="NUM">58</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO1">
+                      <block type="variables_set" id="rm_set_over_contract">
+                        <field name="VAR" id="rm_contract_type">Contract Type</field>
+                        <value name="VALUE">
+                          <block type="text" id="rm_set_over_contract_text">
+                            <field name="TEXT">DIGITOVER</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="rm_set_over_prediction">
+                            <field name="VAR" id="rm_prediction">Prediction</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="rm_set_over_prediction_num">
+                                <field name="NUM">4</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="rm_set_over_duration">
+                                <field name="VAR" id="rm_duration">Duration</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="rm_set_over_duration_num">
+                                    <field name="NUM">1</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <value name="IF2">
+                      <block type="logic_operation" id="rm_call_condition">
+                        <field name="OP">AND</field>
+                        <value name="A">
+                          <block type="logic_compare" id="rm_call_percentage_check">
+                            <field name="OP">GTE</field>
+                            <value name="A">
+                              <block type="rise_fall_percentage" id="rm_call_percentage_value">
+                                <field name="DIRECTION">rise</field>
+                                <value name="COUNT">
+                                  <shadow type="math_number" id="rm_call_percentage_count">
+                                    <field name="NUM">10</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="math_number" id="rm_call_percentage_threshold">
+                                <field name="NUM">75</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="last_n_ticks_direction" id="rm_call_last_ticks">
+                            <field name="DIRECTION">rise</field>
+                            <value name="COUNT">
+                              <shadow type="math_number" id="rm_call_last_ticks_count">
+                                <field name="NUM">3</field>
+                              </shadow>
+                            </value>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO2">
+                      <block type="variables_set" id="rm_set_call_contract">
+                        <field name="VAR" id="rm_contract_type">Contract Type</field>
+                        <value name="VALUE">
+                          <block type="text" id="rm_set_call_contract_text">
+                            <field name="TEXT">CALL</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="rm_set_call_prediction">
+                            <field name="VAR" id="rm_prediction">Prediction</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="rm_set_call_prediction_num">
+                                <field name="NUM">0</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="rm_set_call_duration">
+                                <field name="VAR" id="rm_duration">Duration</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="rm_set_call_duration_num">
+                                    <field name="NUM">3</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <value name="IF3">
+                      <block type="logic_operation" id="rm_put_condition">
+                        <field name="OP">AND</field>
+                        <value name="A">
+                          <block type="logic_compare" id="rm_put_percentage_check">
+                            <field name="OP">GTE</field>
+                            <value name="A">
+                              <block type="rise_fall_percentage" id="rm_put_percentage_value">
+                                <field name="DIRECTION">fall</field>
+                                <value name="COUNT">
+                                  <shadow type="math_number" id="rm_put_percentage_count">
+                                    <field name="NUM">10</field>
+                                  </shadow>
+                                </value>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="math_number" id="rm_put_percentage_threshold">
+                                <field name="NUM">75</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="last_n_ticks_direction" id="rm_put_last_ticks">
+                            <field name="DIRECTION">fall</field>
+                            <value name="COUNT">
+                              <shadow type="math_number" id="rm_put_last_ticks_count">
+                                <field name="NUM">3</field>
+                              </shadow>
+                            </value>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO3">
+                      <block type="variables_set" id="rm_set_put_contract">
+                        <field name="VAR" id="rm_contract_type">Contract Type</field>
+                        <value name="VALUE">
+                          <block type="text" id="rm_set_put_contract_text">
+                            <field name="TEXT">PUT</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="rm_set_put_prediction">
+                            <field name="VAR" id="rm_prediction">Prediction</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="rm_set_put_prediction_num">
+                                <field name="NUM">0</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="rm_set_put_duration">
+                                <field name="VAR" id="rm_duration">Duration</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="rm_set_put_duration_num">
+                                    <field name="NUM">3</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <statement name="ELSE">
+                      <block type="variables_set" id="rm_fallback_contract">
+                        <field name="VAR" id="rm_contract_type">Contract Type</field>
+                        <value name="VALUE">
+                          <block type="text" id="rm_fallback_contract_text">
+                            <field name="TEXT">DIGITDIFF</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="rm_fallback_prediction">
+                            <field name="VAR" id="rm_prediction">Prediction</field>
+                            <value name="VALUE">
+                              <block type="variables_get" id="rm_fallback_primary_digit">
+                                <field name="VAR" id="rm_primary_digit">Primary Differs Digit</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set" id="rm_fallback_duration">
+                                <field name="VAR" id="rm_duration">Duration</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="rm_fallback_duration_num">
+                                    <field name="NUM">1</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                  </block>
+                </statement>
+                <next>
+                  <block type="smart_purchase_contract" id="rm_dynamic_purchase">
+                    <field name="DURATIONTYPE_LIST">t</field>
+                    <value name="CONTRACT_TYPE">
+                      <block type="variables_get" id="rm_purchase_contract_type">
+                        <field name="VAR" id="rm_contract_type">Contract Type</field>
+                      </block>
+                    </value>
+                    <value name="AMOUNT">
+                      <block type="variables_get" id="rm_purchase_amount">
+                        <field name="VAR" id="rm_stake">Stake</field>
+                      </block>
+                    </value>
+                    <value name="DURATION">
+                      <block type="variables_get" id="rm_purchase_duration">
+                        <field name="VAR" id="rm_duration">Duration</field>
+                      </block>
+                    </value>
+                    <value name="PREDICTION">
+                      <block type="variables_get" id="rm_purchase_prediction">
+                        <field name="VAR" id="rm_prediction">Prediction</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+  <block type="after_purchase" id="rm_after_purchase" x="760" y="40">
+    <statement name="AFTERPURCHASE_STACK">
+      <block type="controls_if" id="rm_after_result">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+        <value name="IF0">
+          <block type="contract_check_result" id="rm_after_is_win">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="variables_set" id="rm_after_win_recovery">
+            <field name="VAR" id="rm_recovery_mode">Recovery Mode</field>
+            <value name="VALUE">
+              <block type="math_number" id="rm_after_win_recovery_num">
+                <field name="NUM">0</field>
+              </block>
+            </value>
+            <next>
+              <block type="trade_again" id="rm_after_trade_again_win"></block>
+            </next>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="variables_set" id="rm_after_loss_recovery">
+            <field name="VAR" id="rm_recovery_mode">Recovery Mode</field>
+            <value name="VALUE">
+              <block type="math_number" id="rm_after_loss_recovery_num">
+                <field name="NUM">1</field>
+              </block>
+            </value>
+            <next>
+              <block type="trade_again" id="rm_after_trade_again_loss"></block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+</xml>
