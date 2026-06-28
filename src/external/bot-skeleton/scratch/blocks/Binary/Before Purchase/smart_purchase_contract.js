@@ -162,6 +162,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.smart_purchase_contract =
                 barrierOffset      : undefined,
                 secondBarrierOffset: undefined,
                 basis              : 'stake',
+                preserve_duration  : true,
             });
             Bot.purchase(contractType);
         })();

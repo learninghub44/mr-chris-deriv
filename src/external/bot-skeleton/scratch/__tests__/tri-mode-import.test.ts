@@ -72,7 +72,9 @@ describe('Tri-Mode Blockly workspace import', () => {
         window.Blockly.JavaScript.variableDB_ = variable_db;
         const generated_code = window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(workspace);
         expect(generated_code).not.toContain('.includes(');
+        expect(generated_code).not.toContain('Bot.failExecutionCondition');
         expect(generated_code).toContain('Purchase request:');
+        expect(generated_code).toContain('preserve_duration');
 
         workspace.dispose();
     });
@@ -103,6 +105,137 @@ describe('Tri-Mode Blockly workspace import', () => {
                 message: expect.stringContaining('excluded previous digit 4'),
             })
         );
+
+        workspace.dispose();
+    });
+
+    it('selects all three regimes and cools down when the losing mode is the only signal', () => {
+        const workspace = new window.Blockly.Workspace();
+        const analysis = workspace.newBlock('tri_mode_regime_signal');
+        const input_values = {
+            AVOID_MODE: 0,
+            EVALUATION_TICKS: 20,
+            HISTORY: 100,
+            COOLDOWN_TICKS: 5,
+            DIFFERS_THRESHOLD: 14,
+            BIAS_THRESHOLD: 58,
+            FLAT_THRESHOLD: 55,
+            TREND_TICKS: 3,
+            RANGE_TICKS: 10,
+            MAX_RANGE: 0.6,
+        };
+        const number_blocks = Object.entries(input_values).map(([input_name, value]) => {
+            const number_block = workspace.newBlock('math_number');
+            number_block.setFieldValue(String(value), 'NUM');
+            analysis.getInput(input_name)?.connection?.connect(number_block.outputConnection);
+            return number_block;
+        });
+        const generator = window.Blockly.JavaScript.javascriptGenerator;
+        generator.init(workspace);
+        const [code] = generator.forBlock.tri_mode_regime_signal(analysis);
+        const evaluate_signal = new Function('Bot', 'BinaryBotPrivateTriModeState', `return ${code};`);
+        const repeat_digit = (digit: number, count: number) => Array.from({ length: count }, () => digit);
+        const mode_a_digits = [
+            ...repeat_digit(0, 10),
+            ...repeat_digit(1, 10),
+            ...repeat_digit(2, 10),
+            ...repeat_digit(3, 10),
+            ...repeat_digit(4, 10),
+            ...repeat_digit(5, 9),
+            ...repeat_digit(6, 9),
+            ...repeat_digit(7, 15),
+            ...repeat_digit(8, 9),
+            ...repeat_digit(9, 8),
+        ];
+        const mode_b_digits = Array.from({ length: 10 }, (_, digit) => repeat_digit(digit, digit < 5 ? 8 : 12)).flat();
+        const mode_c_digits = Array.from({ length: 10 }, (_, digit) => repeat_digit(digit, 10)).flat();
+        const choppy_ticks = [100, 101, 99, 101, 99, 101, 99, 101, 99, 101];
+        const rising_ticks = [100, 100.05, 100.1, 100.15, 100.2, 100.25, 100.3, 100.35, 100.4, 100.45];
+        const make_state = () => ({ ticks: 19, cooldown: 0, lastMode: 0, lastDiffersDigit: -1 });
+        const evaluate = (digits: number[], ticks: number[], state = make_state()) =>
+            evaluate_signal(
+                {
+                    getLastDigitList: () => digits,
+                    getTicks: () => ticks,
+                    notify: jest.fn(),
+                },
+                state
+            );
+
+        expect(evaluate(mode_a_digits, choppy_ticks)).toBe(17);
+        expect(evaluate(mode_b_digits, choppy_ticks)).toBe(20);
+        expect(evaluate(mode_c_digits, rising_ticks)).toBe(30);
+        const repeated_differs_state = make_state();
+        expect(evaluate(mode_a_digits, choppy_ticks, repeated_differs_state)).toBe(17);
+        repeated_differs_state.ticks = 19;
+        expect(evaluate(mode_a_digits, choppy_ticks, repeated_differs_state)).toBe(0);
+        expect(repeated_differs_state.cooldown).toBe(5);
+
+        number_blocks[0].setFieldValue('1', 'NUM');
+        const [avoid_mode_code] = generator.forBlock.tri_mode_regime_signal(analysis);
+        const evaluate_with_avoid = new Function('Bot', 'BinaryBotPrivateTriModeState', `return ${avoid_mode_code};`);
+        const cooldown_state = make_state();
+        expect(
+            evaluate_with_avoid(
+                {
+                    getLastDigitList: () => mode_b_digits,
+                    getTicks: () => choppy_ticks,
+                    notify: jest.fn(),
+                },
+                make_state()
+            )
+        ).toBe(20);
+        expect(
+            evaluate_with_avoid(
+                {
+                    getLastDigitList: () => mode_a_digits,
+                    getTicks: () => choppy_ticks,
+                    notify: jest.fn(),
+                },
+                cooldown_state
+            )
+        ).toBe(0);
+        expect(cooldown_state.cooldown).toBe(5);
+        for (let cooldown_tick = 0; cooldown_tick < 5; cooldown_tick += 1) {
+            expect(
+                evaluate_with_avoid(
+                    {
+                        getLastDigitList: () => mode_b_digits,
+                        getTicks: () => choppy_ticks,
+                        notify: jest.fn(),
+                    },
+                    cooldown_state
+                )
+            ).toBe(0);
+        }
+        expect(cooldown_state).toEqual(
+            expect.objectContaining({
+                cooldown: 0,
+                ticks: 0,
+            })
+        );
+        for (let evaluation_tick = 0; evaluation_tick < 19; evaluation_tick += 1) {
+            expect(
+                evaluate_with_avoid(
+                    {
+                        getLastDigitList: () => mode_b_digits,
+                        getTicks: () => choppy_ticks,
+                        notify: jest.fn(),
+                    },
+                    cooldown_state
+                )
+            ).toBe(0);
+        }
+        expect(
+            evaluate_with_avoid(
+                {
+                    getLastDigitList: () => mode_b_digits,
+                    getTicks: () => choppy_ticks,
+                    notify: jest.fn(),
+                },
+                cooldown_state
+            )
+        ).toBe(20);
 
         workspace.dispose();
     });

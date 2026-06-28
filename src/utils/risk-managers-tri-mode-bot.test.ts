@@ -15,6 +15,38 @@ const SMART_PURCHASE_FILE_PATH = path.join(
     'Before Purchase',
     'smart_purchase_contract.js'
 );
+const TRI_MODE_SIGNAL_FILE_PATH = path.join(
+    process.cwd(),
+    'src',
+    'external',
+    'bot-skeleton',
+    'scratch',
+    'blocks',
+    'Binary',
+    'Tick Analysis',
+    'tri_mode_regime_signal.js'
+);
+const TRI_MODE_VALUE_FILE_PATH = path.join(
+    process.cwd(),
+    'src',
+    'external',
+    'bot-skeleton',
+    'scratch',
+    'blocks',
+    'Binary',
+    'Tick Analysis',
+    'tri_mode_signal_value.js'
+);
+const TRADE_ENGINE_FILE_PATH = path.join(
+    process.cwd(),
+    'src',
+    'external',
+    'bot-skeleton',
+    'services',
+    'tradeEngine',
+    'trade',
+    'index.js'
+);
 
 describe('Risk Managers Tri-Mode bot asset', () => {
     const xml_text = fs.readFileSync(BOT_FILE_PATH, 'utf8');
@@ -40,9 +72,21 @@ describe('Risk Managers Tri-Mode bot asset', () => {
         const after_purchase = xml_document.querySelector('block[type="after_purchase"]');
 
         expect(before_purchase?.querySelectorAll('block[type="smart_purchase_contract"]')).toHaveLength(1);
-        expect(before_purchase?.querySelectorAll('block[type="rotating_differ_prediction"]')).toHaveLength(1);
-        expect(before_purchase?.querySelectorAll('block[type="digit_frequency_analysis"]')).toHaveLength(0);
-        expect(before_purchase?.querySelectorAll('field[id="rm_last_differs_prediction"]')).toHaveLength(2);
+        expect(before_purchase?.querySelectorAll('block[type="tri_mode_regime_signal"]')).toHaveLength(1);
+        expect(before_purchase?.querySelectorAll('block[type="tri_mode_signal_value"]')).toHaveLength(5);
+        expect(before_purchase?.querySelector('value[name="EVALUATION_TICKS"] field[name="NUM"]')?.textContent).toBe(
+            '20'
+        );
+        expect(before_purchase?.querySelector('value[name="COOLDOWN_TICKS"] field[name="NUM"]')?.textContent).toBe('5');
+        expect(before_purchase?.querySelector('value[name="DIFFERS_THRESHOLD"] field[name="NUM"]')?.textContent).toBe(
+            '14'
+        );
+        expect(before_purchase?.querySelector('value[name="BIAS_THRESHOLD"] field[name="NUM"]')?.textContent).toBe(
+            '58'
+        );
+        expect(before_purchase?.querySelector('value[name="FLAT_THRESHOLD"] field[name="NUM"]')?.textContent).toBe(
+            '55'
+        );
         expect(after_purchase?.querySelectorAll('block[type="trade_again"]')).toHaveLength(1);
         expect(
             after_purchase?.querySelector(
@@ -53,10 +97,33 @@ describe('Risk Managers Tri-Mode bot asset', () => {
 
     it('uses interpreter-compatible purchase code and emits a live purchase request', () => {
         const smart_purchase_source = fs.readFileSync(SMART_PURCHASE_FILE_PATH, 'utf8');
+        const tri_mode_signal_source = fs.readFileSync(TRI_MODE_SIGNAL_FILE_PATH, 'utf8');
+        const tri_mode_value_source = fs.readFileSync(TRI_MODE_VALUE_FILE_PATH, 'utf8');
+        const trade_engine_source = fs.readFileSync(TRADE_ENGINE_FILE_PATH, 'utf8');
 
         expect(smart_purchase_source).not.toContain('.includes(');
         expect(smart_purchase_source).toContain('.indexOf(contractType)');
         expect(smart_purchase_source).toContain('Purchase request:');
+        expect(smart_purchase_source).toContain('preserve_duration  : true');
+        expect(trade_engine_source).toContain('&& !should_preserve_duration');
+        expect(tri_mode_signal_source).toContain('Mode shift:');
+        expect(tri_mode_signal_source).toContain('conditions not met');
+        expect(tri_mode_signal_source).toContain('lastDiffersDigit');
+        expect(tri_mode_signal_source).toContain('uses 10% of the base stake');
+        expect(tri_mode_value_source).toContain('? 0.1 : 1');
+    });
+
+    it('uses reduced Differs exposure and remembers the losing mode', () => {
+        expect(xml_document.querySelector('block[id="tm_init_base_pct_value"] field[name="NUM"]')?.textContent).toBe(
+            '0.001'
+        );
+        expect(xml_document.querySelector('block[id="tm_set_avoid_mode"] field[id="tm_avoid_mode"]')?.textContent).toBe(
+            'Avoid Mode After Loss'
+        );
+        expect(
+            xml_document.querySelector('block[id="tm_set_avoid_mode"] block[id="tm_losing_mode"] field[name="VAR"]')
+                ?.textContent
+        ).toBe('Last Mode');
     });
 
     it('wires every XML variable reference to a declared variable', () => {

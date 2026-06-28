@@ -1,10 +1,10 @@
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
 import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
-import ApiHelpers from '../../api/api-helpers';
 import { createError } from '../../../utils/error';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
+import ApiHelpers from '../../api/api-helpers';
 import { checkBlocksForProposalRequest, doUntilDone } from '../utils/helpers';
 import { expectInitArg } from '../utils/sanitize';
 import { proposalsReady, start } from './state/actions';
@@ -106,12 +106,13 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
     }
 
     validateTradeOptions(tradeOptions) {
+        const should_preserve_duration = Boolean(tradeOptions.preserve_duration);
         const validated_trade_options = super.validateTradeOptions(tradeOptions);
         const is_fast_mode = api_base.execution_mode === 'fast';
         const trade_type = this.options?.tradeType;
         const is_duration_adjustable = !['multiplier', 'accumulator'].includes(trade_type);
 
-        if (is_fast_mode && is_duration_adjustable) {
+        if (is_fast_mode && is_duration_adjustable && !should_preserve_duration) {
             const shortest_duration = ApiHelpers.instance?.contracts_for?.getShortestDurationFromCache?.(
                 this.options?.symbol,
                 trade_type
