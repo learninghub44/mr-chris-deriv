@@ -17,6 +17,7 @@ import { TStrategy } from 'Types';
 /* [/AI] */
 import { tabs_title } from '../constants/load-modal';
 import { waitForDomElement } from '../utils/dom-observer';
+import { buildXmlImportDiagnosticsMessage, getParserErrorText, getUnsupportedXmlTags } from '../utils/xml-import-diagnostics';
 import RootStore from './root-store';
 
 export default class LoadModalStore {
@@ -457,7 +458,22 @@ export default class LoadModalStore {
 
                 const parsed_xml = parser.parseFromString(content, 'text/xml');
                 if (parsed_xml.querySelector('parsererror') || parsed_xml.documentElement?.nodeName !== 'xml') {
-                    this.showErrorMessage(localize('Invalid XML file. Please upload a valid bot strategy file.'));
+                    this.showErrorMessage(
+                        buildXmlImportDiagnosticsMessage({
+                            parser_error_text: getParserErrorText(parsed_xml),
+                            root_node_name: parsed_xml.documentElement?.nodeName,
+                        })
+                    );
+                    return;
+                }
+
+                const unsupported_xml_tags = getUnsupportedXmlTags(parsed_xml);
+                if (unsupported_xml_tags.length) {
+                    this.showErrorMessage(
+                        buildXmlImportDiagnosticsMessage({
+                            unsupported_tags: unsupported_xml_tags,
+                        })
+                    );
                     return;
                 }
 
@@ -477,7 +493,11 @@ export default class LoadModalStore {
                 this.loadStrategyOnModalLocalPreview(load_options);
                 this.setOpenButtonDisabled(false);
             } catch (error) {
-                this.showErrorMessage(localize('Failed to load strategy. Please check the file format.'));
+                this.showErrorMessage(
+                    buildXmlImportDiagnosticsMessage({
+                        load_error_message: error instanceof Error ? error.message : String(error),
+                    })
+                );
                 this.setOpenButtonDisabled(false);
             }
         });

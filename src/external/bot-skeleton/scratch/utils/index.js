@@ -1,6 +1,12 @@
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message } from '@/components/bot-notification/bot-notification-utils';
 import { getCurrencyDisplayCode } from '@/components/shared';
+import {
+    buildXmlImportDiagnosticsMessage,
+    getParserErrorText,
+    getUnsupportedBlocklyBlockTypes,
+    getUnsupportedXmlTags,
+} from '@/utils/xml-import-diagnostics';
 import { localize } from '@deriv-com/translations';
 import { config } from '../../constants/config';
 import { LogTypes } from '../../constants/messages';
@@ -343,35 +349,6 @@ const pruneUnsupportedBlocks = xml => {
     return removed_count;
 };
 
-const getUnsupportedBlockTypes = xml => {
-    if (!xml?.querySelectorAll || !window.Blockly?.Blocks) return [];
-
-    const supported_block_types = Object.keys(window.Blockly.Blocks);
-    const unsupported_types = new Set();
-
-    Array.from(xml.querySelectorAll('block, shadow')).forEach(block_node => {
-        const block_type = block_node.getAttribute('type');
-        if (block_type && !supported_block_types.includes(block_type)) {
-            unsupported_types.add(block_type);
-        }
-    });
-
-    return Array.from(unsupported_types).sort();
-};
-
-const buildUnsupportedElementsMessage = unsupported_block_types => {
-    const default_message = localize('XML file contains unsupported elements. Please check or modify file.');
-
-    if (!unsupported_block_types?.length) return default_message;
-
-    return localize(
-        'XML file contains unsupported elements. Unsupported block types: {{block_types}}. Please check or modify file.',
-        {
-            block_types: unsupported_block_types.join(', '),
-        }
-    );
-};
-
 export const load = async ({
     block_string,
     drop_event,
@@ -389,11 +366,11 @@ export const load = async ({
     setLoading(true);
     // Delay execution to allow fully previewing previous strategy if users quickly switch between strategies.
     await delayExecution(100);
-    const showInvalidStrategyError = unsupported_block_types => {
+    const showInvalidStrategyError = diagnostics => {
         setLoadedLocalFile(null);
-        botNotification(notification_message().invalid_xml);
+        const error_message = buildXmlImportDiagnosticsMessage(diagnostics || {});
+        botNotification(error_message);
         setLoading(false);
-        const error_message = buildUnsupportedElementsMessage(unsupported_block_types);
         globalObserver.emit('ui.log.error', error_message);
         return {
             error: error_message,
@@ -404,12 +381,15 @@ export const load = async ({
     try {
         const xmlDoc = new DOMParser().parseFromString(block_string, 'application/xml');
         if (xmlDoc.getElementsByTagName('parsererror').length) {
-            return showInvalidStrategyError();
+            return showInvalidStrategyError({
+                parser_error_text: getParserErrorText(xmlDoc),
+                root_node_name: xmlDoc.documentElement?.nodeName,
+            });
         } else {
             show_snackbar && botNotification(notification_message().BOT_IMPORT);
         }
     } catch (e) {
-        return showInvalidStrategyError();
+        return showInvalidStrategyError({ load_error_message: e?.message });
     }
 
     let xml;
@@ -418,29 +398,41 @@ export const load = async ({
         xml = window.Blockly.utils.xml.textToDom(block_string);
         xml = normalizeBotXml(xml);
     } catch (e) {
-        return showInvalidStrategyError();
+        return showInvalidStrategyError({ load_error_message: e?.message });
     }
     const blockConversion = new BlockConversion();
     xml = blockConversion.convertStrategy(xml, showIncompatibleStrategyDialog);
-    const unsupported_block_types_before_prune = getUnsupportedBlockTypes(xml);
+    const unsupported_xml_tags_before_prune = getUnsupportedXmlTags(xml);
+    const unsupported_block_types_before_prune = getUnsupportedBlocklyBlockTypes(xml);
     const pruned_blocks_count = pruneUnsupportedBlocks(xml);
-    if (pruned_blocks_count > 0) {
+    if (pruned_blocks_count > 0 || unsupported_xml_tags_before_prune.length) {
         globalObserver.emit(
             'ui.log.warn',
-            buildUnsupportedElementsMessage(unsupported_block_types_before_prune)
+            buildXmlImportDiagnosticsMessage({
+                unsupported_tags: unsupported_xml_tags_before_prune,
+                unsupported_block_types: unsupported_block_types_before_prune,
+            })
         );
     }
     const blockly_xml = xml.querySelectorAll('block');
 
     // Check if there are any blocks in this strategy.
     if (!blockly_xml.length) {
-        return showInvalidStrategyError(unsupported_block_types_before_prune);
+        return showInvalidStrategyError({
+            unsupported_tags: unsupported_xml_tags_before_prune,
+            unsupported_block_types: unsupported_block_types_before_prune,
+            no_blocks_found: true,
+        });
     }
 
     // Check if all block types in XML are allowed.
-    const unsupported_block_types = getUnsupportedBlockTypes(xml);
-    if (unsupported_block_types.length) {
-        return showInvalidStrategyError(unsupported_block_types);
+    const unsupported_xml_tags = getUnsupportedXmlTags(xml);
+    const unsupported_block_types = getUnsupportedBlocklyBlockTypes(xml);
+    if (unsupported_xml_tags.length || unsupported_block_types.length) {
+        return showInvalidStrategyError({
+            unsupported_tags: unsupported_xml_tags,
+            unsupported_block_types,
+        });
     }
 
     try {
@@ -480,7 +472,7 @@ export const load = async ({
         }
     } catch (e) {
         console.error(e); // eslint-disable-line
-        return showInvalidStrategyError();
+        return showInvalidStrategyError({ load_error_message: e?.message });
     } finally {
         setLoading(false);
         setOpenButtonDisabled(false);
