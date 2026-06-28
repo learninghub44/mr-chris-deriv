@@ -6,6 +6,7 @@ import { useLeaderboard } from '@/features/competition/hooks/useLeaderboard';
 import { getDerivCompetitionAuth } from '@/features/competition/services/deriv-auth';
 import type { DerivCompetitionAccount } from '@/features/competition/types/competition.types';
 import { useStore } from '@/hooks/useStore';
+import { getDisplayLoginId } from '@/utils/account-helpers';
 import '../styles/competition.scss';
 
 const COMPETITION_API_UNAVAILABLE = 'Competition API route was not found.';
@@ -16,7 +17,7 @@ type EligibleCompetitionAccount = DerivCompetitionAccount & {
 };
 
 const getBelowMinimumBalanceMessage = (balance: number, currency: string) =>
-    `Only real accounts above 20 USD can join the competition. Your current balance is ${currency} ${balance.toFixed(2)}. Top up and try again.`;
+    `Only eligible competition accounts above 20 USD can join the competition. Your current balance is ${currency} ${balance.toFixed(2)}. Top up and try again.`;
 
 const CompetitionPage = observer(() => {
     const store = useStore();
@@ -91,7 +92,7 @@ const CompetitionPage = observer(() => {
 
     const ineligibleBalanceMessage = bestRealAccountBalance
         ? getBelowMinimumBalanceMessage(bestRealAccountBalance.current_balance, bestRealAccountBalance.currency)
-        : 'Only real accounts above 20 USD can join the competition. Top up and try again.';
+        : 'Only eligible competition accounts above 20 USD can join the competition. Top up and try again.';
 
     const handleCreateProfile = async () => {
         const normalized = username.trim().toLowerCase();
@@ -176,7 +177,7 @@ const CompetitionPage = observer(() => {
     const showAccountStep = participantSnapshot?.participant.registration_status === 'pending';
     const ineligibleAccountMessage = store?.client?.is_logged_in
         ? ineligibleBalanceMessage
-        : 'Log in with a real Deriv account above 20 USD to join the competition.';
+        : 'Log in with an eligible Deriv account above 20 USD to join the competition.';
 
     return (
         <div className='competition-page competition-page--fullscreen'>
@@ -266,7 +267,7 @@ const CompetitionPage = observer(() => {
                                 <div className='competition-join-minimal'>
                                     <div className='competition-note'>
                                         {eligibleAccount
-                                            ? `We'll automatically link your eligible real account ${eligibleAccount.loginid} (${eligibleAccount.currency} ${eligibleAccount.current_balance.toFixed(2)}).`
+                                            ? `We'll automatically link your eligible account ${getDisplayLoginId(eligibleAccount.loginid)} (${eligibleAccount.currency} ${eligibleAccount.current_balance.toFixed(2)}).`
                                             : ineligibleAccountMessage}
                                     </div>
                                     <input
@@ -299,7 +300,7 @@ const CompetitionPage = observer(() => {
                                 <div className='competition-account-list'>
                                     <div className='competition-note'>
                                         {eligibleAccount
-                                            ? `Only your eligible real account ${eligibleAccount.loginid} (${eligibleAccount.currency} ${eligibleAccount.current_balance.toFixed(2)}) can be linked.`
+                                            ? `Only your eligible account ${getDisplayLoginId(eligibleAccount.loginid)} (${eligibleAccount.currency} ${eligibleAccount.current_balance.toFixed(2)}) can be linked.`
                                             : ineligibleAccountMessage}
                                     </div>
                                     {formError || error ? (
@@ -313,7 +314,7 @@ const CompetitionPage = observer(() => {
                                         disabled={isJoining || !eligibleAccount}
                                         onClick={() => void handleConnectEligibleAccount()}
                                     >
-                                        {isJoining ? 'Linking...' : 'Link eligible real account'}
+                                        {isJoining ? 'Linking...' : 'Link eligible account'}
                                     </button>
                                 </div>
                             ) : null}

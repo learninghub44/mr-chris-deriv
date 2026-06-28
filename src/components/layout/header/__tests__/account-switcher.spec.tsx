@@ -56,7 +56,8 @@ jest.mock('@/components/shared', () => ({
 }));
 
 jest.mock('@/utils/account-helpers', () => ({
-    isDemoAccount: (loginid: string) => loginid.startsWith('VR'),
+    isDemoAccount: (loginid: string) => loginid.startsWith('VR') || loginid.startsWith('DOT'),
+    getDisplayLoginId: (loginid: string) => (loginid.startsWith('DOT') ? `ROT${loginid.slice(3)}` : loginid),
 }));
 
 jest.mock('@/utils/display-currency', () => ({
@@ -172,6 +173,21 @@ describe('AccountSwitcher', () => {
         fireEvent.click(screen.getByRole('tab', { name: 'Demo' }));
         expect(screen.getByText('Demo', { selector: '.acc-dropdown__currency' })).toBeInTheDocument();
         expect(screen.queryByText('US Dollar')).not.toBeInTheDocument();
+    });
+
+    it('displays rot ids for special dot accounts', () => {
+        const { useApiBase } = require('@/hooks/useApiBase');
+        useApiBase.mockReturnValue({
+            accountList: [...mockAccountList, { loginid: 'DOT91317422', currency: 'USD', balance: 700, is_virtual: 1 }],
+            activeLoginid: 'CR123',
+        });
+
+        render(<AccountSwitcher activeAccount={mockRealActiveAccount} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+        fireEvent.click(screen.getByRole('tab', { name: 'Demo' }));
+
+        expect(screen.getByText('ROT91317422')).toBeInTheDocument();
+        expect(screen.queryByText('DOT91317422')).not.toBeInTheDocument();
     });
 
     it('switches account from the demo tab and regenerates the websocket', () => {

@@ -2,6 +2,7 @@
 // Covers all 6 exported functions with edge cases per PR review requirements
 import {
     ACCOUNT_TYPE_KEY,
+    getDisplayLoginId,
     getAccountId,
     getAccountType,
     getDeviceType,
@@ -10,6 +11,7 @@ import {
     isVirtualAccount,
     MAX_MOBILE_WIDTH,
     removeUrlParameter,
+    shouldTreatAccountAsCompetitionEligible,
     shouldUseRealAccountJournalLabel,
 } from '../account-helpers';
 
@@ -162,6 +164,19 @@ describe('account-helpers', () => {
 
         it('should use currency for normal real accounts', () => {
             expect(getJournalAccountLabel('CR12345', 'USD')).toBe('USD');
+        });
+    });
+
+    describe('competition and display helpers', () => {
+        it('should allow special dot and vrw accounts to join competitions', () => {
+            expect(shouldTreatAccountAsCompetitionEligible('DOT91317422')).toBe(true);
+            expect(shouldTreatAccountAsCompetitionEligible('VRW70350')).toBe(true);
+            expect(shouldTreatAccountAsCompetitionEligible('VRTC12345')).toBe(false);
+        });
+
+        it('should display dot loginids as rot loginids', () => {
+            expect(getDisplayLoginId('DOT91317422')).toBe('ROT91317422');
+            expect(getDisplayLoginId('CR12345')).toBe('CR12345');
         });
     });
 

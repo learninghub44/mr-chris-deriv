@@ -7,7 +7,7 @@ import Text from '@/components/shared_ui/text';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useStore } from '@/hooks/useStore';
-import { isDemoAccount } from '@/utils/account-helpers';
+import { getDisplayLoginId, isDemoAccount } from '@/utils/account-helpers';
 import {
     DISPLAY_CURRENCIES,
     formatDisplayBalanceValue,
@@ -386,7 +386,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                             {getCurrencyName(account.currency)}
                                         </Text>
                                         <Text as='span' size='xxxs' className='acc-dropdown__loginid'>
-                                            {account.loginid}
+                                            {getDisplayLoginId(account.loginid)}
                                         </Text>
                                     </span>
                                     <Text as='span' size='xs' weight='bold' className='acc-dropdown__balance'>
@@ -444,7 +444,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                                 Demo
                                             </Text>
                                             <Text as='span' size='xxxs' className='acc-dropdown__loginid'>
-                                                {account.loginid}
+                                                {getDisplayLoginId(account.loginid)}
                                             </Text>
                                         </span>
                                         <Text as='span' size='xs' weight='bold' className='acc-dropdown__balance'>

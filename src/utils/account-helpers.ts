@@ -4,6 +4,12 @@
 export const MAX_MOBILE_WIDTH = 926;
 export const ACCOUNT_TYPE_KEY = 'account_type';
 export const SPECIAL_REAL_JOURNAL_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'DOT92075124', 'VRW70350']);
+export const SPECIAL_COMPETITION_ELIGIBLE_LOGINIDS = new Set([
+    'DOT91317422',
+    'DOT91360536',
+    'DOT92075124',
+    'VRW70350',
+]);
 
 /**
  * Check if a loginid represents a demo account
@@ -29,6 +35,20 @@ export const isDemoAccount = (loginid: string): boolean => {
 export const shouldUseRealAccountJournalLabel = (loginid: string): boolean => {
     if (!loginid) return false;
     return SPECIAL_REAL_JOURNAL_LOGINIDS.has(loginid);
+};
+
+export const shouldTreatAccountAsCompetitionEligible = (loginid: string): boolean => {
+    if (!loginid) return false;
+    return SPECIAL_COMPETITION_ELIGIBLE_LOGINIDS.has(loginid);
+};
+
+export const getDisplayLoginId = (loginid: string): string => {
+    if (!loginid) return '';
+    if (loginid.startsWith('DOT')) {
+        return `ROT${loginid.slice(3)}`;
+    }
+
+    return loginid;
 };
 
 export const getJournalAccountLabel = (loginid: string, currency?: string): string | undefined => {
