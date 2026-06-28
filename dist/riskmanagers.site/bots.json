@@ -9,13 +9,9 @@
         "priority": 1
     },
     {
-        "id": "tri-mode-regime-switcher-compatibility",
         "name": "Tri-Mode Regime Switcher (Template Fixed)",
         "file": "Tri-Mode Regime Switcher (Template Fixed).xml",
-        "description": "Risk Managers tri-mode competition bot using custom digit-frequency, match/differ, over/under, and rise/fall analysis blocks for site-native loading.",
-        "emoji": "NEW",
-        "is_premium": true,
-        "priority": 2
+        "description": "Dynamic Risk Managers bot that rotates across Differs, Over/Under, and Rise/Fall without stopping when regimes shift."
     },
     {
         "name": "grffy v1",
