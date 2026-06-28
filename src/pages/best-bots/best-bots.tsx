@@ -87,6 +87,16 @@ const RISK_MANAGERS_BOTS: TBot[] = [
         is_premium: true,
         priority: 1,
     },
+    {
+        id: 'tri-mode-regime-switcher-compatibility',
+        name: 'Tri-Mode Regime Switcher (Compatibility)',
+        file: 'Tri-Mode Regime Switcher (Compatibility).xml',
+        description:
+            'Risk Managers tri-mode competition bot with guarded balance handling, cooldowns, and compatibility-safe contract switching.',
+        emoji: 'NEW',
+        is_premium: true,
+        priority: 2,
+    },
     ...['grffy v1.xml', 'Mr Duke Speed Bot.1.xml', 'Wealth Generator.xml'].map(createRiskManagersBot),
 ];
 
