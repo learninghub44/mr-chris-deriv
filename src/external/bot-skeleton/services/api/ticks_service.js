@@ -318,6 +318,23 @@ export default class TicksService {
         });
     }
 
+    requestHistory(options) {
+        const { symbol, count = 100 } = options;
+        const history_count = Math.min(5000, Math.max(10, Math.floor(Number(count) || 100)));
+        const request_object = {
+            ticks_history: symbol === 'na' ? 'R_100' : symbol,
+            end: 'latest',
+            count: history_count,
+            style: 'ticks',
+        };
+
+        if (!api_base.api) return Promise.resolve([]);
+
+        return doUntilDone(() => api_base.api.send(request_object), [], api_base).then(response =>
+            historyToTicks(response.history)
+        );
+    }
+
     forget = () => {
         return new Promise((resolve, reject) => {
             if (api_base?.api) {

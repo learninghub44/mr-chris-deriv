@@ -11,7 +11,7 @@
     {
         "name": "Tri-Mode Regime Switcher (Template Fixed)",
         "file": "Tri-Mode Regime Switcher (Template Fixed).xml",
-        "description": "Dynamic Risk Managers bot that rotates across Differs, Over/Under, and Rise/Fall without stopping when regimes shift."
+        "description": "Fixed-stake Risk Managers bot that analyses fresh Deriv history before every purchase and cycles through Over 4, Under 5, Even, Odd, Rise, and Fall."
     },
     {
         "name": "grffy v1",

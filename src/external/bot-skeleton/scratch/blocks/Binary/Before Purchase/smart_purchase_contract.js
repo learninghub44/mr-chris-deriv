@@ -60,7 +60,7 @@ window.Blockly.Blocks.smart_purchase_contract = {
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             tooltip: localize(
-                'Purchases the exact contract type supplied at runtime and refreshes trade options for that contract.'
+                'Purchases Over, Under, Even, Odd, Rise, or Fall using the supplied fixed stake.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
@@ -69,7 +69,7 @@ window.Blockly.Blocks.smart_purchase_contract = {
         return {
             display_name: localize('Smart purchase contract'),
             description: localize(
-                'Use this block to purchase a runtime-selected contract type such as DIGITDIFF, DIGITUNDER, DIGITOVER, CALL, or PUT.'
+                'Purchases the next contract in a runtime-selected Over, Under, Even, Odd, Rise, or Fall sequence.'
             ),
             key_words: localize('buy, dynamic, contract'),
         };
@@ -115,12 +115,10 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.smart_purchase_contract =
 
     return `
         (function () {
-            var contractType = String(${contract_type} || 'DIGITDIFF').toUpperCase();
+            var contractType = String(${contract_type} || 'DIGITOVER').toUpperCase();
             var supportedContractTypes = [
-                'DIGITDIFF',
                 'DIGITOVER',
                 'DIGITUNDER',
-                'DIGITMATCH',
                 'DIGITEVEN',
                 'DIGITODD',
                 'CALL',
@@ -129,16 +127,16 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.smart_purchase_contract =
             if (supportedContractTypes.indexOf(contractType) === -1) {
                 Bot.notify({
                     className: 'journal__text--warn',
-                    message: 'Unknown contract type "' + contractType + '". Falling back to DIGITDIFF.',
+                    message: 'Unknown contract type "' + contractType + '". Falling back to DIGITOVER.',
                     sound: '',
                 });
-                contractType = 'DIGITDIFF';
+                contractType = 'DIGITOVER';
             }
             var amountValue = +(Number(${amount}).toFixed(${decimal_places}));
             var durationValue = Number(${duration}) || 1;
             var predictionValue = Number(${prediction});
-            var digitContractTypes = ['DIGITDIFF', 'DIGITOVER', 'DIGITUNDER', 'DIGITMATCH', 'DIGITEVEN', 'DIGITODD'];
-            var isDigitContract = digitContractTypes.indexOf(contractType) !== -1;
+            var predictionContractTypes = ['DIGITOVER', 'DIGITUNDER'];
+            var requiresPrediction = predictionContractTypes.indexOf(contractType) !== -1;
             Bot.notify({
                 className: 'journal__text--info',
                 message:
@@ -149,7 +147,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.smart_purchase_contract =
                     ' ${currency} | duration ' +
                     durationValue +
                     ' ${duration_type}' +
-                    (isDigitContract ? ' | prediction ' + predictionValue : ''),
+                    (requiresPrediction ? ' | prediction ' + predictionValue : ''),
                 sound: '',
             });
             Bot.start({
@@ -158,7 +156,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.smart_purchase_contract =
                 duration_unit      : '${duration_type}',
                 currency           : '${currency}',
                 amount             : amountValue,
-                prediction         : isDigitContract ? predictionValue : undefined,
+                prediction         : requiresPrediction ? predictionValue : undefined,
                 barrierOffset      : undefined,
                 secondBarrierOffset: undefined,
                 basis              : 'stake',

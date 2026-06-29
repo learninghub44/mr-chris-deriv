@@ -1,10 +1,13 @@
 import { Map } from 'immutable';
 
 let messageCallback: ((message: { data: unknown }) => void) | undefined;
+const mockSend = jest.fn();
+const mockDoUntilDone = jest.fn((action: () => Promise<unknown>) => action());
 
 jest.mock('../api-base', () => ({
     api_base: {
         api: {
+            send: mockSend,
             onMessage: () => ({
                 subscribe: (callback: (message: { data: unknown }) => void) => {
                     messageCallback = callback;
@@ -18,7 +21,7 @@ jest.mock('../api-base', () => ({
 }));
 
 jest.mock('../../tradeEngine/utils/helpers', () => ({
-    doUntilDone: jest.fn(),
+    doUntilDone: mockDoUntilDone,
     getUUID: jest.fn(() => 'test-listener-key'),
 }));
 
@@ -31,6 +34,7 @@ jest.mock('../../../utils/observer', () => ({
 describe('TicksService', () => {
     beforeEach(() => {
         jest.resetModules();
+        jest.clearAllMocks();
         messageCallback = undefined;
     });
 
@@ -79,5 +83,27 @@ describe('TicksService', () => {
         expect(service.candles.getIn(['R_100', 60])).toEqual([
             { epoch: 1717420000, open: 120, high: 130, low: 110, close: 125 },
         ]);
+    });
+
+    it('pulls a bounded non-subscribing tick history directly from Deriv', async () => {
+        mockSend.mockResolvedValue({
+            history: {
+                times: [1717420000, 1717420001],
+                prices: ['123.40', '123.41'],
+            },
+        });
+        const { default: TicksService } = await import('../ticks_service');
+        const service = new TicksService();
+
+        await expect(service.requestHistory({ symbol: 'R_100', count: 100 })).resolves.toEqual([
+            { epoch: 1717420000, quote: 123.4, raw_quote: '123.40' },
+            { epoch: 1717420001, quote: 123.41, raw_quote: '123.41' },
+        ]);
+        expect(mockSend).toHaveBeenCalledWith({
+            ticks_history: 'R_100',
+            end: 'latest',
+            count: 100,
+            style: 'ticks',
+        });
     });
 });

@@ -92,7 +92,7 @@ const RISK_MANAGERS_BOTS: TBot[] = [
         name: 'Tri-Mode Regime Switcher (Template Fixed)',
         file: 'Tri-Mode Regime Switcher (Template Fixed).xml',
         description:
-            'Risk Managers tri-mode competition bot using custom digit-frequency, match/differ, over/under, and rise/fall analysis blocks for site-native loading.',
+            'Fixed-stake Risk Managers bot that analyses fresh Deriv history before every purchase and cycles through Over 4, Under 5, Even, Odd, Rise, and Fall.',
         emoji: 'NEW',
         is_premium: true,
         priority: 2,

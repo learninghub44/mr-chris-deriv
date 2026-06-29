@@ -73,169 +73,80 @@ describe('Tri-Mode Blockly workspace import', () => {
         const generated_code = window.Blockly.JavaScript.javascriptGenerator.workspaceToCode(workspace);
         expect(generated_code).not.toContain('.includes(');
         expect(generated_code).not.toContain('Bot.failExecutionCondition');
+        expect(generated_code).not.toContain('DIGITDIFF');
+        expect(generated_code).not.toContain('STAKE_FACTOR');
+        expect(generated_code).toContain('Bot.getRecentTickAnalysisData(historySize)');
         expect(generated_code).toContain('Purchase request:');
         expect(generated_code).toContain('preserve_duration');
-
-        workspace.dispose();
-    });
-
-    it('selects the strongest recent digit other than the previous Differs prediction', () => {
-        const workspace = new window.Blockly.Workspace();
-        const predictor = workspace.newBlock('rotating_differ_prediction');
-        const count = workspace.newBlock('math_number');
-        const previous_digit = workspace.newBlock('math_number');
-        count.setFieldValue('5', 'NUM');
-        previous_digit.setFieldValue('4', 'NUM');
-        predictor.getInput('COUNT')?.connection?.connect(count.outputConnection);
-        predictor.getInput('PREVIOUS_DIGIT')?.connection?.connect(previous_digit.outputConnection);
-
-        const generator = window.Blockly.JavaScript.javascriptGenerator;
-        generator.init(workspace);
-        const [code] = generator.forBlock.rotating_differ_prediction(predictor);
-        const notify = jest.fn();
-        const evaluate_prediction = new Function('Bot', `return ${code};`);
-        const prediction = evaluate_prediction({
-            getLastDigitList: () => [4, 4, 4, 7, 7],
-            notify,
-        });
-
-        expect(prediction).toBe(7);
-        expect(notify).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: expect.stringContaining('excluded previous digit 4'),
-            })
+        expect(generated_code.indexOf('Bot.getRecentTickAnalysisData(historySize)')).toBeLessThan(
+            generated_code.indexOf('Bot.purchase(contractType)')
         );
 
         workspace.dispose();
     });
 
-    it('selects all three regimes and cools down when the losing mode is the only signal', () => {
+    it('analyses fresh history before every signal and follows the exact six-contract sequence', () => {
         const workspace = new window.Blockly.Workspace();
         const analysis = workspace.newBlock('tri_mode_regime_signal');
-        const input_values = {
-            AVOID_MODE: 0,
-            EVALUATION_TICKS: 20,
-            HISTORY: 100,
-            COOLDOWN_TICKS: 5,
-            DIFFERS_THRESHOLD: 14,
-            BIAS_THRESHOLD: 58,
-            FLAT_THRESHOLD: 55,
-            TREND_TICKS: 3,
-            RANGE_TICKS: 10,
-            MAX_RANGE: 0.6,
-        };
-        const number_blocks = Object.entries(input_values).map(([input_name, value]) => {
-            const number_block = workspace.newBlock('math_number');
-            number_block.setFieldValue(String(value), 'NUM');
-            analysis.getInput(input_name)?.connection?.connect(number_block.outputConnection);
-            return number_block;
-        });
+        const history = workspace.newBlock('math_number');
+        const sequence_step = workspace.newBlock('math_number');
+        history.setFieldValue('100', 'NUM');
+        sequence_step.setFieldValue('0', 'NUM');
+        analysis.getInput('HISTORY')?.connection?.connect(history.outputConnection);
+        analysis.getInput('SEQUENCE_STEP')?.connection?.connect(sequence_step.outputConnection);
+
         const generator = window.Blockly.JavaScript.javascriptGenerator;
         generator.init(workspace);
-        const [code] = generator.forBlock.tri_mode_regime_signal(analysis);
-        const evaluate_signal = new Function('Bot', 'BinaryBotPrivateTriModeState', `return ${code};`);
-        const repeat_digit = (digit: number, count: number) => Array.from({ length: count }, () => digit);
-        const mode_a_digits = [
-            ...repeat_digit(0, 10),
-            ...repeat_digit(1, 10),
-            ...repeat_digit(2, 10),
-            ...repeat_digit(3, 10),
-            ...repeat_digit(4, 10),
-            ...repeat_digit(5, 9),
-            ...repeat_digit(6, 9),
-            ...repeat_digit(7, 15),
-            ...repeat_digit(8, 9),
-            ...repeat_digit(9, 8),
-        ];
-        const mode_b_digits = Array.from({ length: 10 }, (_, digit) => repeat_digit(digit, digit < 5 ? 8 : 12)).flat();
-        const mode_c_digits = Array.from({ length: 10 }, (_, digit) => repeat_digit(digit, 10)).flat();
-        const choppy_ticks = [100, 101, 99, 101, 99, 101, 99, 101, 99, 101];
-        const rising_ticks = [100, 100.05, 100.1, 100.15, 100.2, 100.25, 100.3, 100.35, 100.4, 100.45];
-        const make_state = () => ({ ticks: 19, cooldown: 0, lastMode: 0, lastDiffersDigit: -1 });
-        const evaluate = (digits: number[], ticks: number[], state = make_state()) =>
-            evaluate_signal(
-                {
-                    getLastDigitList: () => digits,
-                    getTicks: () => ticks,
-                    notify: jest.fn(),
-                },
-                state
-            );
+        const notify = jest.fn();
+        const getRecentTickAnalysisData = jest.fn(() => ({
+            digits: Array.from({ length: 100 }, (_, index) => index % 10),
+            ticks: Array.from({ length: 100 }, (_, index) => 100 + index * 0.01),
+        }));
+        const bot = {
+            getRecentTickAnalysisData,
+            notify,
+        };
+        const evaluate = (step: number) => {
+            sequence_step.setFieldValue(String(step), 'NUM');
+            const [code] = generator.forBlock.tri_mode_regime_signal(analysis);
+            return new Function('Bot', `return ${code};`)(bot);
+        };
 
-        expect(evaluate(mode_a_digits, choppy_ticks)).toBe(17);
-        expect(evaluate(mode_b_digits, choppy_ticks)).toBe(20);
-        expect(evaluate(mode_c_digits, rising_ticks)).toBe(30);
-        const repeated_differs_state = make_state();
-        expect(evaluate(mode_a_digits, choppy_ticks, repeated_differs_state)).toBe(17);
-        repeated_differs_state.ticks = 19;
-        expect(evaluate(mode_a_digits, choppy_ticks, repeated_differs_state)).toBe(0);
-        expect(repeated_differs_state.cooldown).toBe(5);
-
-        number_blocks[0].setFieldValue('1', 'NUM');
-        const [avoid_mode_code] = generator.forBlock.tri_mode_regime_signal(analysis);
-        const evaluate_with_avoid = new Function('Bot', 'BinaryBotPrivateTriModeState', `return ${avoid_mode_code};`);
-        const cooldown_state = make_state();
-        expect(
-            evaluate_with_avoid(
-                {
-                    getLastDigitList: () => mode_b_digits,
-                    getTicks: () => choppy_ticks,
-                    notify: jest.fn(),
-                },
-                make_state()
-            )
-        ).toBe(20);
-        expect(
-            evaluate_with_avoid(
-                {
-                    getLastDigitList: () => mode_a_digits,
-                    getTicks: () => choppy_ticks,
-                    notify: jest.fn(),
-                },
-                cooldown_state
-            )
-        ).toBe(0);
-        expect(cooldown_state.cooldown).toBe(5);
-        for (let cooldown_tick = 0; cooldown_tick < 5; cooldown_tick += 1) {
-            expect(
-                evaluate_with_avoid(
-                    {
-                        getLastDigitList: () => mode_b_digits,
-                        getTicks: () => choppy_ticks,
-                        notify: jest.fn(),
-                    },
-                    cooldown_state
-                )
-            ).toBe(0);
-        }
-        expect(cooldown_state).toEqual(
+        expect([0, 1, 2, 3, 4, 5, 6].map(evaluate)).toEqual([20, 21, 22, 23, 30, 31, 20]);
+        expect(getRecentTickAnalysisData).toHaveBeenCalledTimes(7);
+        expect(getRecentTickAnalysisData).toHaveBeenCalledWith(100);
+        expect(notify).toHaveBeenCalledWith(
             expect.objectContaining({
-                cooldown: 0,
-                ticks: 0,
+                message: expect.stringContaining('Direct Deriv analysis before purchase'),
             })
         );
-        for (let evaluation_tick = 0; evaluation_tick < 19; evaluation_tick += 1) {
-            expect(
-                evaluate_with_avoid(
-                    {
-                        getLastDigitList: () => mode_b_digits,
-                        getTicks: () => choppy_ticks,
-                        notify: jest.fn(),
-                    },
-                    cooldown_state
-                )
-            ).toBe(0);
-        }
-        expect(
-            evaluate_with_avoid(
-                {
-                    getLastDigitList: () => mode_b_digits,
-                    getTicks: () => choppy_ticks,
-                    notify: jest.fn(),
-                },
-                cooldown_state
-            )
-        ).toBe(20);
+
+        workspace.dispose();
+    });
+
+    it.each([
+        [20, 'DIGITOVER', 4],
+        [21, 'DIGITUNDER', 5],
+        [22, 'DIGITEVEN', 0],
+        [23, 'DIGITODD', 0],
+        [30, 'CALL', 0],
+        [31, 'PUT', 0],
+    ])('maps signal %s to %s with prediction %s', (signal, expected_contract, expected_prediction) => {
+        const workspace = new window.Blockly.Workspace();
+        const signal_block = workspace.newBlock('math_number');
+        signal_block.setFieldValue(String(signal), 'NUM');
+        const value_block = workspace.newBlock('tri_mode_signal_value');
+        value_block.getInput('SIGNAL')?.connection?.connect(signal_block.outputConnection);
+        const generator = window.Blockly.JavaScript.javascriptGenerator;
+        generator.init(workspace);
+
+        value_block.setFieldValue('CONTRACT', 'VALUE_TYPE');
+        const [contract_code] = generator.forBlock.tri_mode_signal_value(value_block);
+        value_block.setFieldValue('PREDICTION', 'VALUE_TYPE');
+        const [prediction_code] = generator.forBlock.tri_mode_signal_value(value_block);
+
+        expect(new Function(`return ${contract_code};`)()).toBe(expected_contract);
+        expect(new Function(`return ${prediction_code};`)()).toBe(expected_prediction);
 
         workspace.dispose();
     });

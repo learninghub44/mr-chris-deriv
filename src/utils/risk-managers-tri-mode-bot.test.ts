@@ -73,29 +73,17 @@ describe('Risk Managers Tri-Mode bot asset', () => {
 
         expect(before_purchase?.querySelectorAll('block[type="smart_purchase_contract"]')).toHaveLength(1);
         expect(before_purchase?.querySelectorAll('block[type="tri_mode_regime_signal"]')).toHaveLength(1);
-        expect(before_purchase?.querySelectorAll('block[type="tri_mode_signal_value"]')).toHaveLength(5);
-        expect(before_purchase?.querySelector('value[name="EVALUATION_TICKS"] field[name="NUM"]')?.textContent).toBe(
-            '20'
-        );
-        expect(before_purchase?.querySelector('value[name="COOLDOWN_TICKS"] field[name="NUM"]')?.textContent).toBe('5');
-        expect(before_purchase?.querySelector('value[name="DIFFERS_THRESHOLD"] field[name="NUM"]')?.textContent).toBe(
-            '14'
-        );
-        expect(before_purchase?.querySelector('value[name="BIAS_THRESHOLD"] field[name="NUM"]')?.textContent).toBe(
-            '58'
-        );
-        expect(before_purchase?.querySelector('value[name="FLAT_THRESHOLD"] field[name="NUM"]')?.textContent).toBe(
-            '55'
-        );
+        expect(before_purchase?.querySelectorAll('block[type="tri_mode_signal_value"]')).toHaveLength(3);
+        expect(before_purchase?.querySelector('value[name="HISTORY"] field[name="NUM"]')?.textContent).toBe('100');
         expect(after_purchase?.querySelectorAll('block[type="trade_again"]')).toHaveLength(1);
         expect(
             after_purchase?.querySelector(
-                'statement[name="AFTERPURCHASE_STACK"] > block > next > block[type="trade_again"]'
+                'block[id="tm_advance_sequence"] > next > block[type="trade_again"]'
             )
         ).not.toBeNull();
     });
 
-    it('uses interpreter-compatible purchase code and emits a live purchase request', () => {
+    it('uses fresh Deriv history and interpreter-compatible purchase code', () => {
         const smart_purchase_source = fs.readFileSync(SMART_PURCHASE_FILE_PATH, 'utf8');
         const tri_mode_signal_source = fs.readFileSync(TRI_MODE_SIGNAL_FILE_PATH, 'utf8');
         const tri_mode_value_source = fs.readFileSync(TRI_MODE_VALUE_FILE_PATH, 'utf8');
@@ -106,24 +94,25 @@ describe('Risk Managers Tri-Mode bot asset', () => {
         expect(smart_purchase_source).toContain('Purchase request:');
         expect(smart_purchase_source).toContain('preserve_duration  : true');
         expect(trade_engine_source).toContain('&& !should_preserve_duration');
-        expect(tri_mode_signal_source).toContain('Mode shift:');
-        expect(tri_mode_signal_source).toContain('conditions not met');
-        expect(tri_mode_signal_source).toContain('lastDiffersDigit');
-        expect(tri_mode_signal_source).toContain('uses 10% of the base stake');
-        expect(tri_mode_value_source).toContain('? 0.1 : 1');
+        expect(tri_mode_signal_source).toContain('Bot.getRecentTickAnalysisData(historySize)');
+        expect(tri_mode_signal_source).toContain("['OVER 4', 'UNDER 5', 'EVEN', 'ODD', 'RISE', 'FALL']");
+        expect(tri_mode_value_source).toContain("return 'DIGITOVER'");
+        expect(tri_mode_value_source).toContain("return 'DIGITUNDER'");
+        expect(tri_mode_value_source).toContain("return 'DIGITEVEN'");
+        expect(tri_mode_value_source).toContain("return 'DIGITODD'");
+        expect(tri_mode_value_source).toContain("return 'CALL'");
+        expect(tri_mode_value_source).toContain("return 'PUT'");
     });
 
-    it('uses reduced Differs exposure and remembers the losing mode', () => {
-        expect(xml_document.querySelector('block[id="tm_init_base_pct_value"] field[name="NUM"]')?.textContent).toBe(
-            '0.001'
-        );
-        expect(xml_document.querySelector('block[id="tm_set_avoid_mode"] field[id="tm_avoid_mode"]')?.textContent).toBe(
-            'Avoid Mode After Loss'
-        );
+    it('uses one directly editable fixed stake with no Martingale or balance sizing', () => {
+        expect(xml_document.querySelector('block[id="tm_init_stake_value"] field[name="NUM"]')?.textContent).toBe('1');
+        expect(xml_document.querySelectorAll('block[type="balance"]')).toHaveLength(0);
+        expect(xml_document.querySelectorAll('block[type="contract_check_result"]')).toHaveLength(0);
         expect(
-            xml_document.querySelector('block[id="tm_set_avoid_mode"] block[id="tm_losing_mode"] field[name="VAR"]')
-                ?.textContent
-        ).toBe('Last Mode');
+            xml_document.querySelector('block[id="tm_advance_sequence"] field[id="tm_sequence_step"]')?.textContent
+        ).toBe('Sequence Step');
+        expect(xml_text.toLowerCase()).not.toContain('martingale');
+        expect(xml_text).not.toContain('DIGITDIFF');
     });
 
     it('wires every XML variable reference to a declared variable', () => {
@@ -146,6 +135,7 @@ describe('Risk Managers Tri-Mode bot asset', () => {
         expect(tri_mode_entry).toMatchObject({
             name: 'Tri-Mode Regime Switcher (Template Fixed)',
             file: BOT_FILE_NAME,
+            description: expect.stringContaining('Over 4, Under 5, Even, Odd, Rise, and Fall'),
         });
     });
 });

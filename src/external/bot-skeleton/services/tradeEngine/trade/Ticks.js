@@ -108,6 +108,18 @@ export default Engine =>
                     .then(ticks => resolve(this.getLastDigitsFromList(ticks)))
             );
         }
+
+        getRecentTickAnalysisData(count = 100) {
+            const history_count = Math.min(5000, Math.max(10, Math.floor(Number(count) || 100)));
+
+            return this.$scope.ticksService
+                .requestHistory({ symbol: this.symbol, count: history_count })
+                .then(ticks => ({
+                    digits: this.getLastDigitsFromList(ticks),
+                    ticks: ticks.map(tick => tick.quote),
+                }));
+        }
+
         getLastDigitsFromList(ticks) {
             const digits = ticks.map(tick => {
                 return getLastDigit(this.formatTickQuote(tick));
