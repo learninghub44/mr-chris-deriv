@@ -4,6 +4,7 @@ import { api_base } from '../../api/api-base';
 import { observer as globalObserver } from '../../../utils/observer';
 import { contract as broadcastContract, contractStatus, info, log } from '../utils/broadcast';
 import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
+import { getValidatedBuyResponse } from './purchase-utils';
 import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
 
@@ -45,7 +46,7 @@ export default Engine =>
 
             const onSuccess = response => {
                 // Don't unnecessarily send a forget request for a purchased contract.
-                const { buy } = response;
+                const buy = getValidatedBuyResponse(response, contract_type);
 
                 contractStatus({
                     id: 'contract.purchase_received',
