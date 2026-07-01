@@ -91,7 +91,7 @@ const FormatMessage = ({ logType, className, extra }: TFormatMessageProps) => {
         }
     };
 
-    return <div className={classnames('journal__text', className)}>{getLogMessage()}</div>;
+    return <div className={classnames('journal__text', className)}>{getLogMessage() ?? logType}</div>;
 };
 
 export default FormatMessage;

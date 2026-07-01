@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify';
 import { MessageTypes } from '@/external/bot-skeleton';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
 import { useStore } from '@/hooks/useStore';
+import { normalizeJournalMessage } from '@/utils/journal-safety';
 import { localize } from '@deriv-com/translations';
 import { TJournalItemExtra, TJournalItemProps } from '../journal.types';
 import DateItem from './date-item';
@@ -56,7 +57,7 @@ const getJournalItemContent = (
             );
         }
         case MessageTypes.ERROR: {
-            return <div className='journal__text--error journal__text'>{message as string}</div>;
+            return <div className='journal__text--error journal__text'>{normalizeJournalMessage(message)}</div>;
         }
         default:
             return null;

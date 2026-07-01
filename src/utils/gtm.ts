@@ -1,6 +1,7 @@
 import { reaction } from 'mobx';
 import { TStatistics } from '@/components/transaction-details/transaction-details.types';
 import RootStore from '@/stores/root-store';
+import { isOfficialDerivTelemetryHostname } from '@/utils/telemetry-safety';
 import { ProposalOpenContract } from '@deriv/api-types';
 
 const GTM = (() => {
@@ -30,9 +31,11 @@ const GTM = (() => {
             })(window, document, 'script', 'dataLayer', 'GTM-NF7884S');
         }
 
-        setTimeout(() => {
-            loadGTM();
-        }, 3000);
+        if (isOfficialDerivTelemetryHostname(window.location.hostname)) {
+            setTimeout(() => {
+                loadGTM();
+            }, 3000);
+        }
 
         try {
             const { run_panel, transactions, client, common } = _root_store;

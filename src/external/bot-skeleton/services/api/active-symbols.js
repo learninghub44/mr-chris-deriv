@@ -65,7 +65,6 @@ export default class ActiveSymbols {
 
         // If still no symbols after waiting, try one more time with a fresh fetch
         if (!this.active_symbols || this.active_symbols.length === 0) {
-            console.warn('No symbols found, attempting fresh fetch...');
             try {
                 const symbols = await api_base.getActiveSymbols();
                 this.active_symbols = symbols ?? [];

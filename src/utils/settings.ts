@@ -1,5 +1,15 @@
 const getSettingsFromLocal = () => {
-    return JSON.parse(localStorage.getItem('dbot_settings'));
+    try {
+        const stored_settings = localStorage.getItem('dbot_settings');
+        if (!stored_settings) return null;
+
+        const parsed_settings = JSON.parse(stored_settings);
+        return parsed_settings && typeof parsed_settings === 'object' && !Array.isArray(parsed_settings)
+            ? parsed_settings
+            : null;
+    } catch {
+        return null;
+    }
 };
 
 export const getSetting = (key: string) => {
@@ -8,7 +18,7 @@ export const getSetting = (key: string) => {
     return settings[key];
 };
 
-export const storeSetting = (key: string, value: any) => {
+export const storeSetting = (key: string, value: unknown) => {
     const settings = getSettingsFromLocal() || {};
     settings[key] = value;
     localStorage.setItem('dbot_settings', JSON.stringify(settings));

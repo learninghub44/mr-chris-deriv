@@ -1,3 +1,4 @@
+import { isValidTradingSymbol } from '@/utils/trading-symbol';
 import { DURATIONS, TRADE_TYPE_CATEGORIES, TRADE_TYPES } from '../../../../components/shared/utils/common-data';
 import { config } from '../../constants/config';
 import PendingPromise from '../../utils/pending-promise';
@@ -43,7 +44,7 @@ export default class ContractsFor {
     async getBarriers(symbol, trade_type, duration, barrier_types) {
         const barriers = { values: [] };
 
-        if (!config().BARRIER_TRADE_TYPES.includes(trade_type)) {
+        if (!isValidTradingSymbol(symbol) || !config().BARRIER_TRADE_TYPES.includes(trade_type)) {
             return barriers;
         }
 
@@ -176,6 +177,8 @@ export default class ContractsFor {
     }
 
     async getContractsByTradeType(symbol, trade_type) {
+        if (!isValidTradingSymbol(symbol) || !trade_type) return [];
+
         const contracts = await this.getContractsFor(symbol);
         const contract_category = this.getContractCategoryByTradeType(trade_type);
         // barrier_category field may not be available in API response anymore
@@ -191,10 +194,7 @@ export default class ContractsFor {
     }
 
     async getContractsFor(symbol) {
-        if (!symbol || symbol === 'na' || symbol === 'DEFAULT') {
-            console.warn('Invalid symbol provided to getContractsFor:', symbol);
-            return [];
-        }
+        if (!isValidTradingSymbol(symbol)) return [];
 
         // Check if API is available
         if (!api_base.api) {
@@ -280,6 +280,7 @@ export default class ContractsFor {
         if (trade_type === 'multiplier' || trade_type === 'accumulator') {
             return [];
         }
+        if (!isValidTradingSymbol(symbol)) return DURATIONS;
 
         const contracts = await this.getContractsFor(symbol);
         const { DEFAULT_DURATION_DROPDOWN_OPTIONS } = config();
@@ -409,6 +410,8 @@ export default class ContractsFor {
     }
 
     async getPredictionRange(symbol, trade_type) {
+        if (!isValidTradingSymbol(symbol) || !trade_type) return [];
+
         const contracts = await this.getContractsByTradeType(symbol, trade_type);
         const contract_category = this.getContractCategoryByTradeType(trade_type);
         const prediction_range = [];

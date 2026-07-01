@@ -1,6 +1,7 @@
 import { getCurrencyDisplayCode, getDecimalPlaces } from '@/components/shared';
 import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
 import { isAuthorizing$ } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
+import { isValidTradingSymbol } from '@/utils/trading-symbol';
 import { localize } from '@deriv-com/translations';
 import { DURATIONS } from '../../../../../../components/shared/utils/common-data';
 import { config } from '../../../../constants/config';
@@ -83,6 +84,10 @@ window.Blockly.Blocks.trade_definition_tradeoptions = {
         modifyContextMenu(menu);
     },
     onchange(event) {
+        if (!this.workspace) {
+            return;
+        }
+
         if (event.type === 'change') {
             const selected_block = this.workspace.getBlockById(event.blockId);
             selected_block?.parentBlock_?.inputList
@@ -124,6 +129,10 @@ window.Blockly.Blocks.trade_definition_tradeoptions = {
             this.getFieldValue('BARRIEROFFSETTYPE_LIST') || config().BARRIER_TYPES[0][1],
             this.getFieldValue('SECONDBARRIEROFFSETTYPE_LIST') || config().BARRIER_TYPES[1][1],
         ];
+
+        if (!isValidTradingSymbol(this.selected_symbol) || !this.selected_trade_type) {
+            return;
+        }
 
         if (
             (event.type === window.Blockly.Events.BLOCK_CREATE && event.ids.includes(this.id)) ||
@@ -385,6 +394,8 @@ window.Blockly.Blocks.trade_definition_tradeoptions = {
             contracts_for
                 .getDurations(this.selected_symbol, this.selected_trade_type)
                 .then(durations => {
+                    if (!this.workspace) return;
+
                     // Use fallback if no durations received
                     if (!durations || durations.length === 0) {
                         durations = DURATIONS;
@@ -416,6 +427,8 @@ window.Blockly.Blocks.trade_definition_tradeoptions = {
                     }
                 })
                 .catch(error => {
+                    if (!this.workspace) return;
+
                     // Use fallback on error
                     this.durations = DURATIONS;
                     const duration_field_dropdown = this.getField('DURATIONTYPE_LIST');
@@ -433,7 +446,7 @@ window.Blockly.Blocks.trade_definition_tradeoptions = {
             },
         } = config();
         setTimeout(() => {
-            window.Blockly.getMainWorkspace().cleanUp(x, y);
+            window.Blockly.getMainWorkspace()?.cleanUp(x, y);
         }, 10);
     },
     updateBarrierInputs(should_use_default_type, should_use_default_values) {
@@ -450,6 +463,8 @@ window.Blockly.Blocks.trade_definition_tradeoptions = {
                 this.selected_barrier_types
             )
             .then(barriers => {
+                if (!this.workspace) return;
+
                 this.createBarrierInputs(barriers);
 
                 const input_names = ['BARRIEROFFSET', 'SECONDBARRIEROFFSET'];
@@ -501,8 +516,9 @@ window.Blockly.Blocks.trade_definition_tradeoptions = {
         if (!contracts_for) return;
 
         contracts_for.getPredictionRange(this.selected_symbol, this.selected_trade_type).then(prediction_range => {
-            this.createPredictionInput(prediction_range);
+            if (!this.workspace) return;
 
+            this.createPredictionInput(prediction_range);
             if (prediction_range.length > 0) {
                 const prediction_input = this.getInput('PREDICTION');
                 const { connection } = prediction_input;

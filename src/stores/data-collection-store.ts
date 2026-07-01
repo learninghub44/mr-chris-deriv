@@ -1,7 +1,8 @@
 import crc32 from 'crc-32/crc32';
 import { action, makeObservable, observable, reaction } from 'mobx';
-import { cloneObject, isProduction } from '@/components/shared';
+import { cloneObject } from '@/components/shared';
 import { convertStrategyToIsDbot, DBot } from '@/external/bot-skeleton';
+import { getLatestBuyTransactionId, isOfficialDerivTelemetryHostname } from '@/utils/telemetry-safety';
 import { TStores } from '@deriv/stores/types';
 import RootStore from './root-store';
 
@@ -28,7 +29,7 @@ export default class DataCollectionStore {
         });
         this.root_store = root_store;
         this.core = core;
-        if (isProduction() || /(.*?)\.binary.sx$/.test(window.location.hostname)) {
+        if (isOfficialDerivTelemetryHostname(window.location.hostname)) {
             this.root_store = root_store;
 
             reaction(
@@ -72,23 +73,14 @@ export default class DataCollectionStore {
         this.setRunStart(this.core.common.server_time.unix());
     }
 
-    async trackTransaction(
-        contracts: {
-            data: {
-                transaction_ids: {
-                    buy: number;
-                };
-            };
-        }[]
-    ) {
-        const pako = await import(/* webpackChunkName: "dbot-collection" */ 'pako');
-        const contract = contracts[0]; // Most recent contract.
+    async trackTransaction(contracts: unknown[]) {
+        const transaction_id = getLatestBuyTransactionId(contracts);
 
-        if (!contract) {
+        if (transaction_id === null) {
             return;
         }
 
-        const { buy: transaction_id } = contract.data.transaction_ids;
+        const pako = await import(/* webpackChunkName: "dbot-collection" */ 'pako');
         const is_known_transaction = Object.keys(this.transaction_ids).includes(transaction_id.toString());
 
         if (!is_known_transaction) {

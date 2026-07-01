@@ -1,13 +1,18 @@
 import { action, computed, makeObservable, observable, reaction, when } from 'mobx';
 import { v4 as uuidv4 } from 'uuid';
-/* [AI] - Analytics removed - utility functions moved to @/utils/account-helpers */
-import { getJournalAccountLabel } from '@/utils/account-helpers';
-/* [/AI] */
 import { formatDate } from '@/components/shared';
 import { run_panel } from '@/constants/run-panel';
 import { LogTypes, MessageTypes } from '@/external/bot-skeleton';
 import { config } from '@/external/bot-skeleton/constants/config';
 import { RESET_STRATEGIES, RESET_STRATEGIES_BLOCK_IDS, STRATEGIES } from '@/pages/bot-builder/quick-strategy/config';
+/* [AI] - Analytics removed - utility functions moved to @/utils/account-helpers */
+import { getJournalAccountLabel } from '@/utils/account-helpers';
+/* [/AI] */
+import {
+    normalizeJournalFilters,
+    normalizeJournalMessage,
+    normalizeStoredJournalEntries,
+} from '@/utils/journal-safety';
 import { localize } from '@deriv-com/translations';
 import { isCustomJournalMessage } from '../utils/journal-notifications';
 import { getStoredItemsByKey, getStoredItemsByUser, setStoredItemsByKey } from '../utils/session-storage';
@@ -39,6 +44,12 @@ type TMessageItem = {
     unique_id: string;
     extra: TExtra;
 } & TMessage;
+
+type TBackendJournalError = Error & {
+    code?: string;
+    code_args?: Array<number | string>;
+    subcode?: string;
+};
 
 type TNotifyData = {
     analysis_append?: boolean;
@@ -120,8 +131,14 @@ export default class JournalStore {
     restoreStoredJournals() {
         const client = this.core.client as RootStore['client'];
         const { loginid } = client;
-        this.journal_filters = getSetting('journal_filter') ?? this.filters.map(filter => filter.id);
-        this.unfiltered_messages = getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []);
+        const valid_filters = this.filters.map(filter => filter.id);
+        this.journal_filters = normalizeJournalFilters(getSetting('journal_filter'), valid_filters);
+        this.unfiltered_messages = normalizeStoredJournalEntries(
+            getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []),
+            valid_filters,
+            MessageTypes.NOTIFY,
+            uuidv4
+        ) as TMessageItem[];
     }
 
     getServerTime() {
@@ -151,7 +168,7 @@ export default class JournalStore {
 
         // Check if this is an error object with backend error information
         if (typeof message === 'object' && message !== null && 'code' in message) {
-            const error = message as any;
+            const error = message as TBackendJournalError;
 
             if (error.subcode && error.code_args) {
                 const { getLocalizedErrorMessage } = require('@/constants/backend-error-messages');
@@ -206,13 +223,14 @@ export default class JournalStore {
             }
         }
 
-        this.pushMessage(processedMessage, MessageTypes.ERROR);
+        this.pushMessage(normalizeJournalMessage(processedMessage, 'Unknown bot error'), MessageTypes.ERROR);
     }
 
     onNotify(data: TNotifyData) {
         const { run_panel, dbot, quick_strategy } = this.root_store;
 
-        const { message, className, message_type, sound, block_id, variable_name, analysis_key, analysis_append } = data;
+        const { message, className, message_type, sound, block_id, variable_name, analysis_key, analysis_append } =
+            data;
         const selected_quick_strategy = quick_strategy.selected_strategy_for_notofy;
 
         // Special handling for stat notifications by block_id
@@ -275,7 +293,15 @@ export default class JournalStore {
         const time = formatDate(this.getServerTime(), 'HH:mm:ss [GMT]');
         const unique_id = uuidv4();
 
-        this.unfiltered_messages.unshift({ date, time, message, message_type, className, unique_id, extra });
+        this.unfiltered_messages.unshift({
+            date,
+            time,
+            message: normalizeJournalMessage(message),
+            message_type,
+            className,
+            unique_id,
+            extra,
+        });
         this.unfiltered_messages = this.unfiltered_messages.slice(); // force array update
     }
 
@@ -348,9 +374,14 @@ export default class JournalStore {
 
     filterMessage(checked: boolean, item_id: string) {
         if (checked) {
-            this.journal_filters.push(item_id);
+            if (!this.journal_filters.includes(item_id)) {
+                this.journal_filters.push(item_id);
+            }
         } else {
-            this.journal_filters.splice(this.journal_filters.indexOf(item_id), 1);
+            const filter_index = this.journal_filters.indexOf(item_id);
+            if (filter_index >= 0) {
+                this.journal_filters.splice(filter_index, 1);
+            }
         }
 
         storeSetting('journal_filter', this.journal_filters);
@@ -399,7 +430,12 @@ export default class JournalStore {
                     );
                     return !!has_account;
                 });
-                this.unfiltered_messages = getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []);
+                this.unfiltered_messages = normalizeStoredJournalEntries(
+                    getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []),
+                    this.filters.map(filter => filter.id),
+                    MessageTypes.NOTIFY,
+                    uuidv4
+                ) as TMessageItem[];
                 if (this.unfiltered_messages.length === 0) {
                     this.pushMessage(LogTypes.WELCOME, MessageTypes.SUCCESS, 'journal__text');
                 } else if (this.unfiltered_messages.length > 0) {
