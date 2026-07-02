@@ -1,7 +1,7 @@
 import localForage from 'localforage';
 import LZString from 'lz-string';
 import { action, makeObservable, observable } from 'mobx';
-import { MAX_STRATEGIES } from '@/constants/bot-contents';
+import { DBOT_TABS, MAX_STRATEGIES } from '@/constants/bot-contents';
 import { button_status } from '@/constants/button-status';
 import {
     getSavedWorkspaces,
@@ -134,43 +134,53 @@ export default class SaveModalStore implements ISaveModalStore {
         const { load_modal, dashboard, google_drive } = this.root_store;
         const { loadStrategyToBuilder, selected_strategy } = load_modal;
         const { active_tab } = dashboard;
-        this.setButtonStatus(button_status.LOADING);
-        const { saveFile } = google_drive;
-        let xml;
-        let main_strategy = null;
-        if (active_tab === 1) {
-            xml = window.Blockly?.Xml?.workspaceToDom(window.Blockly?.derivWorkspace);
-        } else {
-            const recent_files = await getSavedWorkspaces();
-            main_strategy = recent_files.filter((strategy: TStrategy) => strategy.id === selected_strategy.id)?.[0];
-            main_strategy.name = bot_name;
-            main_strategy.save_type = is_local ? save_types.LOCAL : save_types.GOOGLE_DRIVE;
-            xml = window.Blockly.utils.xml.textToDom(main_strategy.xml);
-        }
-        xml.setAttribute('is_dbot', 'true');
-        xml.setAttribute('collection', save_as_collection ? 'true' : 'false');
+        const is_bot_builder_tab = active_tab === DBOT_TABS.BOT_BUILDER;
+        const is_dashboard_tab = active_tab === DBOT_TABS.DASHBOARD;
+        try {
+            this.setButtonStatus(button_status.LOADING);
+            const { saveFile } = google_drive;
+            let xml;
+            let main_strategy = null;
+            if (is_bot_builder_tab) {
+                xml = window.Blockly?.Xml?.workspaceToDom(window.Blockly?.derivWorkspace);
+            } else {
+                const recent_files = await getSavedWorkspaces();
+                main_strategy = recent_files.filter((strategy: TStrategy) => strategy.id === selected_strategy.id)?.[0];
+                if (!main_strategy?.xml) {
+                    throw new Error('Selected strategy could not be found for saving.');
+                }
+                main_strategy.name = bot_name;
+                main_strategy.save_type = is_local ? save_types.LOCAL : save_types.GOOGLE_DRIVE;
+                xml = window.Blockly.utils.xml.textToDom(main_strategy.xml);
+            }
+            xml.setAttribute('is_dbot', 'true');
+            xml.setAttribute('collection', save_as_collection ? 'true' : 'false');
 
-        if (is_local) {
-            save(bot_name, save_as_collection, xml);
-        } else {
-            await saveFile({
-                name: bot_name,
-                content: window.Blockly?.Xml?.domToPrettyText(xml),
-                mimeType: 'application/xml',
-            });
-            this.setButtonStatus(button_status.COMPLETED);
-        }
+            if (is_local) {
+                save(bot_name, save_as_collection, xml);
+            } else {
+                await saveFile({
+                    name: bot_name,
+                    content: window.Blockly?.Xml?.domToPrettyText(xml),
+                    mimeType: 'application/xml',
+                });
+                this.setButtonStatus(button_status.COMPLETED);
+            }
 
-        this.updateBotName(bot_name);
+            this.updateBotName(bot_name);
 
-        if (active_tab === 0) {
-            const workspace_id = selected_strategy.id ?? Blockly?.utils?.genUid();
-            await this.addStrategyToWorkspace(workspace_id, is_local, save_as_collection, bot_name, xml);
-            if (main_strategy) await loadStrategyToBuilder(main_strategy);
-        } else {
-            await saveWorkspaceToRecent(xml, is_local ? save_types.LOCAL : save_types.GOOGLE_DRIVE);
+            if (is_dashboard_tab) {
+                const workspace_id = selected_strategy.id ?? Blockly?.utils?.genUid();
+                await this.addStrategyToWorkspace(workspace_id, is_local, save_as_collection, bot_name, xml);
+                if (main_strategy) await loadStrategyToBuilder(main_strategy);
+            } else {
+                await saveWorkspaceToRecent(xml, is_local ? save_types.LOCAL : save_types.GOOGLE_DRIVE);
+            }
+            this.toggleSaveModal();
+        } catch (error) {
+            this.setButtonStatus(button_status.NORMAL);
+            globalObserver.emit('Error', error);
         }
-        this.toggleSaveModal();
     };
 
     updateBotName = (bot_name: string): void => {

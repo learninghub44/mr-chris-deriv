@@ -3,6 +3,7 @@
 
 export const MAX_MOBILE_WIDTH = 926;
 export const ACCOUNT_TYPE_KEY = 'account_type';
+export const SPECIAL_DEMO_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'DOT92075124', 'VRW70350']);
 export const SPECIAL_REAL_JOURNAL_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'DOT92075124', 'VRW70350']);
 export const SPECIAL_COMPETITION_ELIGIBLE_LOGINIDS = new Set([
     'DOT91317422',
@@ -23,12 +24,13 @@ export const SPECIAL_COMPETITION_ELIGIBLE_LOGINIDS = new Set([
  */
 export const isDemoAccount = (loginid: string): boolean => {
     if (!loginid) return false;
-    // Demo accounts: VRTC (classic), VRW (wallets), or DEM prefix
+    // Demo accounts: VRTC (classic), DEM prefix, or a small allowlist of
+    // hosted-domain special accounts that should behave like demos.
     return (
         loginid.startsWith('VRTC') ||
         loginid.startsWith('VRW') ||
         loginid.startsWith('DEM') ||
-        loginid.startsWith('DOT')
+        SPECIAL_DEMO_LOGINIDS.has(loginid)
     );
 };
 
@@ -44,7 +46,7 @@ export const shouldTreatAccountAsCompetitionEligible = (loginid: string): boolea
 
 export const getDisplayLoginId = (loginid: string): string => {
     if (!loginid) return '';
-    if (loginid.startsWith('DOT')) {
+    if (SPECIAL_DEMO_LOGINIDS.has(loginid) && loginid.startsWith('DOT')) {
         return `ROT${loginid.slice(3)}`;
     }
 

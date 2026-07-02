@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { crypto_currencies_display_order, fiat_currencies_display_order } from '@/components/shared';
 import { TAuthData } from '@/types/api-types';
+import { isDemoAccount } from '@/utils/account-helpers';
 
 /**
  * Custom hook to handle account switching via URL parameter
@@ -44,7 +45,7 @@ export const useAccountSwitching = () => {
 
             // Handle demo account switching
             if (account_currency?.toUpperCase() === 'DEMO') {
-                const demo_account = Object.entries(parsed_accounts).find(([key]) => key.startsWith('VR'));
+                const demo_account = Object.entries(parsed_accounts).find(([key]) => isDemoAccount(key));
 
                 if (demo_account) {
                     const [loginid, token] = demo_account;
@@ -57,7 +58,7 @@ export const useAccountSwitching = () => {
             if (account_currency?.toUpperCase() !== 'DEMO' && is_valid_currency) {
                 const real_account = Object.entries(parsed_client_accounts).find(
                     ([loginid, account]) =>
-                        !loginid.startsWith('VR') && account.currency.toUpperCase() === account_currency?.toUpperCase()
+                        !isDemoAccount(loginid) && account.currency.toUpperCase() === account_currency?.toUpperCase()
                 );
 
                 if (real_account) {

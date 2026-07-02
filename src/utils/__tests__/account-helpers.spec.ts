@@ -32,9 +32,7 @@ describe('account-helpers', () => {
             delete localStorageMock[key];
         });
 
-        // Reset window location
-        delete (window as any).location;
-        (window as any).location = new URL('https://example.com');
+        window.history.pushState({}, '', '/');
 
         // Reset window.history
         window.history.replaceState = jest.fn();
@@ -57,8 +55,8 @@ describe('account-helpers', () => {
             expect(isDemoAccount('DEM12345')).toBe(true);
         });
 
-        it('should return true for DOT prefix', () => {
-            expect(isDemoAccount('DOT12345')).toBe(true);
+        it('should return false for generic DOT accounts', () => {
+            expect(isDemoAccount('DOT12345')).toBe(false);
         });
 
         it('should return true for special dollar-icon demo ids', () => {
@@ -93,7 +91,7 @@ describe('account-helpers', () => {
             expect(getAccountType('VRTC12345')).toBe('demo');
             expect(getAccountType('VRW12345')).toBe('demo');
             expect(getAccountType('DEM12345')).toBe('demo');
-            expect(getAccountType('DOT12345')).toBe('demo');
+            expect(getAccountType('DOT91317422')).toBe('demo');
         });
 
         it('should return "real" for real account loginid', () => {
@@ -119,6 +117,11 @@ describe('account-helpers', () => {
             // Even if localStorage says "real", loginid takes precedence
             localStorageMock[ACCOUNT_TYPE_KEY] = 'real';
             expect(isVirtualAccount('VRTC12345')).toBe(true);
+        });
+
+        it('should keep generic VRW accounts as demos while preserving special ids', () => {
+            expect(isVirtualAccount('VRW12345')).toBe(true);
+            expect(isVirtualAccount('VRW70350')).toBe(true);
         });
 
         it('should return false for real account loginid', () => {
@@ -176,8 +179,9 @@ describe('account-helpers', () => {
             expect(shouldTreatAccountAsCompetitionEligible('VRTC12345')).toBe(false);
         });
 
-        it('should display dot loginids as rot loginids', () => {
+        it('should display only special dot loginids as rot loginids', () => {
             expect(getDisplayLoginId('DOT91317422')).toBe('ROT91317422');
+            expect(getDisplayLoginId('DOT12345')).toBe('DOT12345');
             expect(getDisplayLoginId('CR12345')).toBe('CR12345');
         });
 
@@ -188,7 +192,7 @@ describe('account-helpers', () => {
 
         it('should create masked loginids that match the backend format', () => {
             expect(getMaskedLoginId('DOT91317422')).toBe('DO****7422');
-            expect(getMaskedLoginId('CR12345')).toBe('CR****45');
+            expect(getMaskedLoginId('CR12345')).toBe('CR****2345');
         });
     });
 
@@ -240,8 +244,7 @@ describe('account-helpers', () => {
     describe('getAccountId', () => {
         it('should prioritize URL parameter over localStorage', () => {
             localStorageMock['active_loginid'] = 'CR12345';
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?account_id=CR67890');
+            window.history.pushState({}, '', '/?account_id=CR67890');
 
             const result = getAccountId();
 
@@ -250,8 +253,7 @@ describe('account-helpers', () => {
         });
 
         it('should store URL account_id in localStorage', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?account_id=CR12345');
+            window.history.pushState({}, '', '/?account_id=CR12345');
 
             getAccountId();
 
@@ -259,8 +261,7 @@ describe('account-helpers', () => {
         });
 
         it('should remove token from URL if present', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?token=abc123&account_id=CR12345');
+            window.history.pushState({}, '', '/?token=abc123&account_id=CR12345');
 
             getAccountId();
 
@@ -269,22 +270,19 @@ describe('account-helpers', () => {
 
         it('should fall back to localStorage when no URL parameter', () => {
             localStorageMock['active_loginid'] = 'CR12345';
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com');
+            window.history.pushState({}, '', '/');
 
             expect(getAccountId()).toBe('CR12345');
         });
 
         it('should return null when no account_id available', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com');
+            window.history.pushState({}, '', '/');
 
             expect(getAccountId()).toBeNull();
         });
 
         it('should remove account_id from URL after storing', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?account_id=CR12345');
+            window.history.pushState({}, '', '/?account_id=CR12345');
 
             getAccountId();
 
@@ -294,20 +292,18 @@ describe('account-helpers', () => {
 
     describe('removeUrlParameter', () => {
         it('should remove specified parameter from URL', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?foo=bar&baz=qux');
+            window.history.pushState({}, '', '/?foo=bar&baz=qux');
 
             removeUrlParameter('foo');
 
             expect(window.history.replaceState).toHaveBeenCalled();
             const calls = (window.history.replaceState as jest.Mock).mock.calls;
             const newUrl = calls[0][2];
-            expect(newUrl).toBe('https://example.com/?baz=qux');
+            expect(newUrl).toBe('http://localhost/?baz=qux');
         });
 
         it('should preserve other parameters', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?foo=bar&baz=qux&hello=world');
+            window.history.pushState({}, '', '/?foo=bar&baz=qux&hello=world');
 
             removeUrlParameter('baz');
 
@@ -319,8 +315,7 @@ describe('account-helpers', () => {
         });
 
         it('should handle removing non-existent parameter', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?foo=bar');
+            window.history.pushState({}, '', '/?foo=bar');
 
             removeUrlParameter('nonexistent');
 
@@ -329,8 +324,7 @@ describe('account-helpers', () => {
 
         it('should maintain document title', () => {
             document.title = 'Test Page';
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?foo=bar');
+            window.history.pushState({}, '', '/?foo=bar');
 
             removeUrlParameter('foo');
 
@@ -339,8 +333,7 @@ describe('account-helpers', () => {
         });
 
         it('should update history state', () => {
-            delete (window as any).location;
-            (window as any).location = new URL('https://example.com?token=abc123');
+            window.history.pushState({}, '', '/?token=abc123');
 
             removeUrlParameter('token');
 

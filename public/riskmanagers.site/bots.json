@@ -9,9 +9,10 @@
         "priority": 1
     },
     {
-        "name": "Tri-Mode Regime Switcher (Template Fixed)",
-        "file": "Tri-Mode Regime Switcher (Template Fixed).xml",
-        "description": "Fixed-stake Risk Managers bot that analyses fresh Deriv history before every purchase and cycles through Over 4, Under 5, Even, Odd, Rise, and Fall."
+        "id": "double-under-bot",
+        "name": "Double Under bot",
+        "file": "Double Under bot.xml",
+        "description": "Risk Managers digit bot that trades Under 8 in normal mode, switches to Under 7 after a loss, and waits for two-tick direction confirmation before entries."
     },
     {
         "name": "grffy v1",

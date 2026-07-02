@@ -471,11 +471,32 @@
                 fill: #ffffff;
             }
         }
+
+        .download__button,
+        .download__container__view-detail-button,
+        .transactions__header,
+        .transactions__header-column,
+        .transactions__cell,
+        .transactions__spot-value,
+        .transactions-empty,
+        .transactions-empty .dc-text,
+        .summary,
+        .summary .dc-text {
+            color: var(--rm-shell-panel-text) !important;
+        }
+
+        .transactions__item-wrapper:hover {
+            background-color: rgb(255 255 255 / 8%);
+        }
     }
 
     .controls__section {
         background-color: var(--rm-shell-run-panel);
         border-top-color: var(--rm-shell-section-border);
+        color: var(--rm-shell-panel-text);
+    }
+
+    .transactions__header {
         color: var(--rm-shell-panel-text);
     }
 }

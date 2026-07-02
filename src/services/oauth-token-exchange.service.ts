@@ -1,5 +1,6 @@
 import { clearCodeVerifier, getDomainConfig, getCodeVerifier, isProduction } from '@/components/shared';
 import { ErrorLogger } from '@/utils/error-logger';
+import { isDemoAccount } from '@/utils/account-helpers';
 import brandConfig from '../../brand.config.json';
 
 /**
@@ -229,8 +230,7 @@ export class OAuthTokenExchangeService {
                         localStorage.setItem('active_loginid', firstAccount.account_id);
 
                         // Set account type
-                        const isDemo =
-                            firstAccount.account_id.startsWith('VRT') || firstAccount.account_id.startsWith('VRTC');
+                        const isDemo = isDemoAccount(firstAccount.account_id);
                         localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
 
                         ErrorLogger.info('OAuth', 'Accounts fetched and stored', {

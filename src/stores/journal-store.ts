@@ -357,14 +357,12 @@ export default class JournalStore {
     }
 
     get filtered_messages() {
-        return (
-            this.unfiltered_messages
-                // filter messages based on filtered-checkbox
-                .filter(
-                    message =>
-                        this.journal_filters.length &&
-                        this.journal_filters.some(filter => message.message_type === filter)
-                )
+        if (!this.journal_filters.length) {
+            return this.unfiltered_messages;
+        }
+
+        return this.unfiltered_messages.filter(message =>
+            this.journal_filters.some(filter => message.message_type === filter)
         );
     }
 
@@ -382,6 +380,10 @@ export default class JournalStore {
             if (filter_index >= 0) {
                 this.journal_filters.splice(filter_index, 1);
             }
+        }
+
+        if (!this.journal_filters.length) {
+            this.journal_filters = this.filters.map(filter => filter.id);
         }
 
         storeSetting('journal_filter', this.journal_filters);

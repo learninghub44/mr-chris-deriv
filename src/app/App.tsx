@@ -10,6 +10,7 @@ import { useLanguageFromURL } from '@/hooks/useLanguageFromURL';
 import { useOAuthCallback } from '@/hooks/useOAuthCallback';
 import { StoreProvider } from '@/hooks/useStore';
 import { OAuthTokenExchangeService } from '@/services/oauth-token-exchange.service';
+import { isDemoAccount } from '@/utils/account-helpers';
 import { initializeI18n, localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
 import ErrorBoundary from './ErrorBoundary';
@@ -107,11 +108,11 @@ function storeLegacyAccounts(accounts: import('@/hooks/useOAuthCallback').Legacy
     localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
 
     // Pick the first real account (non-VRT) as active; fall back to first account
-    const realAccount = accounts.find(a => !a.loginid.startsWith('VRT')) ?? accounts[0];
+    const realAccount = accounts.find(a => !isDemoAccount(a.loginid)) ?? accounts[0];
     if (realAccount) {
         localStorage.setItem('authToken', realAccount.token);
         localStorage.setItem('active_loginid', realAccount.loginid);
-        const isDemo = realAccount.loginid.startsWith('VRT') || realAccount.loginid.startsWith('VRTC');
+        const isDemo = isDemoAccount(realAccount.loginid);
         localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
 
         console.log('[Legacy OAuth] ✅ Legacy account stored:', {

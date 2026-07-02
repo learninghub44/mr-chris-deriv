@@ -3,6 +3,7 @@ import { getAccountId, getAccountType, isDemoAccount, removeUrlParameter } from 
 /* [/AI] */
 import CommonStore from '@/stores/common-store';
 import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
+import { OAuthTokenExchangeService } from '@/services/oauth-token-exchange.service';
 import { TAuthData } from '@/types/api-types';
 import {
     buildApiTokenAccountDetails,
@@ -213,7 +214,7 @@ class APIBase {
                         localStorage.setItem('active_loginid', accountId);
 
                         // Set account type based on account_id prefix
-                        const isDemo = accountId.startsWith('VRT') || accountId.startsWith('VRTC');
+                        const isDemo = isDemoAccount(accountId);
                         localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
                         console.log('[handleTokenExchangeIfNeeded] Set account from sessionStorage:', {
                             accountId,
@@ -472,10 +473,17 @@ class APIBase {
                     return { error: authException, localizedMessage: 'Authorization exception' };
                 }
             } else {
-                console.warn('⚠️ [authorizeAndSubscribe] No token available for authorization', {
+                const hasPkceAuth = !!OAuthTokenExchangeService.getAuthInfo();
+                const logPayload = {
                     active_loginid: accountId,
                     accountsList: localStorage.getItem('accountsList') ? 'Present' : 'MISSING',
-                });
+                    deriv_accounts: DerivWSAccountsService.getStoredAccounts()?.length ? 'Present' : 'MISSING',
+                };
+                if (hasPkceAuth) {
+                    console.info('[authorizeAndSubscribe] Using authenticated WebSocket session without legacy token', logPayload);
+                } else {
+                    console.warn('⚠️ [authorizeAndSubscribe] No token available for authorization', logPayload);
+                }
             }
 
             if (isApiTokenSession() && !canAccessApiTokenBalance()) {
