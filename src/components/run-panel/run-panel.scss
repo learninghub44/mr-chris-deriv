@@ -6,6 +6,16 @@
 .run-panel {
     --run-panel-mobile-controls-height: 7.6rem;
     --run-panel-mobile-stat-height: 12.8rem;
+    --run-panel-frame-bg: #111827;
+    --run-panel-frame-border: rgb(99 102 241 / 0.45);
+    --run-panel-frame-border-soft: rgb(99 102 241 / 0.18);
+    --run-panel-surface: #171c2b;
+    --run-panel-surface-2: #20263a;
+    --run-panel-text: #f3f4f6;
+    --run-panel-text-muted: #b6bdd1;
+    --run-panel-accent: #ffb300;
+    --run-panel-toggle: #3366ff;
+    --run-panel-shadow: 0 0 0 1px var(--run-panel-frame-border-soft), 0 1.6rem 3.4rem rgb(0 0 0 / 0.36);
 
     height: 0;
 
@@ -15,11 +25,9 @@
         top: 10.4rem !important;
         width: 36.6rem !important;
         right: 0;
-        background: var(--rm-shell-run-panel);
-        border: 3px solid var(--rm-shell-run-panel-border);
-        box-shadow:
-            0 0 0 1px var(--rm-shell-run-panel-border-soft),
-            0 1.2rem 3.2rem rgb(0 0 0 / 28%);
+        background: var(--run-panel-frame-bg);
+        border: 2px solid var(--run-panel-frame-border);
+        box-shadow: var(--run-panel-shadow);
         overflow: visible;
 
         .dc-drawer__container {
@@ -33,9 +41,9 @@
             z-index: 900;
             height: calc(100% - var(--app-header-height, 4rem) - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
-            background: var(--rm-shell-run-panel);
-            border: 3px solid var(--rm-shell-run-panel-border);
-            box-shadow: inset 0 0 0 1px var(--rm-shell-run-panel-border-soft);
+            background: var(--run-panel-frame-bg);
+            border: 2px solid var(--run-panel-frame-border);
+            box-shadow: inset 0 0 0 1px var(--run-panel-frame-border-soft);
             box-sizing: border-box;
             isolation: isolate;
             overflow: hidden;
@@ -62,7 +70,7 @@
             .transactions,
             .summary,
             .journal {
-                background-color: var(--rm-shell-section);
+                background-color: var(--run-panel-surface);
             }
 
             &-closed {
@@ -83,8 +91,8 @@
         width: 4rem;
         height: 7.2rem;
         min-height: 7.2rem;
-        border: 2px solid var(--rm-shell-run-panel-border);
-        background: linear-gradient(180deg, rgb(255 255 255 / 18%), rgb(255 255 255 / 0%)), #0b5fbd;
+        border: 2px solid var(--run-panel-frame-border);
+        background: linear-gradient(180deg, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0%)), var(--run-panel-toggle);
         box-shadow:
             0 0 0 3px rgb(30 136 255 / 18%),
             0 0.8rem 2.4rem rgb(0 0 0 / 34%);
@@ -134,7 +142,7 @@
         &-title {
             min-height: 1.8rem;
             margin-bottom: 4px;
-            color: var(--rm-shell-panel-text);
+            color: var(--run-panel-text);
 
             @include typeface(--small-center-bold-black, none);
         }
@@ -142,7 +150,7 @@
         &-content {
             height: 18px;
             margin-bottom: 4px;
-            color: var(--rm-shell-panel-text);
+            color: var(--run-panel-text);
 
             @include typeface(--small-center-normal-black, none);
         }
@@ -153,8 +161,8 @@
 
         flex-direction: column;
         width: min(35rem, 100%);
-        background-color: var(--rm-shell-section-2);
-        color: var(--rm-shell-panel-text);
+        background-color: var(--run-panel-surface-2);
+        color: var(--run-panel-text);
 
         @include mobile-or-tablet-screen {
             margin: 0;
@@ -173,7 +181,7 @@
             width: 33%;
             padding: 16px 0 2px;
             cursor: pointer;
-            color: var(--rm-shell-panel-text-muted);
+            color: var(--run-panel-text-muted);
             -webkit-tap-highlight-color: transparent;
 
             &-item {
@@ -199,7 +207,7 @@
         }
 
         &-amount {
-            color: var(--rm-shell-panel-text);
+            color: var(--run-panel-text);
 
             @include typeface(--small-center-normal-black, none);
 
@@ -217,8 +225,8 @@
         &--mobile {
             width: 100%;
             bottom: var(--run-panel-mobile-controls-height);
-            border-top: 1px solid var(--rm-shell-section-border);
-            border-bottom: 1px solid var(--rm-shell-section-border);
+            border-top: 1px solid var(--run-panel-frame-border-soft);
+            border-bottom: 1px solid var(--run-panel-frame-border-soft);
 
             @supports (-webkit-touch-callout: none) {
                 bottom: calc(var(--run-panel-mobile-controls-height) + env(safe-area-inset-bottom, 0));
@@ -248,7 +256,7 @@
 
         .dc-tabs {
             &__list {
-                border-bottom: 1px solid var(--rm-shell-section-border);
+                border-bottom: 1px solid var(--run-panel-frame-border-soft);
 
                 @include mobile-or-tablet-screen {
                     padding-right: 9rem;
@@ -259,12 +267,12 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 padding: 0 0.8rem;
-                color: var(--rm-shell-panel-text-muted);
+                color: var(--run-panel-text-muted);
                 font-weight: 600;
 
                 span,
                 .dc-text {
-                    color: var(--rm-shell-panel-text-muted) !important;
+                    color: var(--run-panel-text-muted) !important;
                 }
 
                 @include mobile-or-tablet-screen {
@@ -275,16 +283,16 @@
             }
 
             &__active {
-                color: var(--rm-shell-gold) !important;
+                color: var(--run-panel-accent) !important;
 
                 span,
                 .dc-text {
-                    color: var(--rm-shell-gold) !important;
+                    color: var(--run-panel-accent) !important;
                 }
             }
 
             &__active-line {
-                background: var(--rm-shell-gold);
+                background: var(--run-panel-accent);
             }
         }
     }
@@ -350,8 +358,8 @@
         position: fixed;
         bottom: 0;
         width: 100%;
-        background-color: var(--rm-shell-run-panel);
-        border-top: solid 2px var(--rm-shell-section-border);
+        background-color: var(--run-panel-frame-bg);
+        border-top: solid 1px var(--run-panel-frame-border-soft);
         z-index: 8;
 
         /* Fix for iOS devices to respect safe area */
@@ -401,6 +409,17 @@
 
 .theme--light {
     .run-panel {
+        --run-panel-frame-bg: linear-gradient(180deg, #edf6ff, #ddebff);
+        --run-panel-frame-border: rgb(52 102 255 / 0.34);
+        --run-panel-frame-border-soft: rgb(52 102 255 / 0.12);
+        --run-panel-surface: #ffffff;
+        --run-panel-surface-2: #eef4ff;
+        --run-panel-text: #1f2a44;
+        --run-panel-text-muted: #667189;
+        --run-panel-accent: #f7ae00;
+        --run-panel-toggle: #2f67e8;
+        --run-panel-shadow: 0 0 0 1px rgb(52 102 255 / 0.1), 0 1.2rem 3rem rgb(59 86 138 / 0.16);
+
         &__container,
         &__container--mobile,
         &__content,
@@ -411,14 +430,14 @@
         .summary,
         .transactions,
         .journal {
-            background-color: var(--rm-shell-section);
-            color: var(--rm-shell-panel-text);
+            background-color: var(--run-panel-surface);
+            color: var(--run-panel-text);
         }
 
         &__stat {
-            background-color: var(--rm-shell-section-2);
-            border-top: 1px solid var(--rm-shell-section-border);
-            border-bottom: 1px solid var(--rm-shell-section-border);
+            background-color: var(--run-panel-surface-2);
+            border-top: 1px solid var(--run-panel-frame-border-soft);
+            border-bottom: 1px solid var(--run-panel-frame-border-soft);
         }
 
         &__tile-title,
@@ -427,41 +446,41 @@
         .summary,
         .transactions,
         .journal {
-            color: var(--rm-shell-panel-text);
+            color: var(--run-panel-text);
         }
 
         &__stat--info,
         &__stat--info-item {
-            color: var(--rm-shell-panel-text-muted);
+            color: var(--run-panel-text-muted);
             border-color: currentColor;
         }
 
         .dc-tabs__item {
-            color: var(--rm-shell-panel-text-muted) !important;
+            color: var(--run-panel-text-muted) !important;
 
             span,
             .dc-text {
-                color: var(--rm-shell-panel-text-muted) !important;
+                color: var(--run-panel-text-muted) !important;
             }
         }
 
         .dc-tabs__active {
-            color: var(--rm-shell-gold) !important;
+            color: var(--run-panel-accent) !important;
 
             span,
             .dc-text {
-                color: var(--rm-shell-gold) !important;
+                color: var(--run-panel-accent) !important;
             }
         }
 
         .dc-tabs__active-line {
-            background: var(--rm-shell-gold);
+            background: var(--run-panel-accent);
         }
 
         .dc-drawer__toggle {
             background:
-                linear-gradient(180deg, rgb(255 255 255 / 28%), rgb(255 255 255 / 0%)), var(--rm-shell-run-panel-border);
-            border-color: var(--rm-shell-run-panel-border);
+                linear-gradient(180deg, rgb(255 255 255 / 0.28), rgb(255 255 255 / 0%)), var(--run-panel-toggle);
+            border-color: var(--run-panel-frame-border);
             box-shadow:
                 0 0 0 3px rgb(21 89 216 / 18%),
                 0 0.4rem 1.2rem rgb(15 23 42 / 18%);
@@ -474,6 +493,8 @@
 
         .download__button,
         .download__container__view-detail-button,
+        .journal-tools__container-filter,
+        .run-panel__footer-button,
         .transactions__header,
         .transactions__header-column,
         .transactions__cell,
@@ -482,22 +503,37 @@
         .transactions-empty .dc-text,
         .summary,
         .summary .dc-text {
-            color: var(--rm-shell-panel-text) !important;
+            color: var(--run-panel-text) !important;
         }
 
         .transactions__item-wrapper:hover {
-            background-color: rgb(255 255 255 / 8%);
+            background-color: rgb(52 102 255 / 0.05);
         }
     }
 
     .controls__section {
-        background-color: var(--rm-shell-run-panel);
-        border-top-color: var(--rm-shell-section-border);
-        color: var(--rm-shell-panel-text);
+        background-color: #ddebff;
+        border-top-color: rgb(52 102 255 / 0.16);
+        color: #1f2a44;
     }
 
     .transactions__header {
-        color: var(--rm-shell-panel-text);
+        color: var(--run-panel-text);
+    }
+}
+
+.theme--dark {
+    .run-panel {
+        --run-panel-frame-bg: linear-gradient(180deg, #161b29, #101420);
+        --run-panel-frame-border: rgb(87 102 255 / 0.28);
+        --run-panel-frame-border-soft: rgb(87 102 255 / 0.14);
+        --run-panel-surface: #1a2132;
+        --run-panel-surface-2: #222a40;
+        --run-panel-text: #f4f7ff;
+        --run-panel-text-muted: #b3bdd5;
+        --run-panel-accent: #ffb300;
+        --run-panel-toggle: #2759e2;
+        --run-panel-shadow: 0 0 0 1px rgb(87 102 255 / 0.12), 0 1.8rem 4rem rgb(0 0 0 / 0.4);
     }
 }
 
