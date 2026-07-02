@@ -144,8 +144,8 @@ const CompetitionPage = observer(() => {
     ]);
 
     const ineligibleAccountMessage = store?.client?.is_logged_in
-        ? 'Log in with a real Deriv account, or the approved special account, to join the competition.'
-        : 'Log in with a real Deriv account, or the approved special account, to join the competition.';
+        ? 'Log in with a real Deriv account to join the competition.'
+        : 'Log in with a real Deriv account to join the competition.';
 
     const handleCreateProfile = async () => {
         const normalized = username.trim().toLowerCase();

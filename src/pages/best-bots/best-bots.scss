@@ -1,14 +1,19 @@
 @use 'components/shared/styles/mixins' as *;
 
 .best-bots {
+    box-sizing: border-box;
     min-height: 100%;
+    height: 100%;
     padding: 1.6rem;
+    overflow: visible;
     background:
         radial-gradient(circle at top left, rgb(255 179 0 / 0.1), transparent 22%),
         radial-gradient(circle at top right, rgb(80 94 255 / 0.12), transparent 26%), var(--general-main-1);
 
     @include mobile-or-tablet-screen {
+        min-height: 100%;
         padding: 1.2rem;
+        padding-bottom: calc(2.4rem + env(safe-area-inset-bottom, 0px));
     }
 
     &__grid {
@@ -19,10 +24,12 @@
         margin: 0 auto;
         align-items: stretch;
         align-content: start;
+        padding-bottom: 2rem;
 
         @include mobile-or-tablet-screen {
             grid-template-columns: 1fr;
             gap: 1.6rem;
+            padding-bottom: calc(3.2rem + env(safe-area-inset-bottom, 0px));
         }
     }
 }
@@ -41,6 +48,8 @@
     --bb-card-copy-bg: rgb(89 125 255 / 0.06);
     --bb-card-copy-border: rgb(89 125 255 / 0.28);
     --bb-card-copy-icon: #5272f2;
+    --bb-card-metric-bg: rgb(255 255 255 / 0.72);
+    --bb-card-metric-border: rgb(128 145 255 / 0.08);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -91,6 +100,8 @@
         --bb-card-copy-bg: rgb(89 125 255 / 0.08);
         --bb-card-copy-border: rgb(89 125 255 / 0.34);
         --bb-card-copy-icon: #b8c7ff;
+        --bb-card-metric-bg: rgb(255 255 255 / 0.06);
+        --bb-card-metric-border: rgb(128 145 255 / 0.12);
     }
 
     &--premium {
@@ -107,6 +118,8 @@
         --bb-card-copy-bg: rgb(255 190 24 / 0.08);
         --bb-card-copy-border: rgb(255 190 24 / 0.24);
         --bb-card-copy-icon: #4672ff;
+        --bb-card-metric-bg: rgb(255 255 255 / 0.72);
+        --bb-card-metric-border: rgb(255 190 24 / 0.12);
         border-top-color: #f5b000;
     }
 
@@ -122,6 +135,8 @@
         --bb-card-copy-bg: rgb(255 190 24 / 0.12);
         --bb-card-copy-border: rgb(255 211 96 / 0.24);
         --bb-card-copy-icon: #ffe099;
+        --bb-card-metric-bg: rgb(255 255 255 / 0.08);
+        --bb-card-metric-border: rgb(255 211 96 / 0.16);
     }
 
     &__header {
@@ -233,8 +248,8 @@
         gap: 0.2rem;
         padding: 0.9rem;
         border-radius: 1rem;
-        background: rgb(255 255 255 / 0.72);
-        border: 1px solid rgb(128 145 255 / 0.08);
+        background: var(--bb-card-metric-bg);
+        border: 1px solid var(--bb-card-metric-border);
 
         strong {
             color: var(--bb-card-text);
@@ -365,4 +380,10 @@
     background:
         radial-gradient(circle at top left, rgb(255 179 0 / 0.06), transparent 20%),
         radial-gradient(circle at top right, rgb(80 94 255 / 0.09), transparent 26%), #0b0b10;
+}
+
+.theme--light .best-bots {
+    background:
+        radial-gradient(circle at top left, rgb(255 179 0 / 0.08), transparent 22%),
+        radial-gradient(circle at top right, rgb(80 94 255 / 0.1), transparent 26%), var(--rm-shell-run-panel-light, #eef7ff);
 }

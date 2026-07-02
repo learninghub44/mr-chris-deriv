@@ -3,64 +3,32 @@
 
 export const MAX_MOBILE_WIDTH = 926;
 export const ACCOUNT_TYPE_KEY = 'account_type';
-export const SPECIAL_DEMO_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'DOT92075124', 'VRW70350']);
-export const SPECIAL_REAL_JOURNAL_LOGINIDS = new Set(['DOT91317422', 'DOT91360536', 'DOT92075124', 'VRW70350']);
-export const SPECIAL_COMPETITION_ELIGIBLE_LOGINIDS = new Set([
-    'DOT91317422',
-    'DOT91360536',
-    'DOT92075124',
-    'VRW70350',
-]);
 
 /**
  * Check if a loginid represents a demo account
  * Demo accounts have specific prefixes:
  * - VRTC: Classic demo accounts
  * - VRW: Demo wallet accounts
- * - Starts with DEM: Demo accounts with DEM prefix
+ * - DEM: Demo accounts with DEM prefix
+ * - DOT: Demo accounts with DOT prefix
  *
  * @param loginid - The account loginid to check
  * @returns true if demo account, false otherwise
  */
 export const isDemoAccount = (loginid: string): boolean => {
     if (!loginid) return false;
-    // Demo accounts: VRTC (classic), DEM prefix, or a small allowlist of
-    // hosted-domain special accounts that should behave like demos.
+
     return (
         loginid.startsWith('VRTC') ||
         loginid.startsWith('VRW') ||
         loginid.startsWith('DEM') ||
-        SPECIAL_DEMO_LOGINIDS.has(loginid)
+        loginid.startsWith('DOT')
     );
 };
 
-export const shouldUseRealAccountJournalLabel = (loginid: string): boolean => {
-    if (!loginid) return false;
-    return SPECIAL_REAL_JOURNAL_LOGINIDS.has(loginid);
-};
+export const getDisplayLoginId = (loginid: string): string => loginid || '';
 
-export const shouldTreatAccountAsCompetitionEligible = (loginid: string): boolean => {
-    if (!loginid) return false;
-    return SPECIAL_COMPETITION_ELIGIBLE_LOGINIDS.has(loginid);
-};
-
-export const getDisplayLoginId = (loginid: string): string => {
-    if (!loginid) return '';
-    if (SPECIAL_DEMO_LOGINIDS.has(loginid) && loginid.startsWith('DOT')) {
-        return `ROT${loginid.slice(3)}`;
-    }
-
-    return loginid;
-};
-
-export const getDisplayMaskedLoginId = (maskedLoginId: string): string => {
-    if (!maskedLoginId) return '';
-    if (maskedLoginId.startsWith('DO')) {
-        return `RO${maskedLoginId.slice(2)}`;
-    }
-
-    return maskedLoginId;
-};
+export const getDisplayMaskedLoginId = (maskedLoginId: string): string => maskedLoginId || '';
 
 export const getMaskedLoginId = (loginid: string): string => {
     if (!loginid) return '';
@@ -76,10 +44,6 @@ export const getMaskedLoginId = (loginid: string): string => {
 
 export const getJournalAccountLabel = (loginid: string, currency?: string): string | undefined => {
     if (!loginid) return currency;
-
-    if (shouldUseRealAccountJournalLabel(loginid)) {
-        return 'Real';
-    }
 
     return isDemoAccount(loginid) ? 'Demo' : currency;
 };

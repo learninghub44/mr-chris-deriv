@@ -159,7 +159,7 @@ const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTab
                     <Transactions is_drawer_open={is_drawer_open} />
                 </div>
                 <div id='db-run-panel-tab__journal' label={<Localize i18n_default_text='Journal' />}>
-                    <Journal />
+                    <Journal is_drawer_open={is_drawer_open} />
                 </div>
             </Tabs>
             {/* Show StatisticsSummary on all tabs on desktop, only on non-Journal tabs on mobile */}

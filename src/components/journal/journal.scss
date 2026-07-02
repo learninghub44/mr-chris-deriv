@@ -17,8 +17,26 @@
 }
 
 .journal {
-    background: var(--rm-shell-section);
-    color: var(--rm-shell-panel-text);
+    --journal-bg: var(--run-panel-surface, var(--rm-shell-section));
+    --journal-bg-alt: var(--run-panel-surface-2, var(--rm-shell-section-2));
+    --journal-text: var(--run-panel-text, var(--rm-shell-panel-text));
+    --journal-text-muted: var(--run-panel-text-muted, var(--rm-shell-panel-text-muted));
+    --journal-border: var(--run-panel-frame-border-soft, var(--rm-shell-section-border));
+
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--journal-bg);
+    color: var(--journal-text);
+
+    &.run-panel-tab__content--mobile-no-stat {
+        .journal__item-list {
+            flex: 1;
+            min-height: 0;
+            height: auto;
+            overflow: hidden;
+        }
+    }
 
     .ReactVirtualized__Grid__innerScrollContainer {
         & > :first-child,
@@ -65,7 +83,7 @@
             line-height: var(--text-lh-xl);
 
             li::marker {
-                color: var(--rm-shell-panel-text-muted);
+                color: var(--journal-text-muted);
             }
         }
     }
@@ -74,6 +92,8 @@
         padding: 16px;
 
         &-list {
+            flex: 1;
+            min-height: 0;
             height: calc(100% - 7.2rem);
         }
 
@@ -85,9 +105,11 @@
     }
 
     &__data-list {
+        height: 100%;
+
         .ReactVirtualized__Grid__innerScrollContainer {
             > div:nth-child(even) {
-                background: var(--rm-shell-section-2);
+                background: var(--journal-bg-alt);
             }
         }
     }
@@ -98,7 +120,9 @@
             justify-content: space-between;
             padding: 12px;
             padding-left: 16px;
-            border: solid 1px var(--rm-shell-section-border);
+            border: solid 1px var(--journal-border);
+            background: var(--journal-bg-alt);
+            flex-shrink: 0;
 
             &-filter {
                 @include flex-center(flex-end);
@@ -121,7 +145,7 @@
         font-size: var(--text-size-xxs);
         line-height: 1.5;
         display: inline;
-        color: var(--rm-shell-panel-text);
+        color: var(--journal-text);
         text-wrap: pretty;
 
         &-content {
@@ -134,7 +158,7 @@
         }
 
         &-datetime {
-            color: var(--rm-shell-panel-text-muted);
+            color: var(--journal-text-muted);
             font-size: var(--text-size--xxxs);
             margin-top: 6px;
         }
@@ -184,7 +208,8 @@
     }
 }
 
-[data-theme='dark'] {
+[data-theme='dark'],
+.theme--dark {
     .journal {
         &__text {
             &--analysis {
@@ -197,12 +222,27 @@
     }
 }
 
+.theme--light {
+    .journal {
+        --journal-bg: var(--run-panel-surface, #ffffff);
+        --journal-bg-alt: var(--run-panel-surface-2, #eef4ff);
+        --journal-text: var(--run-panel-text, #1f2a44);
+        --journal-text-muted: var(--run-panel-text-muted, #667189);
+
+        &-empty {
+            .dc-text {
+                color: var(--journal-text-muted) !important;
+            }
+        }
+    }
+}
+
 // Modal styling for journal stats
 .journal-modal {
     &__content {
         padding: 0 16px;
         margin-bottom: 16px;
-        color: var(--rm-shell-panel-text);
+        color: var(--journal-text);
         font-size: var(--text-size-xs);
         line-height: 1.5;
     }

@@ -1,6 +1,6 @@
 import type { DerivCompetitionAccount } from '@/features/competition/types/competition.types';
 import type RootStore from '@/stores/root-store';
-import { shouldTreatAccountAsCompetitionEligible } from '@/utils/account-helpers';
+import { isDemoAccount } from '@/utils/account-helpers';
 
 type DerivAuthLike = {
     getAccounts: () => Promise<DerivCompetitionAccount[]>;
@@ -16,8 +16,7 @@ declare global {
 }
 
 const isEligibleRealAccount = (account: DerivCompetitionAccount) =>
-    shouldTreatAccountAsCompetitionEligible(account.loginid) ||
-    (!account.is_virtual && !String(account.loginid || '').startsWith('VR'));
+    !account.is_virtual && !isDemoAccount(account.loginid || '');
 
 export const getDerivCompetitionAuth = (store?: RootStore): DerivAuthLike => {
     if (window.derivAuth) {

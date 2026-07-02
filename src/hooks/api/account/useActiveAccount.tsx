@@ -38,7 +38,7 @@ const useActiveAccount = ({
                   ? addComma(parseFloat(directBalance).toFixed(getDecimalPlaces(activeAccount.currency)))
                   : addComma(parseFloat('0').toFixed(getDecimalPlaces(activeAccount.currency))),
             currencyLabel: isVirtual ? 'Demo' : activeAccount?.currency,
-            icon: <CurrencyIcon currency={activeAccount?.currency?.toLowerCase()} isVirtual={isVirtual} />,
+            icon: <CurrencyIcon currency={isVirtual ? undefined : 'usd'} isVirtual={isVirtual} />,
             isVirtual: isVirtual,
             isActive: activeAccount?.loginid === activeLoginid,
         };

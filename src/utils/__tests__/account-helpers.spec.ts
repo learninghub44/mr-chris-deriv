@@ -13,8 +13,6 @@ import {
     isVirtualAccount,
     MAX_MOBILE_WIDTH,
     removeUrlParameter,
-    shouldTreatAccountAsCompetitionEligible,
-    shouldUseRealAccountJournalLabel,
 } from '../account-helpers';
 
 describe('account-helpers', () => {
@@ -55,20 +53,17 @@ describe('account-helpers', () => {
             expect(isDemoAccount('DEM12345')).toBe(true);
         });
 
-        it('should return false for generic DOT accounts', () => {
-            expect(isDemoAccount('DOT12345')).toBe(false);
-        });
-
-        it('should return true for special dollar-icon demo ids', () => {
+        it('should return true for DOT prefix demo accounts', () => {
+            expect(isDemoAccount('DOT12345')).toBe(true);
             expect(isDemoAccount('DOT91317422')).toBe(true);
             expect(isDemoAccount('DOT91360536')).toBe(true);
             expect(isDemoAccount('DOT92075124')).toBe(true);
-            expect(isDemoAccount('VRW70350')).toBe(true);
         });
 
         it('should return false for real account prefix', () => {
             expect(isDemoAccount('CR12345')).toBe(false);
             expect(isDemoAccount('MF12345')).toBe(false);
+            expect(isDemoAccount('ROT12345')).toBe(false);
         });
 
         it('should return false for empty string', () => {
@@ -119,9 +114,10 @@ describe('account-helpers', () => {
             expect(isVirtualAccount('VRTC12345')).toBe(true);
         });
 
-        it('should keep generic VRW accounts as demos while preserving special ids', () => {
+        it('should treat DOT and VRW accounts as demos', () => {
             expect(isVirtualAccount('VRW12345')).toBe(true);
             expect(isVirtualAccount('VRW70350')).toBe(true);
+            expect(isVirtualAccount('DOT91317422')).toBe(true);
         });
 
         it('should return false for real account loginid', () => {
@@ -152,19 +148,11 @@ describe('account-helpers', () => {
     });
 
     describe('journal account labels', () => {
-        it('should use real account label for special dollar-icon ids', () => {
-            expect(shouldUseRealAccountJournalLabel('DOT91317422')).toBe(true);
-            expect(shouldUseRealAccountJournalLabel('DOT91360536')).toBe(true);
-            expect(shouldUseRealAccountJournalLabel('DOT92075124')).toBe(true);
-            expect(shouldUseRealAccountJournalLabel('VRW70350')).toBe(true);
-            expect(getJournalAccountLabel('DOT91317422', 'USD')).toBe('Real');
-            expect(getJournalAccountLabel('DOT92075124', 'USD')).toBe('Real');
-            expect(getJournalAccountLabel('VRW70350', 'USD')).toBe('Real');
-        });
-
-        it('should keep standard demo ids labeled as demo', () => {
+        it('should label demo accounts as Demo', () => {
             expect(getJournalAccountLabel('VRTC12345', 'USD')).toBe('Demo');
             expect(getJournalAccountLabel('DEM12345', 'USD')).toBe('Demo');
+            expect(getJournalAccountLabel('DOT91317422', 'USD')).toBe('Demo');
+            expect(getJournalAccountLabel('VRW70350', 'USD')).toBe('Demo');
         });
 
         it('should use currency for normal real accounts', () => {
@@ -172,21 +160,15 @@ describe('account-helpers', () => {
         });
     });
 
-    describe('competition and display helpers', () => {
-        it('should allow special dot and vrw accounts to join competitions', () => {
-            expect(shouldTreatAccountAsCompetitionEligible('DOT91317422')).toBe(true);
-            expect(shouldTreatAccountAsCompetitionEligible('VRW70350')).toBe(true);
-            expect(shouldTreatAccountAsCompetitionEligible('VRTC12345')).toBe(false);
-        });
-
-        it('should display only special dot loginids as rot loginids', () => {
-            expect(getDisplayLoginId('DOT91317422')).toBe('ROT91317422');
+    describe('display helpers', () => {
+        it('should return loginids unchanged', () => {
+            expect(getDisplayLoginId('DOT91317422')).toBe('DOT91317422');
             expect(getDisplayLoginId('DOT12345')).toBe('DOT12345');
             expect(getDisplayLoginId('CR12345')).toBe('CR12345');
         });
 
-        it('should display masked dot loginids as masked rot loginids', () => {
-            expect(getDisplayMaskedLoginId('DO****7422')).toBe('RO****7422');
+        it('should return masked loginids unchanged', () => {
+            expect(getDisplayMaskedLoginId('DO****7422')).toBe('DO****7422');
             expect(getDisplayMaskedLoginId('CR****2345')).toBe('CR****2345');
         });
 

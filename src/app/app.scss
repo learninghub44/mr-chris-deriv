@@ -4,9 +4,10 @@
     --drawer-content-height: calc(100vh - 394px);
     --drawer-content-height-no-stat: calc(100vh - 233px);
     --drawer-scroll-height: calc(100vh - 365px);
-    --drawer-content-height-mobile: calc(100% - 233px);
+    --drawer-content-height-mobile: calc(100% - 23.3rem);
+    --drawer-content-height-mobile-no-stat: calc(100% - 10.8rem);
     --tab-content-height: calc(100vh - 16.6rem);
-    --tab-content-height-mobile: calc(100vh - 12.6rem);
+    --tab-content-height-mobile: calc(100vh - var(--app-header-height, 5rem) - 4.8rem);
     --zindex-drawer: 5;
     --zindex-modal: 6;
     --zindex-draggable-modal: 7;

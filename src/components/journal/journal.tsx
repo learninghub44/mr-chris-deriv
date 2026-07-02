@@ -8,10 +8,14 @@ import { useStore } from '@/hooks/useStore';
 import { Localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import DataList from '../data-list';
-import { TCheckedFilters, TFilterMessageValues, TJournalDataListArgs } from './journal.types';
+import { TFilterMessageValues, TJournalDataListArgs } from './journal.types';
 import { JournalItem, JournalLoader, JournalTools } from './journal-components';
 
-const Journal = observer(() => {
+type TJournal = {
+    is_drawer_open: boolean;
+};
+
+const Journal = observer(({ is_drawer_open }: TJournal) => {
     const ReportsIcon = getAssetIconComponent('IcReports');
     const { journal, run_panel } = useStore();
     const {
@@ -21,18 +25,21 @@ const Journal = observer(() => {
         filtered_messages,
         is_filter_dialog_visible,
         toggleFilterDialog,
-        unfiltered_messages,
     } = journal;
     const { is_stop_button_visible, contract_stage } = run_panel;
 
     const filtered_messages_length = Array.isArray(filtered_messages) && filtered_messages.length;
-    const unfiltered_messages_length = Array.isArray(unfiltered_messages) && unfiltered_messages.length;
     const { isDesktop } = useDevice();
+    const is_bot_active =
+        is_stop_button_visible ||
+        (contract_stage >= contract_stages.STARTING && contract_stage !== contract_stages.NOT_RUNNING);
+    const show_loader = is_bot_active && !filtered_messages_length;
 
     return (
         <div
             className={classnames('journal run-panel-tab__content--no-stat', {
                 'run-panel-tab__content': isDesktop,
+                'run-panel-tab__content--mobile-no-stat': !isDesktop && is_drawer_open,
             })}
             data-testid='dt_mock_journal'
         >
@@ -51,52 +58,45 @@ const Journal = observer(() => {
                         rowRenderer={(args: TJournalDataListArgs) => <JournalItem {...args} />}
                         keyMapper={(row: TFilterMessageValues) => row.unique_id}
                     />
+                ) : show_loader ? (
+                    <JournalLoader is_mobile={!isDesktop} />
                 ) : (
-                    <>
-                        {contract_stage >= contract_stages.STARTING &&
-                        !!Object.keys(checked_filters as TCheckedFilters).length &&
-                        !unfiltered_messages_length &&
-                        is_stop_button_visible ? (
-                            <JournalLoader is_mobile={!isDesktop} />
-                        ) : (
-                            <div className='journal-empty'>
-                                <ReportsIcon aria-hidden='true' iconSize='xl' />
-                                <Text
-                                    as='h4'
-                                    size='xs'
-                                    weight='bold'
-                                    align='center'
-                                    color='less-prominent'
-                                    lineHeight='s'
-                                    className='journal-empty__header'
-                                >
-                                    <Localize i18n_default_text='There are no messages to display' />
-                                </Text>
-                                <div className='journal-empty__message'>
+                    <div className='journal-empty'>
+                        <ReportsIcon aria-hidden='true' iconSize='xl' />
+                        <Text
+                            as='h4'
+                            size='xs'
+                            weight='bold'
+                            align='center'
+                            color='less-prominent'
+                            lineHeight='s'
+                            className='journal-empty__header'
+                        >
+                            <Localize i18n_default_text='There are no messages to display' />
+                        </Text>
+                        <div className='journal-empty__message'>
+                            <Text size='xxs' color='less-prominent'>
+                                <Localize i18n_default_text='Here are the possible reasons:' />
+                            </Text>
+                            <ul className='journal-empty__list'>
+                                <li>
                                     <Text size='xxs' color='less-prominent'>
-                                        <Localize i18n_default_text='Here are the possible reasons:' />
+                                        <Localize i18n_default_text='The bot is not running' />
                                     </Text>
-                                    <ul className='journal-empty__list'>
-                                        <li>
-                                            <Text size='xxs' color='less-prominent'>
-                                                <Localize i18n_default_text='The bot is not running' />
-                                            </Text>
-                                        </li>
-                                        <li>
-                                            <Text size='xxs' color='less-prominent'>
-                                                <Localize i18n_default_text='The stats are cleared' />
-                                            </Text>
-                                        </li>
-                                        <li>
-                                            <Text size='xxs' color='less-prominent'>
-                                                <Localize i18n_default_text='All messages are filtered out' />
-                                            </Text>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        )}
-                    </>
+                                </li>
+                                <li>
+                                    <Text size='xxs' color='less-prominent'>
+                                        <Localize i18n_default_text='The stats are cleared' />
+                                    </Text>
+                                </li>
+                                <li>
+                                    <Text size='xxs' color='less-prominent'>
+                                        <Localize i18n_default_text='All messages are filtered out' />
+                                    </Text>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
