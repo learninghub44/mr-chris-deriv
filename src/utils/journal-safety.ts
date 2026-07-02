@@ -1,5 +1,13 @@
 type TStoredJournalEntry = Record<string, unknown>;
 
+type TJournalEntryLike = TStoredJournalEntry & {
+    unique_id?: unknown;
+    message?: unknown;
+    message_type?: unknown;
+    date?: unknown;
+    time?: unknown;
+};
+
 export const normalizeJournalMessage = (message: unknown, fallback = 'Unknown journal message') => {
     if (typeof message === 'string') {
         return message || fallback;
@@ -80,4 +88,39 @@ export const normalizeStoredJournalEntries = (
             },
         ];
     });
+};
+
+const getJournalEntryKey = (entry: TJournalEntryLike, index: number) => {
+    if (typeof entry.unique_id === 'string' && entry.unique_id) {
+        return `id:${entry.unique_id}`;
+    }
+
+    return JSON.stringify({
+        className: typeof entry.className === 'string' ? entry.className : '',
+        date: typeof entry.date === 'string' ? entry.date : '',
+        index,
+        message: normalizeJournalMessage(entry.message),
+        message_type: typeof entry.message_type === 'string' ? entry.message_type : '',
+        time: typeof entry.time === 'string' ? entry.time : '',
+    });
+};
+
+export const mergeJournalEntries = <TEntry extends TJournalEntryLike>(
+    primary_entries: TEntry[],
+    secondary_entries: TEntry[]
+) => {
+    const merged_entries: TEntry[] = [];
+    const seen_entries = new Set<string>();
+
+    [primary_entries, secondary_entries].forEach(entries => {
+        entries.forEach((entry, index) => {
+            const entry_key = getJournalEntryKey(entry, index);
+            if (seen_entries.has(entry_key)) return;
+
+            seen_entries.add(entry_key);
+            merged_entries.push(entry);
+        });
+    });
+
+    return merged_entries;
 };

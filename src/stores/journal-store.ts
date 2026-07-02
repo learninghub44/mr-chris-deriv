@@ -9,6 +9,7 @@ import { RESET_STRATEGIES, RESET_STRATEGIES_BLOCK_IDS, STRATEGIES } from '@/page
 import { getJournalAccountLabel } from '@/utils/account-helpers';
 /* [/AI] */
 import {
+    mergeJournalEntries,
     normalizeJournalFilters,
     normalizeJournalMessage,
     normalizeStoredJournalEntries,
@@ -89,6 +90,7 @@ export default class JournalStore {
     core: RootStore['core'];
     disposeReactionsFn: () => void;
     persist_timer: ReturnType<typeof setTimeout> | null = null;
+    active_loginid_for_messages = '';
     constructor(root_store: RootStore, core: RootStore['core']) {
         makeObservable(this, {
             is_filter_dialog_visible: observable,
@@ -139,6 +141,7 @@ export default class JournalStore {
             MessageTypes.NOTIFY,
             uuidv4
         ) as TMessageItem[];
+        this.active_loginid_for_messages = loginid || '';
     }
 
     getServerTime() {
@@ -285,6 +288,7 @@ export default class JournalStore {
         if (loginid) {
             const current_account = account_list?.find(account => account?.loginid === loginid);
             extra.current_currency = getJournalAccountLabel(loginid, current_account?.currency);
+            this.active_loginid_for_messages = loginid;
         } else if (message === LogTypes.WELCOME) {
             return;
         }
@@ -432,15 +436,25 @@ export default class JournalStore {
                     );
                     return !!has_account;
                 });
-                this.unfiltered_messages = normalizeStoredJournalEntries(
+                const restored_messages = normalizeStoredJournalEntries(
                     getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []),
                     this.filters.map(filter => filter.id),
                     MessageTypes.NOTIFY,
                     uuidv4
                 ) as TMessageItem[];
+                const should_preserve_live_messages =
+                    !!loginid &&
+                    this.active_loginid_for_messages === loginid &&
+                    this.unfiltered_messages.length > 0;
+
+                this.unfiltered_messages = should_preserve_live_messages
+                    ? mergeJournalEntries(this.unfiltered_messages, restored_messages)
+                    : restored_messages;
+                this.active_loginid_for_messages = loginid || '';
+
                 if (this.unfiltered_messages.length === 0) {
                     this.pushMessage(LogTypes.WELCOME, MessageTypes.SUCCESS, 'journal__text');
-                } else if (this.unfiltered_messages.length > 0) {
+                } else if (!should_preserve_live_messages) {
                     this.pushMessage(LogTypes.WELCOME_BACK, MessageTypes.SUCCESS, 'journal__text');
                 }
             },
