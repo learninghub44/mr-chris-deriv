@@ -26,18 +26,15 @@ describe('Best Bots domain catalogs', () => {
 
         expect(bots).toHaveLength(5);
         expect(bots[0]).toMatchObject({
-            id: 'percentage-over-by-mr-duke',
-            name: 'Percentage Over by Mr Duke',
-            file: 'Percentage Over by Mr Duke.xml',
+            id: 'double-under-bot',
+            name: 'Double Under bot',
+            file: 'Double Under bot.xml',
             is_premium: true,
             priority: 1,
         });
         expect(bots[1]).toMatchObject({
-            id: 'tri-mode-regime-switcher-compatibility',
-            name: 'Tri-Mode Regime Switcher (Template Fixed)',
-            file: 'Tri-Mode Regime Switcher (Template Fixed).xml',
-            is_premium: true,
-            priority: 2,
+            name: 'Percentage Over by Mr Duke',
+            file: 'Percentage Over by Mr Duke.xml',
         });
         expect(bots[2]).toMatchObject({
             name: 'grffy v1',

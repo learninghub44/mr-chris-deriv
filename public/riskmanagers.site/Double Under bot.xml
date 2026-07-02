@@ -519,8 +519,6 @@
                   <statement name="DO0">
                     <block type="purchase" id="sCF7pFo)+IE{5%xfC[):">
                       <field name="PURCHASE_LIST">DIGITUNDER</field>
-                      <field name="BULK_TRADING">FALSE</field>
-                      <field name="BULK_COUNT">1</field>
                     </block>
                   </statement>
                 </block>
@@ -547,8 +545,6 @@
                       <statement name="DO0">
                         <block type="purchase" id="PekG*QD1D9.BZ}OL9x.w">
                           <field name="PURCHASE_LIST">DIGITUNDER</field>
-                          <field name="BULK_TRADING">FALSE</field>
-                          <field name="BULK_COUNT">1</field>
                         </block>
                       </statement>
                     </block>

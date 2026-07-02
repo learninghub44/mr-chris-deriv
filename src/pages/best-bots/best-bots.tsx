@@ -79,25 +79,21 @@ const createManifestBot = (entry: TBotManifestEntry): TBot => {
 
 const RISK_MANAGERS_BOTS: TBot[] = [
     {
-        id: 'percentage-over-by-mr-duke',
-        name: 'Percentage Over by Mr Duke',
-        file: 'Percentage Over by Mr Duke.xml',
-        description: 'Premium Risk Managers percentage-over strategy with an elevated VIP presentation.',
+        id: 'double-under-bot',
+        name: 'Double Under bot',
+        file: 'Double Under bot.xml',
+        description:
+            'Risk Managers digit bot that trades Under 8 in normal mode, switches to Under 7 after a loss, and waits for two-tick direction confirmation before entries.',
         emoji: 'VIP',
         is_premium: true,
         priority: 1,
     },
-    {
-        id: 'tri-mode-regime-switcher-compatibility',
-        name: 'Tri-Mode Regime Switcher (Template Fixed)',
-        file: 'Tri-Mode Regime Switcher (Template Fixed).xml',
-        description:
-            'Fixed-stake Risk Managers bot that analyses fresh Deriv history before every purchase and cycles through Over 4, Under 5, Even, Odd, Rise, and Fall.',
-        emoji: 'NEW',
-        is_premium: true,
-        priority: 2,
-    },
-    ...['grffy v1.xml', 'Mr Duke Speed Bot.1.xml', 'Wealth Generator.xml'].map(createRiskManagersBot),
+    ...[
+        'Percentage Over by Mr Duke.xml',
+        'grffy v1.xml',
+        'Mr Duke Speed Bot.1.xml',
+        'Wealth Generator.xml',
+    ].map(createRiskManagersBot),
 ];
 
 const TERMICA_BOTS: TBot[] = [
