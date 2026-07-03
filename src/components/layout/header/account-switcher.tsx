@@ -35,11 +35,13 @@ const CURRENCY_NAMES: Record<string, string> = {
 
 const getCurrencyName = (currency?: string) => CURRENCY_NAMES[currency?.toUpperCase() ?? ''] ?? currency ?? 'Account';
 const DEFAULT_DEMO_RESET = 10000;
+const DEFAULT_GROUP_EXPANDED_STATE = { demo: true, real: true };
 
 const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isCurrencyMenuOpen, setIsCurrencyMenuOpen] = useState(false);
     const [activeDropdownTab, setActiveDropdownTab] = useState<'real' | 'demo'>('real');
+    const [expandedGroups, setExpandedGroups] = useState(DEFAULT_GROUP_EXPANDED_STATE);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const { accountList, activeLoginid } = useApiBase();
     const { client, run_panel } = useStore() ?? {};
@@ -52,7 +54,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const isSingleAccount = !accountList || accountList.length <= 1;
 
     useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
+        const handleClickOutside = (e: PointerEvent) => {
             if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
                 setIsOpen(false);
                 setIsCurrencyMenuOpen(false);
@@ -64,10 +66,10 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                 setIsCurrencyMenuOpen(false);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('pointerdown', handleClickOutside);
         document.addEventListener('keydown', handleKeyDown);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('pointerdown', handleClickOutside);
             document.removeEventListener('keydown', handleKeyDown);
         };
     }, []);
@@ -81,6 +83,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const toggleDropdown = useCallback(() => {
         if (is_bot_running || isSingleAccount) return;
         setIsCurrencyMenuOpen(false);
+        setExpandedGroups(DEFAULT_GROUP_EXPANDED_STATE);
         setIsOpen(prev => !prev);
     }, [is_bot_running, isSingleAccount]);
 
@@ -100,6 +103,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
     const handleAccountSelect = useCallback(
         (loginid: string) => {
+            setIsOpen(false);
             localStorage.setItem('active_loginid', loginid);
             localStorage.setItem('account_type', isDemoAccount(loginid) ? 'demo' : 'real');
 
@@ -114,7 +118,6 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             }
 
             client?.checkAndRegenerateWebSocket();
-            setIsOpen(false);
         },
         [client]
     );
@@ -149,6 +152,13 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
     const handleTabSelect = useCallback((tab: 'real' | 'demo') => {
         setActiveDropdownTab(tab);
+    }, []);
+
+    const handleGroupToggle = useCallback((group: 'real' | 'demo') => {
+        setExpandedGroups(prev => ({
+            ...prev,
+            [group]: !prev[group],
+        }));
     }, []);
 
     const getDefaultResetAmountForLogin = () => DEFAULT_DEMO_RESET;
@@ -346,13 +356,24 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     </div>
                     {activeDropdownTab === 'real' && realAccounts.length > 0 && (
                         <div className='acc-dropdown__group'>
-                            <div className='acc-dropdown__group-title'>
+                            <button
+                                type='button'
+                                className='acc-dropdown__group-title'
+                                aria-expanded={expandedGroups.real}
+                                onClick={() => handleGroupToggle('real')}
+                            >
                                 <span>Deriv accounts</span>
-                                <span className='acc-dropdown__group-chevron' aria-hidden='true'>
+                                <span
+                                    className={classNames('acc-dropdown__group-chevron', {
+                                        'acc-dropdown__group-chevron--collapsed': !expandedGroups.real,
+                                    })}
+                                    aria-hidden='true'
+                                >
                                     ^
                                 </span>
-                            </div>
-                            {realAccounts.map(account => (
+                            </button>
+                            {expandedGroups.real &&
+                                realAccounts.map(account => (
                                 <div
                                     key={account.loginid}
                                     role='option'
@@ -361,9 +382,9 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                     className={classNames('acc-dropdown__account', {
                                         'acc-dropdown__account--selected': account.isActive,
                                     })}
-                                    onClick={() => !account.isActive && handleAccountSelect(account.loginid)}
+                                    onClick={() => handleAccountSelect(account.loginid)}
                                     onKeyDown={e => {
-                                        if (!account.isActive && (e.key === 'Enter' || e.key === ' ')) {
+                                        if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
                                             handleAccountSelect(account.loginid);
                                         }
@@ -393,18 +414,29 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                         )}
                                     </Text>
                                 </div>
-                            ))}
+                                ))}
                         </div>
                     )}
                     {activeDropdownTab === 'demo' && demoAccounts.length > 0 && (
                         <div className='acc-dropdown__group'>
-                            <div className='acc-dropdown__group-title'>
+                            <button
+                                type='button'
+                                className='acc-dropdown__group-title'
+                                aria-expanded={expandedGroups.demo}
+                                onClick={() => handleGroupToggle('demo')}
+                            >
                                 <span>Demo accounts</span>
-                                <span className='acc-dropdown__group-chevron' aria-hidden='true'>
+                                <span
+                                    className={classNames('acc-dropdown__group-chevron', {
+                                        'acc-dropdown__group-chevron--collapsed': !expandedGroups.demo,
+                                    })}
+                                    aria-hidden='true'
+                                >
                                     ^
                                 </span>
-                            </div>
-                            {demoAccounts.map(account => (
+                            </button>
+                            {expandedGroups.demo &&
+                                demoAccounts.map(account => (
                                 <div
                                     key={account.loginid}
                                     role='option'
@@ -413,9 +445,9 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                     className={classNames('acc-dropdown__account', {
                                         'acc-dropdown__account--selected': account.isActive,
                                     })}
-                                    onClick={() => !account.isActive && handleAccountSelect(account.loginid)}
+                                    onClick={() => handleAccountSelect(account.loginid)}
                                     onKeyDown={e => {
-                                        if (!account.isActive && (e.key === 'Enter' || e.key === ' ')) {
+                                        if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
                                             handleAccountSelect(account.loginid);
                                         }
@@ -444,7 +476,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                         )}
                                     </Text>
                                 </div>
-                            ))}
+                                ))}
                         </div>
                     )}
                     {activeDropdownTab === 'real' && realAccounts.length === 0 && (

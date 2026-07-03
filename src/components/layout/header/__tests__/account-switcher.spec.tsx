@@ -57,6 +57,7 @@ jest.mock('@/components/shared', () => ({
 
 jest.mock('@/utils/account-helpers', () => ({
     isDemoAccount: (loginid: string) => loginid.startsWith('VR') || loginid.startsWith('DOT'),
+    shouldShowUsdAccountIcon: (loginid: string) => loginid.startsWith('CR') || loginid === 'DOT91317422',
 }));
 
 jest.mock('@/utils/display-currency', () => ({
@@ -231,8 +232,22 @@ describe('AccountSwitcher', () => {
         render(<AccountSwitcher activeAccount={mockRealActiveAccount} />);
         fireEvent.click(screen.getByTestId('dt_acc_info'));
         expect(screen.getByRole('listbox')).toBeInTheDocument();
-        fireEvent.mouseDown(document.body);
+        fireEvent.pointerDown(document.body);
         expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    it('collapses and expands the active account group responsively', () => {
+        render(<AccountSwitcher activeAccount={mockRealActiveAccount} />);
+        fireEvent.click(screen.getByTestId('dt_acc_info'));
+
+        const groupToggle = screen.getByRole('button', { name: 'Deriv accounts' });
+        expect(screen.getByText('US Dollar')).toBeInTheDocument();
+
+        fireEvent.click(groupToggle);
+        expect(screen.queryByText('US Dollar')).not.toBeInTheDocument();
+
+        fireEvent.click(groupToggle);
+        expect(screen.getByText('US Dollar')).toBeInTheDocument();
     });
 
     it('trigger has the correct aria attributes', () => {

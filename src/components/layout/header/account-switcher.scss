@@ -909,18 +909,30 @@ $account-balance-green: #0b6b37;
 
     &__group-title {
         align-items: center;
+        background: transparent;
+        border: 0;
         color: var(--text-prominent);
         display: flex;
         font-size: 1.4rem;
         font-weight: 700;
         justify-content: space-between;
         padding: 0 1.6rem 0.8rem;
+        width: 100%;
+        cursor: pointer;
+        text-align: left;
     }
 
     &__group-chevron {
         color: var(--text-less-prominent);
         font-size: 1.8rem;
         line-height: 1;
+        transform: rotate(0deg);
+        transform-origin: center;
+        transition: transform 0.18s ease;
+
+        &--collapsed {
+            transform: rotate(180deg);
+        }
     }
 
     &__account {
