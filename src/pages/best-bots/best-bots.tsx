@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getBestBotsFileUrl, getBestBotsFolder } from '@/components/shared';
+import Modal from '@/components/shared_ui/modal';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { load, save_types } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
@@ -517,7 +518,13 @@ const BotCard = observer(({ bot, stats }: { bot: TBot; stats: TBotStats | undefi
     const [loaded, setLoaded] = useState(false);
     const [error, setError] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [isGuideOpen, setIsGuideOpen] = useState(false);
     const guideUrl = bot.guide_file ? getBestBotsFileUrl(bot.guide_file) : '';
+
+    const toggleGuideModal = () => {
+        if (!guideUrl) return;
+        setIsGuideOpen(current => !current);
+    };
 
     const handleLoad = async () => {
         setLoading(true);
@@ -608,7 +615,8 @@ const BotCard = observer(({ bot, stats }: { bot: TBot; stats: TBotStats | undefi
     }`;
 
     return (
-        <div className={cardClassName}>
+        <>
+            <div className={cardClassName}>
             <div className='bb-card__header'>
                 <div className='bb-card__eyebrow-row'>
                     <span className='bb-card__eyebrow'>{cardTypeLabel}</span>
@@ -654,16 +662,15 @@ const BotCard = observer(({ bot, stats }: { bot: TBot; stats: TBotStats | undefi
 
             <div className='bb-card__actions'>
                 {guideUrl ? (
-                    <a
+                    <button
                         className='bb-card__guide'
-                        href={guideUrl}
-                        target='_blank'
-                        rel='noreferrer'
+                        type='button'
                         aria-label={`${bot.name} guide`}
+                        onClick={toggleGuideModal}
                     >
                         <span className='bb-card__guide-icon' />
                         Guide
-                    </a>
+                    </button>
                 ) : (
                     <div className='bb-card__guide'>
                         <span className='bb-card__guide-icon' />
@@ -681,7 +688,26 @@ const BotCard = observer(({ bot, stats }: { bot: TBot; stats: TBotStats | undefi
                     <span className='bb-card__btn-icon'>↓</span>
                 </button>
             </div>
-        </div>
+            </div>
+            {guideUrl && (
+                <Modal
+                    title={`${bot.name} guide`}
+                    width='min(96vw, 1040px)'
+                    height='min(88vh, 820px)'
+                    is_open={isGuideOpen}
+                    toggleModal={toggleGuideModal}
+                    should_close_on_click_outside
+                    is_vertical_centered
+                >
+                    <Modal.Body className='bb-guide-modal__body'>
+                        <iframe className='bb-guide-modal__frame' src={guideUrl} title={`${bot.name} guide`} />
+                        <a className='bb-guide-modal__link' href={guideUrl} target='_blank' rel='noreferrer'>
+                            Open in new tab
+                        </a>
+                    </Modal.Body>
+                </Modal>
+            )}
+        </>
     );
 });
 
