@@ -1,0 +1,110 @@
+import { normalizeBotXml } from './index';
+
+const parseXml = (xmlText: string) => new DOMParser().parseFromString(xmlText, 'application/xml');
+
+describe('normalizeBotXml', () => {
+    it('converts riskmanagers option helper blocks into standard Blockly blocks', () => {
+        const xml = parseXml(`
+            <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+                <variables>
+                    <variable id="trade-type-id">TRADE TYPE</variable>
+                </variables>
+                <block type="trade_definition" id="root">
+                    <statement name="INITIALIZATION">
+                        <block type="variables_set_option" id="set-option">
+                            <mutation options="%5B%5D"></mutation>
+                            <field name="VAR" id="trade-type-id">TRADE TYPE</field>
+                            <field name="OPTION">Even Odd</field>
+                        </block>
+                    </statement>
+                </block>
+                <block type="before_purchase" id="before">
+                    <statement name="BEFOREPURCHASE_STACK">
+                        <block type="controls_if" id="if-block">
+                            <value name="IF0">
+                                <block type="variables_is_option" id="is-option">
+                                    <mutation options="%5B%5D"></mutation>
+                                    <field name="VAR" id="trade-type-id">TRADE TYPE</field>
+                                    <field name="OPTION">Even Odd</field>
+                                </block>
+                            </value>
+                        </block>
+                    </statement>
+                </block>
+            </xml>
+        `);
+
+        normalizeBotXml(xml);
+
+        const option_set_block = xml.querySelector('#set-option');
+        expect(option_set_block?.getAttribute('type')).toBe('variables_set');
+        expect(option_set_block?.querySelector('value[name="VALUE"] block[type="text"] field[name="TEXT"]')?.textContent).toBe(
+            'Even Odd'
+        );
+
+        const option_compare_block = xml.querySelector('#is-option');
+        expect(option_compare_block?.getAttribute('type')).toBe('logic_compare');
+        expect(option_compare_block?.querySelector('field[name="OP"]')?.textContent).toBe('EQ');
+        expect(option_compare_block?.querySelector('value[name="A"] block[type="variables_get"] field[name="VAR"]')?.textContent).toBe(
+            'TRADE TYPE'
+        );
+        expect(option_compare_block?.querySelector('value[name="B"] block[type="text"] field[name="TEXT"]')?.textContent).toBe(
+            'Even Odd'
+        );
+    });
+
+    it('converts apollo_purchase2 predictions into a shared trade options prediction variable', () => {
+        const xml = parseXml(`
+            <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+                <block type="trade_definition" id="trade-root">
+                    <statement name="SUBMARKET">
+                        <block type="trade_definition_tradeoptions" id="trade-options">
+                            <mutation has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
+                            <field name="DURATIONTYPE_LIST">t</field>
+                            <value name="DURATION">
+                                <block type="math_number"><field name="NUM">1</field></block>
+                            </value>
+                            <value name="AMOUNT">
+                                <block type="math_number"><field name="NUM">1</field></block>
+                            </value>
+                        </block>
+                    </statement>
+                </block>
+                <block type="before_purchase" id="before">
+                    <statement name="BEFOREPURCHASE_STACK">
+                        <block type="apollo_purchase2" id="apollo">
+                            <field name="PURCHASE_LIST">DIGITOVER</field>
+                            <value name="PREDICTION">
+                                <block type="math_number">
+                                    <field name="NUM">4</field>
+                                </block>
+                            </value>
+                        </block>
+                    </statement>
+                </block>
+            </xml>
+        `);
+
+        normalizeBotXml(xml);
+
+        const compatibility_variable = xml.querySelector('variables > variable[id="dbot_compat_prediction_variable"]');
+        expect(compatibility_variable?.textContent).toBe('__compat_prediction');
+
+        const trade_options_mutation = xml.querySelector('#trade-options > mutation');
+        expect(trade_options_mutation?.getAttribute('has_prediction')).toBe('true');
+        expect(
+            xml.querySelector('#trade-options > value[name="PREDICTION"] block[type="variables_get"] field[name="VAR"]')
+                ?.textContent
+        ).toBe('__compat_prediction');
+
+        const prediction_assignment = xml.querySelector('#apollo__prediction');
+        expect(prediction_assignment?.getAttribute('type')).toBe('variables_set');
+        expect(
+            prediction_assignment?.querySelector('value[name="VALUE"] block[type="math_number"] field[name="NUM"]')
+                ?.textContent
+        ).toBe('4');
+        expect(prediction_assignment?.querySelector('next > block[type="purchase"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+            'DIGITOVER'
+        );
+    });
+});

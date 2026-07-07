@@ -1,5 +1,13 @@
 [
     {
+        "id": "d10-by-mrduke",
+        "name": "D10 BY mrduke",
+        "file": "D10 BY mrduke.xml",
+        "description": "Risk Managers alternating digit bot that cycles between Even/Odd, Over4/Under5, and Rise/Fall with switch-count control, martingale sizing, and take-profit / stop-loss guards.",
+        "emoji": "RM",
+        "priority": 2
+    },
+    {
         "name": "Percentage Over by Mr Duke",
         "file": "Percentage Over by Mr Duke.xml",
         "description": "Risk Managers percentage-over strategy with an elevated VIP presentation."

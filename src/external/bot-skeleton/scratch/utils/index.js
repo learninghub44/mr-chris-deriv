@@ -167,6 +167,9 @@ const blockTypeAliases = {
     variables__set: 'variables_set',
 };
 
+const COMPATIBILITY_PREDICTION_VARIABLE_ID = 'dbot_compat_prediction_variable';
+const COMPATIBILITY_PREDICTION_VARIABLE_NAME = '__compat_prediction';
+
 const normalizeBotBlockType = type => {
     if (!type) return type;
 
@@ -181,6 +184,13 @@ const normalizeBotBlockType = type => {
 };
 
 const createXmlElement = (xml, name) => (xml.ownerDocument || document).createElement(name);
+
+const createFieldElement = (xml, name, text_content) => {
+    const field = createXmlElement(xml, 'field');
+    field.setAttribute('name', name);
+    field.textContent = text_content;
+    return field;
+};
 
 const getDirectChild = (node, child_name, attribute_name, attribute_value) =>
     Array.from(node?.children || []).find(child => {
@@ -228,12 +238,220 @@ const createPurchaseBlock = (xml, purchase_type) => {
     const purchase_block = createXmlElement(xml, 'block');
     purchase_block.setAttribute('type', 'purchase');
 
-    const purchase_field = createXmlElement(xml, 'field');
-    purchase_field.setAttribute('name', 'PURCHASE_LIST');
-    purchase_field.textContent = normalizePurchaseType(purchase_type);
-    purchase_block.appendChild(purchase_field);
+    purchase_block.appendChild(createFieldElement(xml, 'PURCHASE_LIST', normalizePurchaseType(purchase_type)));
 
     return purchase_block;
+};
+
+const createTextBlock = (xml, text) => {
+    const text_block = createXmlElement(xml, 'block');
+    text_block.setAttribute('type', 'text');
+    text_block.appendChild(createFieldElement(xml, 'TEXT', text));
+    return text_block;
+};
+
+const createVariableGetBlock = (xml, variable_id, variable_name) => {
+    const variables_get_block = createXmlElement(xml, 'block');
+    variables_get_block.setAttribute('type', 'variables_get');
+
+    const variable_field = createFieldElement(xml, 'VAR', variable_name);
+    variable_field.setAttribute('id', variable_id);
+    variables_get_block.appendChild(variable_field);
+
+    return variables_get_block;
+};
+
+const createVariableSetBlock = (xml, variable_id, variable_name, value_block) => {
+    const variables_set_block = createXmlElement(xml, 'block');
+    variables_set_block.setAttribute('type', 'variables_set');
+
+    const variable_field = createFieldElement(xml, 'VAR', variable_name);
+    variable_field.setAttribute('id', variable_id);
+    variables_set_block.appendChild(variable_field);
+
+    const value = createXmlElement(xml, 'value');
+    value.setAttribute('name', 'VALUE');
+    value.appendChild(value_block);
+    variables_set_block.appendChild(value);
+
+    return variables_set_block;
+};
+
+const createValueElement = (xml, name, value_block) => {
+    const value = createXmlElement(xml, 'value');
+    value.setAttribute('name', name);
+    value.appendChild(value_block);
+    return value;
+};
+
+const replaceNode = (target_node, replacement_node) => {
+    const parent_node = target_node?.parentNode;
+    if (!parent_node) return;
+    parent_node.replaceChild(replacement_node, target_node);
+};
+
+const ensureVariablesRoot = xml => {
+    let variables_root = xml.querySelector('xml > variables');
+    if (variables_root) return variables_root;
+
+    variables_root = createXmlElement(xml, 'variables');
+    const root = xml.nodeType === 9 ? xml.documentElement : xml;
+    if (!root) return variables_root;
+
+    const first_block = Array.from(root.children || []).find(child => child.nodeName?.toLowerCase() === 'block');
+    if (first_block) {
+        root.insertBefore(variables_root, first_block);
+    } else {
+        root.appendChild(variables_root);
+    }
+
+    return variables_root;
+};
+
+const ensureCompatibilityPredictionVariable = xml => {
+    const variables_root = ensureVariablesRoot(xml);
+    const existing_variable =
+        xml.querySelector(`variables > variable[id="${COMPATIBILITY_PREDICTION_VARIABLE_ID}"]`) ||
+        Array.from(xml.querySelectorAll('variables > variable')).find(
+            variable => variable.textContent?.trim() === COMPATIBILITY_PREDICTION_VARIABLE_NAME
+        );
+
+    if (existing_variable) {
+        if (!existing_variable.getAttribute('id')) {
+            existing_variable.setAttribute('id', COMPATIBILITY_PREDICTION_VARIABLE_ID);
+        }
+        return existing_variable.getAttribute('id') || COMPATIBILITY_PREDICTION_VARIABLE_ID;
+    }
+
+    const variable = createXmlElement(xml, 'variable');
+    variable.setAttribute('id', COMPATIBILITY_PREDICTION_VARIABLE_ID);
+    variable.textContent = COMPATIBILITY_PREDICTION_VARIABLE_NAME;
+    variables_root.appendChild(variable);
+    return COMPATIBILITY_PREDICTION_VARIABLE_ID;
+};
+
+const ensureTradeOptionsPredictionInput = xml => {
+    const trade_options_block = xml.querySelector('block[type="trade_definition_tradeoptions"]');
+    if (!trade_options_block) return;
+
+    let mutation = getDirectChild(trade_options_block, 'mutation');
+    if (!mutation) {
+        mutation = createXmlElement(xml, 'mutation');
+        trade_options_block.insertBefore(mutation, trade_options_block.firstChild);
+    }
+    mutation.setAttribute('has_prediction', 'true');
+
+    const existing_prediction_value = getDirectChild(trade_options_block, 'value', 'name', 'PREDICTION');
+    if (existing_prediction_value) return;
+
+    const prediction_value = createValueElement(
+        xml,
+        'PREDICTION',
+        createVariableGetBlock(
+            xml,
+            COMPATIBILITY_PREDICTION_VARIABLE_ID,
+            COMPATIBILITY_PREDICTION_VARIABLE_NAME
+        )
+    );
+
+    const next_node = getDirectChild(trade_options_block, 'next');
+    if (next_node) {
+        trade_options_block.insertBefore(prediction_value, next_node);
+    } else {
+        trade_options_block.appendChild(prediction_value);
+    }
+};
+
+const normalizeOptionVariableBlocks = xml => {
+    Array.from(xml.querySelectorAll('block[type="variables_set_option"]')).forEach(block_node => {
+        const option_text = block_node.querySelector('field[name="OPTION"]')?.textContent?.trim() || '';
+        const next_node = getDirectChild(block_node, 'next');
+
+        block_node.setAttribute('type', 'variables_set');
+        Array.from(block_node.children).forEach(child_node => {
+            const tag_name = child_node.nodeName?.toLowerCase();
+            const field_name = child_node.getAttribute?.('name');
+            const should_keep = tag_name === 'field' && field_name === 'VAR';
+            if (!should_keep && child_node !== next_node) {
+                block_node.removeChild(child_node);
+            }
+        });
+
+        const value = createValueElement(xml, 'VALUE', createTextBlock(xml, option_text));
+        if (next_node) {
+            block_node.insertBefore(value, next_node);
+        } else {
+            block_node.appendChild(value);
+        }
+    });
+
+    Array.from(xml.querySelectorAll('block[type="variables_is_option"]')).forEach(block_node => {
+        const option_text = block_node.querySelector('field[name="OPTION"]')?.textContent?.trim() || '';
+        const variable_field = block_node.querySelector('field[name="VAR"]');
+        const variable_id = variable_field?.getAttribute('id') || '';
+        const variable_name = variable_field?.textContent?.trim() || '';
+
+        block_node.setAttribute('type', 'logic_compare');
+        while (block_node.firstChild) {
+            block_node.removeChild(block_node.firstChild);
+        }
+
+        block_node.appendChild(createFieldElement(xml, 'OP', 'EQ'));
+        block_node.appendChild(createValueElement(xml, 'A', createVariableGetBlock(xml, variable_id, variable_name)));
+        block_node.appendChild(createValueElement(xml, 'B', createTextBlock(xml, option_text)));
+    });
+};
+
+const normalizeApolloPurchaseBlocks = xml => {
+    const apollo_purchase_blocks = Array.from(xml.querySelectorAll('block[type="apollo_purchase2"]'));
+    if (!apollo_purchase_blocks.length) return;
+
+    apollo_purchase_blocks.forEach(block_node => {
+        const purchase_type = block_node.querySelector('field[name="PURCHASE_LIST"]')?.textContent?.trim() || 'CALL';
+        const prediction_value = getDirectChild(block_node, 'value', 'name', 'PREDICTION');
+        const next_node = getDirectChild(block_node, 'next');
+
+        if (!prediction_value) {
+            block_node.setAttribute('type', 'purchase');
+            Array.from(block_node.children).forEach(child_node => {
+                const tag_name = child_node.nodeName?.toLowerCase();
+                const field_name = child_node.getAttribute?.('name');
+                const should_keep = tag_name === 'field' && field_name === 'PURCHASE_LIST';
+                if (!should_keep && child_node !== next_node) {
+                    block_node.removeChild(child_node);
+                }
+            });
+            return;
+        }
+
+        ensureCompatibilityPredictionVariable(xml);
+        ensureTradeOptionsPredictionInput(xml);
+
+        const prediction_block =
+            Array.from(prediction_value.children || []).find(child => ['block', 'shadow'].includes(child.nodeName?.toLowerCase())) ||
+            createTextBlock(xml, '0');
+        const prediction_assignment = createVariableSetBlock(
+            xml,
+            COMPATIBILITY_PREDICTION_VARIABLE_ID,
+            COMPATIBILITY_PREDICTION_VARIABLE_NAME,
+            prediction_block.cloneNode(true)
+        );
+        prediction_assignment.setAttribute('id', `${block_node.getAttribute('id') || 'apollo_purchase2'}__prediction`);
+
+        const purchase_block = createPurchaseBlock(xml, purchase_type);
+        const block_id = block_node.getAttribute('id');
+        if (block_id) purchase_block.setAttribute('id', block_id);
+
+        if (next_node) {
+            purchase_block.appendChild(next_node.cloneNode(true));
+        }
+
+        const new_next = createXmlElement(xml, 'next');
+        new_next.appendChild(purchase_block);
+        prediction_assignment.appendChild(new_next);
+
+        replaceNode(block_node, prediction_assignment);
+    });
 };
 
 const PURCHASE_BLOCK_SELECTOR = PURCHASE_BLOCK_TYPES.map(block_type => `block[type="${block_type}"]`).join(', ');
@@ -295,7 +513,7 @@ const ensureMandatoryPurchaseCondition = xml => {
     return xml;
 };
 
-const normalizeBotXml = xml => {
+export const normalizeBotXml = xml => {
     if (!xml?.querySelectorAll) return xml;
 
     const root = xml.nodeType === 9 ? xml.documentElement : xml;
@@ -308,6 +526,9 @@ const normalizeBotXml = xml => {
         const normalized_type = normalizeBotBlockType(block_node.getAttribute('type'));
         if (normalized_type) block_node.setAttribute('type', normalized_type);
     });
+
+    normalizeOptionVariableBlocks(xml);
+    normalizeApolloPurchaseBlocks(xml);
 
     const has_modern_dbot_blocks = Boolean(
         xml.querySelector(

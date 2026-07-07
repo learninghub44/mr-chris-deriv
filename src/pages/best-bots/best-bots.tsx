@@ -92,9 +92,16 @@ const RISK_MANAGERS_BOTS: TBot[] = [
         is_premium: true,
         priority: 1,
     },
-    ...['Percentage Over by Mr Duke.xml', 'grffy v1.xml', 'Mr Duke Speed Bot.1.xml', 'Wealth Generator.xml'].map(
-        createRiskManagersBot
-    ),
+    {
+        id: 'd10-by-mrduke',
+        name: 'D10 BY mrduke',
+        file: 'D10 BY mrduke.xml',
+        description:
+            'Risk Managers alternating digit bot that switches between Even/Odd, Over4/Under5, and Rise/Fall with martingale and profit-guard logic.',
+        emoji: 'RM',
+        priority: 2,
+    },
+    ...['Percentage Over by Mr Duke.xml', 'grffy v1.xml', 'Mr Duke Speed Bot.1.xml', 'Wealth Generator.xml'].map(createRiskManagersBot),
 ];
 
 const TERMICA_BOTS: TBot[] = [
