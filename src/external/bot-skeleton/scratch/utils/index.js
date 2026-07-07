@@ -278,8 +278,16 @@ const replaceNode = (target_node, replacement_node) => {
     parent_node.replaceChild(replacement_node, target_node);
 };
 
-const cloneValueBlock = value_node =>
-    Array.from(value_node?.children || []).find(child => ['block', 'shadow'].includes(child.nodeName?.toLowerCase()))?.cloneNode(true);
+const cloneValueBlock = value_node => {
+    const child_blocks = Array.from(value_node?.children || []).filter(child =>
+        ['block', 'shadow'].includes(child.nodeName?.toLowerCase())
+    );
+    const preferred_child =
+        child_blocks.find(child => child.nodeName?.toLowerCase() === 'block') ||
+        child_blocks.find(child => child.nodeName?.toLowerCase() === 'shadow');
+
+    return preferred_child?.cloneNode(true);
+};
 
 const getTradeOptionsTemplateInputs = xml => {
     const trade_options_block = xml.querySelector('block[type="trade_definition_tradeoptions"]');
@@ -292,6 +300,90 @@ const getTradeOptionsTemplateInputs = xml => {
         duration_block: cloneValueBlock(duration_value) || createMathNumberBlock(xml, 1),
         amount_block: cloneValueBlock(amount_value) || createMathNumberBlock(xml, 1, 'math_number_positive'),
     };
+};
+
+const createOptionMutation = xml => {
+    const mutation = createXmlElement(xml, 'mutation');
+    mutation.setAttribute('options', '%5B%5B%22Even%20Odd%22%2C%22Even%20Odd%22%5D%2C%5B%22Over4%2FUnder5%22%2C%22Over4%2FUnder5%22%5D%2C%5B%22Rise%2FFall%22%2C%22Rise%2FFall%22%5D%5D');
+    return mutation;
+};
+
+const createOptionCheckBlock = (xml, block_id, variable_id, option_text) => {
+    const block = createXmlElement(xml, 'block');
+    block.setAttribute('type', 'variables_is_option');
+    block.setAttribute('id', block_id);
+    block.appendChild(createOptionMutation(xml));
+    const variable_field = createFieldElement(xml, 'VAR', 'TRADE TYPE');
+    variable_field.setAttribute('id', variable_id);
+    block.appendChild(variable_field);
+    block.appendChild(createFieldElement(xml, 'OPTION', option_text));
+    return block;
+};
+
+const createOptionSetBlock = (xml, block_id, variable_id, option_text) => {
+    const block = createXmlElement(xml, 'block');
+    block.setAttribute('type', 'variables_set_option');
+    block.setAttribute('id', block_id);
+    block.appendChild(createOptionMutation(xml));
+    const variable_field = createFieldElement(xml, 'VAR', 'TRADE TYPE');
+    variable_field.setAttribute('id', variable_id);
+    block.appendChild(variable_field);
+    block.appendChild(createFieldElement(xml, 'OPTION', option_text));
+    return block;
+};
+
+const injectLegacyTradeTypeCycle = xml => {
+    const reset_count_block = xml.querySelector('block[id="reset_count_after_switch"]');
+    const trade_type_field = Array.from(xml.querySelectorAll('field[name="VAR"]')).find(
+        field => field.textContent?.trim() === 'TRADE TYPE' && field.getAttribute('id')
+    );
+
+    if (!reset_count_block || !trade_type_field || xml.querySelector('block[id="set_trade_type_to_over_under"]')) {
+        return;
+    }
+
+    const trade_type_var_id = trade_type_field.getAttribute('id');
+    const cycle_block = createXmlElement(xml, 'block');
+    cycle_block.setAttribute('type', 'controls_if');
+    cycle_block.setAttribute('id', 'cycle_trade_type_after_switch');
+
+    const mutation = createXmlElement(xml, 'mutation');
+    mutation.setAttribute('elseif', '1');
+    mutation.setAttribute('else', '1');
+    cycle_block.appendChild(mutation);
+
+    cycle_block.appendChild(
+        createValueElement(xml, 'IF0', createOptionCheckBlock(xml, 'is_even_odd_trade_type', trade_type_var_id, 'Even Odd'))
+    );
+
+    const do0 = createXmlElement(xml, 'statement');
+    do0.setAttribute('name', 'DO0');
+    do0.appendChild(createOptionSetBlock(xml, 'set_trade_type_to_over_under', trade_type_var_id, 'Over4/Under5'));
+    cycle_block.appendChild(do0);
+
+    cycle_block.appendChild(
+        createValueElement(
+            xml,
+            'IF1',
+            createOptionCheckBlock(xml, 'is_over_under_trade_type', trade_type_var_id, 'Over4/Under5')
+        )
+    );
+
+    const do1 = createXmlElement(xml, 'statement');
+    do1.setAttribute('name', 'DO1');
+    do1.appendChild(createOptionSetBlock(xml, 'set_trade_type_to_rise_fall', trade_type_var_id, 'Rise/Fall'));
+    cycle_block.appendChild(do1);
+
+    const else_statement = createXmlElement(xml, 'statement');
+    else_statement.setAttribute('name', 'ELSE');
+    else_statement.appendChild(createOptionSetBlock(xml, 'reset_trade_type_to_even_odd', trade_type_var_id, 'Even Odd'));
+    cycle_block.appendChild(else_statement);
+
+    const next = createXmlElement(xml, 'next');
+    next.appendChild(reset_count_block.cloneNode(true));
+    cycle_block.appendChild(next);
+
+    replaceNode(reset_count_block, cycle_block);
 };
 
 const normalizeOptionVariableBlocks = xml => {
@@ -447,6 +539,7 @@ export const normalizeBotXml = xml => {
         if (normalized_type) block_node.setAttribute('type', normalized_type);
     });
 
+    injectLegacyTradeTypeCycle(xml);
     normalizeOptionVariableBlocks(xml);
     normalizeApolloPurchaseBlocks(xml);
 

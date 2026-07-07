@@ -198,13 +198,53 @@
                   </block>
                 </statement>
                 <next>
-                  <block type="variables_set" id="reset_count_after_switch">
-                    <field name="VAR" id="?u5{A+e33uAt_EzsEHQ9">Count</field>
-                    <value name="VALUE">
-                      <block type="math_number" id="zero_count_after_switch">
-                        <field name="NUM">0</field>
+                  <block type="controls_if" id="cycle_trade_type_after_switch">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
+                    <value name="IF0">
+                      <block type="variables_is_option" id="is_even_odd_trade_type">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" options="%5B%5B%22Even%20Odd%22%2C%22Even%20Odd%22%5D%2C%5B%22Over4%2FUnder5%22%2C%22Over4%2FUnder5%22%5D%2C%5B%22Rise%2FFall%22%2C%22Rise%2FFall%22%5D%5D"></mutation>
+                        <field name="VAR" id="N)?Jd@BBacKBU!yC-YER">TRADE TYPE</field>
+                        <field name="OPTION">Even Odd</field>
                       </block>
                     </value>
+                    <statement name="DO0">
+                      <block type="variables_set_option" id="set_trade_type_to_over_under">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" options="%5B%5B%22Even%20Odd%22%2C%22Even%20Odd%22%5D%2C%5B%22Over4%2FUnder5%22%2C%22Over4%2FUnder5%22%5D%2C%5B%22Rise%2FFall%22%2C%22Rise%2FFall%22%5D%5D"></mutation>
+                        <field name="VAR" id="N)?Jd@BBacKBU!yC-YER">TRADE TYPE</field>
+                        <field name="OPTION">Over4/Under5</field>
+                      </block>
+                    </statement>
+                    <value name="IF1">
+                      <block type="variables_is_option" id="is_over_under_trade_type">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" options="%5B%5B%22Even%20Odd%22%2C%22Even%20Odd%22%5D%2C%5B%22Over4%2FUnder5%22%2C%22Over4%2FUnder5%22%5D%2C%5B%22Rise%2FFall%22%2C%22Rise%2FFall%22%5D%5D"></mutation>
+                        <field name="VAR" id="N)?Jd@BBacKBU!yC-YER">TRADE TYPE</field>
+                        <field name="OPTION">Over4/Under5</field>
+                      </block>
+                    </value>
+                    <statement name="DO1">
+                      <block type="variables_set_option" id="set_trade_type_to_rise_fall">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" options="%5B%5B%22Even%20Odd%22%2C%22Even%20Odd%22%5D%2C%5B%22Over4%2FUnder5%22%2C%22Over4%2FUnder5%22%5D%2C%5B%22Rise%2FFall%22%2C%22Rise%2FFall%22%5D%5D"></mutation>
+                        <field name="VAR" id="N)?Jd@BBacKBU!yC-YER">TRADE TYPE</field>
+                        <field name="OPTION">Rise/Fall</field>
+                      </block>
+                    </statement>
+                    <statement name="ELSE">
+                      <block type="variables_set_option" id="reset_trade_type_to_even_odd">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" options="%5B%5B%22Even%20Odd%22%2C%22Even%20Odd%22%5D%2C%5B%22Over4%2FUnder5%22%2C%22Over4%2FUnder5%22%5D%2C%5B%22Rise%2FFall%22%2C%22Rise%2FFall%22%5D%5D"></mutation>
+                        <field name="VAR" id="N)?Jd@BBacKBU!yC-YER">TRADE TYPE</field>
+                        <field name="OPTION">Even Odd</field>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="variables_set" id="reset_count_after_switch">
+                        <field name="VAR" id="?u5{A+e33uAt_EzsEHQ9">Count</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="zero_count_after_switch">
+                            <field name="NUM">0</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>

@@ -65,11 +65,17 @@ describe('normalizeBotXml', () => {
                                 <block type="math_number"><field name="NUM">1</field></block>
                             </value>
                             <value name="AMOUNT">
-                                <block type="math_number"><field name="NUM">1</field></block>
+                                <shadow type="math_number_positive"><field name="NUM">1</field></shadow>
+                                <block type="variables_get">
+                                    <field name="VAR" id="stake-id">Stake</field>
+                                </block>
                             </value>
                         </block>
                     </statement>
                 </block>
+                <variables>
+                    <variable id="stake-id">Stake</variable>
+                </variables>
                 <block type="before_purchase" id="before">
                     <statement name="BEFOREPURCHASE_STACK">
                         <block type="apollo_purchase2" id="apollo">
@@ -93,8 +99,8 @@ describe('normalizeBotXml', () => {
             smart_purchase?.querySelector('value[name="CONTRACT_TYPE"] block[type="text"] field[name="TEXT"]')?.textContent
         ).toBe('DIGITOVER');
         expect(
-            smart_purchase?.querySelector('value[name="AMOUNT"] block[type="math_number"] field[name="NUM"]')?.textContent
-        ).toBe('1');
+            smart_purchase?.querySelector('value[name="AMOUNT"] block[type="variables_get"] field[name="VAR"]')?.textContent
+        ).toBe('Stake');
         expect(
             smart_purchase?.querySelector('value[name="DURATION"] block[type="math_number"] field[name="NUM"]')?.textContent
         ).toBe('1');
@@ -107,5 +113,59 @@ describe('normalizeBotXml', () => {
             smart_purchase?.querySelector('value[name="RECOVERY_AFTER"] block[type="math_number"] field[name="NUM"]')
                 ?.textContent
         ).toBe('999999');
+    });
+
+    it('injects trade type rotation for the legacy risk managers switch-counter pattern', () => {
+        const xml = parseXml(`
+            <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+                <variables>
+                    <variable id="trade-type-id">TRADE TYPE</variable>
+                    <variable id="count-id">Count</variable>
+                </variables>
+                <block type="after_purchase" id="after">
+                    <statement name="AFTERPURCHASE_STACK">
+                        <block type="controls_if" id="toggle_even_odd_after_count">
+                            <next>
+                                <block type="variables_set" id="reset_count_after_switch">
+                                    <field name="VAR" id="count-id">Count</field>
+                                    <value name="VALUE">
+                                        <block type="math_number"><field name="NUM">0</field></block>
+                                    </value>
+                                </block>
+                            </next>
+                        </block>
+                    </statement>
+                </block>
+                <block type="before_purchase" id="before">
+                    <statement name="BEFOREPURCHASE_STACK">
+                        <block type="controls_if" id="branch-root">
+                            <value name="IF0">
+                                <block type="variables_is_option" id="trade-type-check">
+                                    <mutation options="%5B%5D"></mutation>
+                                    <field name="VAR" id="trade-type-id">TRADE TYPE</field>
+                                    <field name="OPTION">Even Odd</field>
+                                </block>
+                            </value>
+                        </block>
+                    </statement>
+                </block>
+            </xml>
+        `);
+
+        normalizeBotXml(xml);
+
+        expect(xml.querySelector('#cycle_trade_type_after_switch')?.getAttribute('type')).toBe('controls_if');
+        expect(
+            xml.querySelector('#set_trade_type_to_over_under value[name="VALUE"] block[type="text"] field[name="TEXT"]')
+                ?.textContent
+        ).toBe('Over4/Under5');
+        expect(
+            xml.querySelector('#set_trade_type_to_rise_fall value[name="VALUE"] block[type="text"] field[name="TEXT"]')
+                ?.textContent
+        ).toBe('Rise/Fall');
+        expect(
+            xml.querySelector('#reset_trade_type_to_even_odd value[name="VALUE"] block[type="text"] field[name="TEXT"]')
+                ?.textContent
+        ).toBe('Even Odd');
     });
 });
