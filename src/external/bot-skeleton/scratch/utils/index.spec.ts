@@ -53,7 +53,7 @@ describe('normalizeBotXml', () => {
         );
     });
 
-    it('converts apollo_purchase2 predictions into a shared trade options prediction variable', () => {
+    it('converts apollo_purchase2 blocks into dynamic smart purchase blocks', () => {
         const xml = parseXml(`
             <xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
                 <block type="trade_definition" id="trade-root">
@@ -87,24 +87,25 @@ describe('normalizeBotXml', () => {
 
         normalizeBotXml(xml);
 
-        const compatibility_variable = xml.querySelector('variables > variable[id="dbot_compat_prediction_variable"]');
-        expect(compatibility_variable?.textContent).toBe('__compat_prediction');
-
-        const trade_options_mutation = xml.querySelector('#trade-options > mutation');
-        expect(trade_options_mutation?.getAttribute('has_prediction')).toBe('true');
+        const smart_purchase = xml.querySelector('#apollo');
+        expect(smart_purchase?.getAttribute('type')).toBe('smart_purchase_contract');
         expect(
-            xml.querySelector('#trade-options > value[name="PREDICTION"] block[type="variables_get"] field[name="VAR"]')
-                ?.textContent
-        ).toBe('__compat_prediction');
-
-        const prediction_assignment = xml.querySelector('#apollo__prediction');
-        expect(prediction_assignment?.getAttribute('type')).toBe('variables_set');
+            smart_purchase?.querySelector('value[name="CONTRACT_TYPE"] block[type="text"] field[name="TEXT"]')?.textContent
+        ).toBe('DIGITOVER');
         expect(
-            prediction_assignment?.querySelector('value[name="VALUE"] block[type="math_number"] field[name="NUM"]')
+            smart_purchase?.querySelector('value[name="AMOUNT"] block[type="math_number"] field[name="NUM"]')?.textContent
+        ).toBe('1');
+        expect(
+            smart_purchase?.querySelector('value[name="DURATION"] block[type="math_number"] field[name="NUM"]')?.textContent
+        ).toBe('1');
+        expect(smart_purchase?.querySelector('field[name="DURATIONTYPE_LIST"]')?.textContent).toBe('t');
+        expect(
+            smart_purchase?.querySelector('value[name="PREDICTION"] block[type="math_number"] field[name="NUM"]')
                 ?.textContent
         ).toBe('4');
-        expect(prediction_assignment?.querySelector('next > block[type="purchase"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-            'DIGITOVER'
-        );
+        expect(
+            smart_purchase?.querySelector('value[name="RECOVERY_AFTER"] block[type="math_number"] field[name="NUM"]')
+                ?.textContent
+        ).toBe('999999');
     });
 });
