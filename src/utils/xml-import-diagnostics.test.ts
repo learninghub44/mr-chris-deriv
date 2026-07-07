@@ -26,6 +26,15 @@ describe('xml-import-diagnostics', () => {
         expect(getUnsupportedXmlTags(xml_doc)).toEqual(['foo']);
     });
 
+    it('accepts Blockly data tags used by procedure call metadata', () => {
+        const xml_doc = new DOMParser().parseFromString(
+            '<xml><block type="procedures_callnoreturn"><data>meta</data></block></xml>',
+            'text/xml'
+        );
+
+        expect(getUnsupportedXmlTags(xml_doc)).toEqual([]);
+    });
+
     it('extracts parser error text when xml is malformed', () => {
         const xml_doc = new DOMParser().parseFromString('<xml><block></xml>', 'text/xml');
 

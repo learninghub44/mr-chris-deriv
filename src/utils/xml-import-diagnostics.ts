@@ -11,6 +11,7 @@ const SUPPORTED_XML_TAGS = new Set([
     'statement',
     'next',
     'mutation',
+    'data',
     'sep',
     'comment',
 ]);
