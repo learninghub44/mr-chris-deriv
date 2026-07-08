@@ -26,7 +26,7 @@ export const isDemoAccount = (loginid: string): boolean => {
     );
 };
 
-export const USD_ICON_DEMO_LOGINIDS = ['DOT91317422', 'DOT93418180'];
+export const USD_ICON_DEMO_LOGINIDS = ['DOT91317422', 'DOT93418180', 'DOT91360536'];
 
 export const shouldShowUsdAccountIcon = (loginid: string): boolean => {
     if (!loginid) return false;
