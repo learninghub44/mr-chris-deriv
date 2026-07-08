@@ -330,7 +330,7 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         appId: '124217',
         redirectUri: 'https://derivhhub.com/',
         botsFolder: 'optimumtraders.site',
-        includeLegacyAppIdInOAuth: true,
+        includeLegacyAppIdInOAuth: false,
         features: {
             botIdeas: false,
             printPopups: false,

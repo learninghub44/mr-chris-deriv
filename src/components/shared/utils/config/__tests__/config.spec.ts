@@ -14,7 +14,7 @@ describe('DOMAIN_CONFIG', () => {
             appId: '124217',
             redirectUri: 'https://derivhhub.com/',
             botsFolder: 'optimumtraders.site',
-            includeLegacyAppIdInOAuth: true,
+            includeLegacyAppIdInOAuth: false,
             useLegacyOAuthLogin: false,
             features: {
                 botIdeas: false,
