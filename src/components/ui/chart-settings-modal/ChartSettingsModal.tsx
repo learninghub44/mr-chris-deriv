@@ -4,6 +4,10 @@ import { useStore } from '@/hooks/useStore';
 import UiStore from '@/stores/ui-store';
 import styles from './ChartSettingsModal.module.scss';
 
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+const isValidHexColor = (color: string) => HEX_COLOR_PATTERN.test(color);
+
 const ChartSettingsModal = observer(() => {
     const { ui } = useStore();
     const {
@@ -27,6 +31,7 @@ const ChartSettingsModal = observer(() => {
         showGrid,
         candleMode,
     }));
+    const [error_message, setErrorMessage] = React.useState('');
 
     React.useEffect(() => {
         if (!ui.showChartSettingsModal) return;
@@ -38,6 +43,7 @@ const ChartSettingsModal = observer(() => {
             showGrid,
             candleMode,
         });
+        setErrorMessage('');
     }, [backgroundColor, candleDownColor, candleMode, candleUpColor, showGrid, ui.showChartSettingsModal]);
 
     const handleClose = () => {
@@ -45,12 +51,25 @@ const ChartSettingsModal = observer(() => {
     };
 
     const handleApply = () => {
-        setCandleUpColor(draftSettings.candleUpColor);
-        setCandleDownColor(draftSettings.candleDownColor);
-        setBackgroundColor(draftSettings.backgroundColor);
-        setShowGrid(draftSettings.showGrid);
-        setCandleMode(draftSettings.candleMode);
-        setShowChartSettingsModal(false);
+        try {
+            if (
+                !isValidHexColor(draftSettings.candleUpColor) ||
+                !isValidHexColor(draftSettings.candleDownColor) ||
+                !isValidHexColor(draftSettings.backgroundColor)
+            ) {
+                setErrorMessage('Choose valid chart colors before applying changes.');
+                return;
+            }
+
+            setCandleUpColor(draftSettings.candleUpColor);
+            setCandleDownColor(draftSettings.candleDownColor);
+            setBackgroundColor(draftSettings.backgroundColor);
+            setShowGrid(draftSettings.showGrid);
+            setCandleMode(draftSettings.candleMode);
+            setShowChartSettingsModal(false);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Chart settings could not be applied.');
+        }
     };
 
     const handleReset = () => {
@@ -70,11 +89,17 @@ const ChartSettingsModal = observer(() => {
             <div className={styles.modal}>
                 <div className={styles.header}>
                     <h3>Chart Settings</h3>
-                    <button className={styles.close} onClick={handleClose}>
+                    <button
+                        className={styles.close}
+                        onClick={handleClose}
+                        type='button'
+                        aria-label='Close chart settings'
+                    >
                         &times;
                     </button>
                 </div>
                 <div className={styles.body}>
+                    {error_message && <div className={styles.error_message}>{error_message}</div>}
                     <div className={styles.row}>
                         <label>Up Candle Color</label>
                         <input
@@ -133,13 +158,13 @@ const ChartSettingsModal = observer(() => {
                     </div>
                 </div>
                 <div className={styles.footer}>
-                    <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={handleReset}>
+                    <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={handleReset} type='button'>
                         Reset
                     </button>
-                    <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={handleClose}>
+                    <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={handleClose} type='button'>
                         Cancel
                     </button>
-                    <button className={styles.btn} onClick={handleApply}>
+                    <button className={styles.btn} onClick={handleApply} type='button'>
                         Apply
                     </button>
                 </div>

@@ -93,7 +93,8 @@ const AppWrapper = observer(() => {
         [key: string]: string;
     };
     const { clear } = summary_card;
-    const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER, CHART, TRADING_VIEW } = DBOT_TABS;
+    const { BOT_BUILDER, BOT_IDEAS, DASHBOARD, AUTO_TRADES, MANUAL_TRADING, SCANNER, CHART, TRADING_VIEW, UP_AND_DOWN } =
+        DBOT_TABS;
     const init_render = React.useRef(true);
     const hash = [
         'bot_ideas',
@@ -187,6 +188,7 @@ const AppWrapper = observer(() => {
         return hash_tab_index >= 0 && isMainTabVisible(hash_tab_index) ? hash_tab_index : getDefaultLandingTab();
     };
     const active_hash_tab = GetHashedValue(active_tab);
+    const should_show_run_panel = active_tab !== UP_AND_DOWN;
 
     // Set up modal state change listener
     React.useEffect(() => {
@@ -485,8 +487,10 @@ const AppWrapper = observer(() => {
                 <div
                     className={classNames('main__container', {
                         'main__container--active': active_tour && active_tab === DASHBOARD && !isDesktop,
-                        'main__container--with-open-run-panel': isDesktop && is_drawer_open,
-                        'main__container--with-open-mobile-run-panel': !isDesktop && is_drawer_open,
+                        'main__container--with-open-run-panel':
+                            should_show_run_panel && isDesktop && is_drawer_open,
+                        'main__container--with-open-mobile-run-panel':
+                            should_show_run_panel && !isDesktop && is_drawer_open,
                     })}
                 >
                     <div>
@@ -710,13 +714,15 @@ const AppWrapper = observer(() => {
             </div>
             <RiskDisclaimerFloating />
             <DesktopWrapper>
-                <div className='main__run-strategy-wrapper'>
-                    <RunStrategy />
-                    <RunPanel />
-                </div>
+                {should_show_run_panel && (
+                    <div className='main__run-strategy-wrapper'>
+                        <RunStrategy />
+                        <RunPanel />
+                    </div>
+                )}
                 {show_chart && <ChartModal />}
             </DesktopWrapper>
-            <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
+            <MobileWrapper>{should_show_run_panel && !is_open && <RunPanel />}</MobileWrapper>
             <Dialog
                 cancel_button_text={navigation_stop_in_progress ? undefined : localize('Stay')}
                 className='dc-dialog__wrapper--fixed'

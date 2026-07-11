@@ -24,19 +24,6 @@ const throwApiError = (response: any, source: string) => {
     }
 };
 
-const isLegacyOAuthSession = () => {
-    try {
-        const active_loginid = localStorage.getItem('active_loginid');
-        const accounts_list_raw = localStorage.getItem('accountsList');
-        if (!active_loginid || !accounts_list_raw) return false;
-
-        const accounts_list = JSON.parse(accounts_list_raw);
-        return Boolean(accounts_list?.[active_loginid]);
-    } catch {
-        return false;
-    }
-};
-
 const removeUndefinedFields = <T extends Record<string, any>>(fields: T): T =>
     Object.entries(fields).reduce((cleaned, [key, value]) => {
         if (value !== undefined && value !== null && value !== '') cleaned[key as keyof T] = value;
@@ -46,11 +33,7 @@ const removeUndefinedFields = <T extends Record<string, any>>(fields: T): T =>
 export const normalizeTradeParameters = (parameters: TTradeParameters) => {
     const { symbol, underlying_symbol, ...rest } = parameters;
     const normalized_symbol = symbol || underlying_symbol;
-    const symbol_field = normalized_symbol
-        ? isLegacyOAuthSession()
-            ? { symbol: normalized_symbol }
-            : { underlying_symbol: normalized_symbol }
-        : {};
+    const symbol_field = normalized_symbol ? { symbol: normalized_symbol } : {};
 
     return removeUndefinedFields({ ...rest, ...symbol_field });
 };
@@ -108,7 +91,6 @@ export const buyContractForUi = async ({ parameters, price, source }: TBuyContra
     try {
         const proposal_response = await (api_base.api as any).send({
             proposal: 1,
-            subscribe: 0,
             ...normalized_parameters,
         });
         throwApiError(proposal_response, source);

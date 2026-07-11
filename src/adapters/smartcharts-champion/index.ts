@@ -96,14 +96,15 @@ const transformations = {
             };
         } else if (granularity > 0 && message.ohlc) {
             const { ohlc } = message;
+            const epoch = Number(ohlc.epoch ?? ohlc.open_time);
             return {
-                Date: String(ohlc.epoch),
+                Date: String(epoch),
                 Open: ohlc.open,
                 High: ohlc.high,
                 Low: ohlc.low,
                 Close: ohlc.close,
                 ohlc,
-                DT: new Date(ohlc.epoch * 1000),
+                DT: new Date(epoch * 1000),
             };
         }
 

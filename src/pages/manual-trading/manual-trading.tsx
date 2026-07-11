@@ -826,7 +826,6 @@ const ManualTrading = observer(() => {
                     try {
                         const proposalResponse = await (api_base.api as any).send({
                             proposal: 1,
-                            subscribe: 0,
                             ...buildTradeParameters(action.contractType),
                         });
                         const preview = getProposalPreview(proposalResponse?.proposal, stake, currency);

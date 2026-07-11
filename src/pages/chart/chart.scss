@@ -48,16 +48,16 @@
         position: absolute;
         left: 0;
         top: 0;
-        width: 100vw;
+        width: var(--live-price-line-width, 100vw);
         border-top: 1px solid rgb(56 189 248 / 0.76);
         box-shadow: 0 0 0.8rem rgb(56 189 248 / 0.18);
     }
 
     &__value {
         position: absolute;
-        left: calc(100vw - 9.6rem);
+        left: var(--live-price-line-width, 100vw);
         top: 0;
-        transform: translateY(-50%);
+        transform: translate(calc(-100% - 0.4rem), -50%);
         display: inline-flex;
         align-items: center;
         justify-content: center;

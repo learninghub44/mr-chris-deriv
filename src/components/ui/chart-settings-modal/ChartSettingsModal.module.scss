@@ -57,6 +57,18 @@
     padding: 16px;
 }
 
+.error_message {
+    margin-bottom: 1.2rem;
+    border: 1px solid #fecaca;
+    border-radius: 0.6rem;
+    padding: 0.8rem 1rem;
+    background: #fef2f2;
+    color: #991b1b;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
 .row {
     margin-bottom: 16px;
 }

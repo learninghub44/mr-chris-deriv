@@ -13,7 +13,7 @@ export const isLegacyOAuthSession = () => {
     }
 };
 
-export const getSymbolRequestField = symbol => (isLegacyOAuthSession() ? { symbol } : { underlying_symbol: symbol });
+export const getSymbolRequestField = symbol => ({ symbol });
 
 export const removeUndefinedFields = value => {
     if (!value || typeof value !== 'object') return value;

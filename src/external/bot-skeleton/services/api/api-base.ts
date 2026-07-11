@@ -760,8 +760,8 @@ class APIBase {
             this.toggleRunButton(false);
             return this.active_symbols;
         } catch (error) {
-            console.error('Failed to fetch and process active symbols:', error);
-            throw error;
+            console.warn('Failed to fetch and process active symbols. Falling back to cached symbols:', error);
+            return this.active_symbols ?? [];
         }
     };
 

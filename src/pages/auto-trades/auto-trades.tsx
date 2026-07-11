@@ -3645,54 +3645,6 @@ const AutoTrades = observer(() => {
                 </div>
             </ThemedScrollbars>
 
-            {/* Floating Risk Disclaimer */}
-            <button className='auto-trades-disclaimer-btn' onClick={() => setShowDisclaimer(true)}>
-                ⚠ Risk Disclaimer
-            </button>
-
-            {showDisclaimer && (
-                <div className='auto-trades-disclaimer-overlay' onClick={() => setShowDisclaimer(false)}>
-                    <div className='auto-trades-disclaimer-modal' onClick={e => e.stopPropagation()}>
-                        <div className='auto-trades-disclaimer-modal__header'>
-                            <span className='auto-trades-disclaimer-modal__icon'>⚠</span>
-                            <h3 className='auto-trades-disclaimer-modal__title'>Risk Disclaimer</h3>
-                            <button
-                                className='auto-trades-disclaimer-modal__close'
-                                onClick={() => setShowDisclaimer(false)}
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className='auto-trades-disclaimer-modal__body'>
-                            <p>
-                                Deriv offers complex derivatives, such as options and contracts for difference
-                                (&ldquo;CFDs&rdquo;). These products may not be suitable for all clients, and trading
-                                them puts you at risk. Please make sure that you understand the following risks before
-                                trading Deriv products:
-                            </p>
-                            <ul>
-                                <li>You may lose some or all of the money you invest in the trade.</li>
-                                <li>
-                                    If your trade involves currency conversion, exchange rates will affect your profit
-                                    and loss.
-                                </li>
-                                <li>
-                                    You should never trade with borrowed money or with money you cannot afford to lose.
-                                </li>
-                            </ul>
-                        </div>
-                        <div className='auto-trades-disclaimer-modal__footer'>
-                            <button
-                                className='auto-trades-disclaimer-modal__ok'
-                                onClick={() => setShowDisclaimer(false)}
-                            >
-                                I Understand
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {showAiStrategy && (
                 <div className='auto-trades-ai-overlay' onClick={() => setShowAiStrategy(false)}>
                     <div className='auto-trades-ai-modal' onClick={e => e.stopPropagation()}>

@@ -161,9 +161,9 @@ export function createServices(): TServices {
                 const activeSymbols = await apiHelpers.active_symbols.retrieveActiveSymbols();
 
                 // Convert the processed symbols back to array format for the adapter
-                if (!Array.isArray(activeSymbols)) {
+                if (!Array.isArray(activeSymbols) || activeSymbols.length === 0) {
                     logger.warn('No active symbols available from ApiHelpers');
-                    return [];
+                    throw new Error('No active symbols available from ApiHelpers');
                 }
 
                 return activeSymbols;
