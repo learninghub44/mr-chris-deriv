@@ -417,7 +417,7 @@ describe('parseAiAutoTradeStrategy', () => {
         });
     });
 
-    it('normalizes OpenAI strategy plans before applying settings', () => {
+    it('normalizes Groq strategy plans before applying settings', () => {
         const result = normalizeAiAutoTradePlan({
             settings: {
                 tradeType: 'DIGITOVER',
@@ -431,7 +431,7 @@ describe('parseAiAutoTradeStrategy', () => {
             summary: ['Use over 1'],
             warnings: [],
             unsupportedCapabilities: ['BOOM500 market is not supported by Auto Trades.'],
-            source: 'openai',
+            source: 'groq',
         });
 
         expect(result.settings).toMatchObject({
