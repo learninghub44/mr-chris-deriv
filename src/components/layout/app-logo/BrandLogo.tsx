@@ -9,7 +9,7 @@ export const BrandLogo = ({ className = '' }: TBrandLogoProps) => {
     return (
         <img
             src='/brand-logo-cropped.png'
-            alt='Duke Trading Academy'
+            alt='Mr Chris'
             className={className}
             style={{
                 display: 'block',

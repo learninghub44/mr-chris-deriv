@@ -144,7 +144,7 @@ const DEFAULT_MARTINGALE_CONFIG: MartingaleConfig = {
 };
 
 const DEFAULT_DOMAIN_UI: DomainUIConfig = {
-    brandName: 'Deriv Bot',
+    brandName: 'Mr Chris',
     primaryColor: '#f97316',
     secondaryColor: '#1a1a2e',
     accentColor: '#2196f3',
@@ -320,6 +320,20 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
         ui: {
             ...LOCALHOST_DOMAIN_UI,
             brandName: 'Risk Managers',
+        },
+    }),
+    // ── Mr Chris (Vercel) ─────────────────────────────────────────────────────
+    ...createHostedDomainEntries({
+        primaryDomain: 'mr-chris-deriv.vercel.app',
+        clientId: '33NNVvIyYD0iFQM4vlZJn',
+        appId: '33NNVvIyYD0iFQM4vlZJn',
+        redirectUri: 'https://mr-chris-deriv.vercel.app/',
+        botsFolder: 'optimumtraders.site',
+        includeLegacyAppIdInOAuth: false,
+        useLegacyOAuthLogin: false,
+        ui: {
+            ...LOCALHOST_DOMAIN_UI,
+            brandName: 'Mr Chris',
         },
     }),
     // ── Additional production domain ─────────────────────────────────────────
