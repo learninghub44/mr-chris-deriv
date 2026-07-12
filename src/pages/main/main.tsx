@@ -60,8 +60,7 @@ import CompetitionPage from '@/features/competition/pages/CompetitionPage';
 import './main.scss';
 
 const AppWrapper = observer(() => {
-    const isRiskManagersDomain =
-        window.location.hostname === 'riskmanagers.site' || window.location.hostname === 'www.riskmanagers.site';
+    const isMrChrisDomain = window.location.hostname === 'mr-chris-deriv.vercel.app';
     const { connectionStatus } = useApiBase();
     const { dashboard, load_modal, run_panel, quick_strategy, summary_card, blockly_store } = useStore();
     const { is_loading } = blockly_store;
@@ -204,7 +203,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const first_visible_tab_id =
-            isRiskManagersDomain && show_competition
+            isMrChrisDomain && show_competition
                 ? 'id-competition'
                 : show_bot_ideas
                   ? 'id-bot-ideas'
@@ -251,7 +250,7 @@ const AppWrapper = observer(() => {
             observer_dashboard.disconnect();
             observer_last_tab.disconnect();
         };
-    }, [isRiskManagersDomain, show_bot_ideas, show_competition, show_trading_view]);
+    }, [isMrChrisDomain, show_bot_ideas, show_competition, show_trading_view]);
 
     React.useEffect(() => {
         const is_recoverable_trading_module = active_trading_module === 'auto_trades';
@@ -483,7 +482,7 @@ const AppWrapper = observer(() => {
     // [/AI]
     return (
         <React.Fragment>
-            <div className={classNames('main', { 'main--risk-managers': isRiskManagersDomain })}>
+            <div className={classNames('main', { 'main--mr-chris': isMrChrisDomain })}>
                 <div
                     className={classNames('main__container', {
                         'main__container--active': active_tour && active_tab === DASHBOARD && !isDesktop,

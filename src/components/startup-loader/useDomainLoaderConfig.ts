@@ -20,7 +20,7 @@ export function useDomainLoaderConfig(): DomainLoaderConfig {
             return withWelcomeText(domainLoaderConfig[hostname]);
         }
 
-        // Check for subdomain match (e.g., app.mrduke.site)
+        // Check for subdomain match (e.g., app.mr-chris-deriv.vercel.app)
         for (const [domain, config] of Object.entries(domainLoaderConfig)) {
             if (hostname.endsWith(`.${domain}`) || hostname === domain) {
                 return withWelcomeText(config, domain);

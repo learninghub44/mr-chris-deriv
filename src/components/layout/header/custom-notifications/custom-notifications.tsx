@@ -11,7 +11,7 @@ const CustomNotifications = () => {
     const [readNotifications, setReadNotifications] = useState<Record<string, boolean>>({});
     const { localize } = useTranslations();
     const { isMobile } = useDevice();
-    const storageKey = 'riskmanagers-notifications';
+    const storageKey = 'mr-chris-notifications';
 
     useEffect(() => {
         const stored = localStorage.getItem(storageKey);

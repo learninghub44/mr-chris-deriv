@@ -3,7 +3,7 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import './dashboard-hero.scss';
 
-const TYPING_PHRASES = ['Hello Traders', 'Hello Risk Managers', 'Welcome Back'];
+const TYPING_PHRASES = ['Hello Traders', 'Hello Mr Chris', 'Welcome Back'];
 const TYPING_SPEED = 80;
 const ERASE_SPEED = 40;
 const PAUSE_AFTER_TYPE = 1800;

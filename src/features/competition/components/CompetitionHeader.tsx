@@ -26,7 +26,7 @@ const CompetitionHeader = ({ competition }: CompetitionHeaderProps) => {
                 </span>
                 <h1>Competition</h1>
                 <p>
-                    Join the Risk Managers competition, connect one verified real Deriv account, and climb the
+                    Join the Mr Chris competition, connect one verified real Deriv account, and climb the
                     leaderboard using adjusted growth instead of raw balance jumps.
                 </p>
             </div>
