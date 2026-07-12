@@ -1,7 +1,7 @@
 {
-    "name": "deriv-bot-backend",
+    "name": "mr-chris-trading-backend",
     "version": "1.0.0",
-    "description": "Backend API for Deriv Trading Bot Platform",
+    "description": "Backend API for Mr Chris Trading Platform",
     "main": "server/index.js",
     "engines": {
         "node": "20.x"
@@ -19,7 +19,6 @@
         "deriv",
         "api"
     ],
-    "author": "DukeNyamasege",
     "license": "MIT",
     "dependencies": {
         "cors": "^2.8.5",

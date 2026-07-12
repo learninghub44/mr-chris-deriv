@@ -174,16 +174,6 @@ const validatePlan = plan => {
     return safe;
 };
 
-const extractResponseText = response => {
-    if (typeof response.output_text === 'string') return response.output_text;
-
-    const content = response.output?.flatMap(item => item.content || []) || [];
-    const text = content.find(item => typeof item.text === 'string')?.text;
-    if (text) return text;
-
-    throw new Error('OpenAI did not return a text strategy plan.');
-};
-
 router.post('/auto-trade-strategy', async (req, res, next) => {
     try {
         const strategyText = String(req.body?.strategyText || '').trim();
@@ -196,50 +186,43 @@ router.post('/auto-trade-strategy', async (req, res, next) => {
             return;
         }
 
-        const apiKey = process.env.OPENAI_API_KEY;
+        const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey) {
-            res.status(503).json({ error: 'OPENAI_API_KEY is not configured on the backend' });
+            res.status(503).json({ error: 'GROQ_API_KEY is not configured on the backend' });
             return;
         }
 
-        const response = await fetch('https://api.openai.com/v1/responses', {
+        const schemaInstructions =
+            'Respond with ONLY a single valid JSON object matching this exact shape (no markdown, no prose): ' +
+            JSON.stringify(autoTradeStrategySchema);
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                input: [
+                model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+                response_format: { type: 'json_object' },
+                messages: [
                     {
                         role: 'system',
-                        content: [
-                            {
-                                type: 'input_text',
-                                text:
-                                    'You convert natural-language Deriv auto-trading strategies into executable Auto Trades settings. ' +
-                                    'Only output settings the current Auto Trades UI supports. If the user asks for logic that is not supported, ' +
-                                    'describe it in unsupportedCapabilities and customStrategy instead of pretending it is executable. ' +
-                                    `Supported trade types: ${SUPPORTED_TRADE_TYPES.join(', ')}. ` +
-                                    `Supported markets: ${SUPPORTED_MARKETS.join(', ')}. ` +
-                                    'Supported modes: STANDARD, INVERSE, PERCENTAGE. analysisTicks and streak are 1-10 where applicable. ' +
-                                    'Digit barriers/predictions are 0-9. Use R_25 for normal V25 and 1HZ25V for V25 1s.',
-                            },
-                        ],
+                        content:
+                            'You convert natural-language Deriv auto-trading strategies into executable Auto Trades settings. ' +
+                            'Only output settings the current Auto Trades UI supports. If the user asks for logic that is not supported, ' +
+                            'describe it in unsupportedCapabilities and customStrategy instead of pretending it is executable. ' +
+                            `Supported trade types: ${SUPPORTED_TRADE_TYPES.join(', ')}. ` +
+                            `Supported markets: ${SUPPORTED_MARKETS.join(', ')}. ` +
+                            'Supported modes: STANDARD, INVERSE, PERCENTAGE. analysisTicks and streak are 1-10 where applicable. ' +
+                            'Digit barriers/predictions are 0-9. Use R_25 for normal V25 and 1HZ25V for V25 1s. ' +
+                            schemaInstructions,
                     },
                     {
                         role: 'user',
-                        content: [{ type: 'input_text', text: strategyText }],
+                        content: strategyText,
                     },
                 ],
-                text: {
-                    format: {
-                        type: 'json_schema',
-                        name: 'auto_trade_strategy_plan',
-                        strict: true,
-                        schema: autoTradeStrategySchema,
-                    },
-                },
                 temperature: 0.1,
             }),
         });
@@ -247,12 +230,18 @@ router.post('/auto-trade-strategy', async (req, res, next) => {
         const json = await response.json();
         if (!response.ok) {
             res.status(response.status).json({
-                error: json?.error?.message || 'OpenAI strategy generation failed',
+                error: json?.error?.message || 'Groq strategy generation failed',
             });
             return;
         }
 
-        const plan = JSON.parse(extractResponseText(json));
+        const rawText = json?.choices?.[0]?.message?.content;
+        if (typeof rawText !== 'string' || !rawText.trim()) {
+            res.status(502).json({ error: 'Groq did not return a text strategy plan.' });
+            return;
+        }
+
+        const plan = JSON.parse(rawText);
         res.json(validatePlan(plan));
     } catch (error) {
         next(error);

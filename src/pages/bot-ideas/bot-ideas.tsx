@@ -11,7 +11,7 @@ import './bot-ideas.scss';
 
 const MIN_STRATEGY_LENGTH = 120;
 const MIN_RUNS_FOR_RATING = 3;
-const DEVELOPER_DISPLAY_NAME = 'Mr Duke';
+const DEVELOPER_DISPLAY_NAME = 'Mr Chris';
 
 const formatDate = (iso: string) => {
     try {

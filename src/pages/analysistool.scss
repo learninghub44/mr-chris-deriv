@@ -1,0 +1,102 @@
+.analysis-tool {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+
+    &__header {
+        h1 {
+            margin: 0 0 4px;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        p {
+            margin: 0;
+            opacity: 0.7;
+        }
+    }
+
+    &__examples {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    &__example-chip {
+        border: 1px solid var(--rm-shell-section-border, #2d2d44);
+        background: var(--rm-shell-surface-2, transparent);
+        color: inherit;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+
+        &:hover:not(:disabled) {
+            opacity: 0.8;
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    &__input {
+        resize: vertical;
+        min-height: 90px;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--rm-shell-section-border, #2d2d44);
+        background: var(--rm-shell-surface-2, transparent);
+        color: inherit;
+        font-family: inherit;
+        font-size: 1.4rem;
+    }
+
+    &__submit {
+        align-self: flex-end;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--rm-shell-run, #f97316);
+        color: #ffffff;
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    }
+
+    &__error {
+        color: var(--rm-shell-run, #f44336);
+        border: 1px solid currentColor;
+        border-radius: 8px;
+        padding: 10px 14px;
+    }
+
+    &__result,
+    &__empty {
+        border: 1px solid var(--rm-shell-section-border, #2d2d44);
+        border-radius: 8px;
+        padding: 16px;
+        line-height: 1.6;
+    }
+
+    &__empty {
+        opacity: 0.5;
+        text-align: center;
+    }
+}
