@@ -564,7 +564,7 @@ const UpAndDown = observer(() => {
                             </span>
                             <span>{signal_snapshot.confidence.toFixed(0)}%</span>
                         </button>
-                        <div className={styles.signal_meter} aria-label='BinaryTool direction signal'>
+                        <div className={styles.signal_meter} aria-label='Mr Chris direction signal'>
                             <div
                                 className={styles.signal_meter_rise}
                                 style={{ width: `${signal_snapshot.risePercentage}%` }}
